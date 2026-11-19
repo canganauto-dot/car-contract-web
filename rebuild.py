@@ -3,6 +3,7 @@ import argparse
 import base64
 import hashlib
 import json
+import re
 from pathlib import Path
 
 SOURCE = Path(__file__).resolve().parent
@@ -66,8 +67,14 @@ def build(output):
         files['assets/js/' + name] = read(name).encode('utf-8')
     for name in ['pdf-lib-1.17.1.min.js', 'pdfjs-4.10.38.mjs', 'pdfjs-worker-4.10.38.mjs', 'pdf-lib-LICENSE.md', 'pdfjs-LICENSE']:
         files['assets/vendor/' + name] = (SOURCE / 'vendor' / name).read_bytes()
-    for image in sorted((SOURCE / 'assets' / 'media').iterdir()):
-        files['assets/media/' + image.name] = image.read_bytes()
+    # Publish only media referenced by the application or its public templates.
+    media = {
+        path.decode('ascii')
+        for content in files.values()
+        for path in re.findall(rb'assets/media/[a-f0-9]{64}\.(?:png|jpg|webp)', content)
+    }
+    for path in sorted(media):
+        files[path] = (SOURCE / path).read_bytes()
     for name in set(previous) | files.keys():
         target = (output / name).resolve()
         if output not in target.parents:

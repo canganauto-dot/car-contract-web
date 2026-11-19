@@ -21,7 +21,10 @@ class WebBuildTests(unittest.TestCase):
     def test_manifest_and_asset_references(self):
         output = SOURCE / 'dist'
         manifest = json.loads((output / '.web-build.json').read_text())
-        self.assertNotIn('offline.html', manifest['files'])
+        published = {p.relative_to(output).as_posix() for p in output.rglob('*') if p.is_file()}
+        self.assertEqual(published, {'.web-build.json', *manifest['files']})
+        self.assertEqual(set(manifest['sha256']), set(manifest['files']))
+        self.assertNotIn('offline.html', published)
         self.assertLess((output / 'index.html').stat().st_size, 150000)
         for name, expected in manifest['sha256'].items():
             self.assertEqual(builder.hashlib.sha256((output / name).read_bytes()).hexdigest(), expected, name)

@@ -15,7 +15,9 @@ Open `http://127.0.0.1:8088/`. On Windows, use `py -3` in place of `python` if n
 
 ## Host the web build
 
-Serve the contents of `dist` over HTTPS and include the hidden `.web-build.json` manifest so users can download the offline edition. On static hosting, documents and edits are saved in the current browser. The local development server is for use on the workstation. A shared archive and cross-user template approval require a separately secured backend.
+GitHub Actions publishes the Python build from `main` to [GitHub Pages](https://canganauto-dot.github.io/car-contract-web/). Set **Settings → Pages → Source** to **GitHub Actions**.
+
+For other static hosts, serve the contents of `dist` over HTTPS and include the hidden `.web-build.json` manifest so users can download the offline edition. On static hosting, documents and edits are saved in the current browser. The local development server is for use on the workstation. A shared archive and cross-user template approval require a separately secured backend.
 
 ## Verify
 

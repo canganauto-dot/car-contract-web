@@ -9,7 +9,7 @@ const output = path.resolve(__dirname, "../work/regression");
 fs.mkdirSync(output, { recursive: true });
 
 (async () => {
-  const web = await serve(path.resolve(__dirname, "../dist"));
+  const web = await serve(path.resolve(__dirname, "../dist"), "/car-contract-web/");
   const browser = await chromium.launch({
     channel: "msedge",
     args: [
@@ -808,6 +808,28 @@ fs.mkdirSync(output, { recursive: true });
         preparedModes:["duplex", "duplex"], pdfPages:3,
         bookFace:[4], bookFull:[4,40000000], contractFace:[1,1],
       });
+    });
+    await test("downloaded offline edition loads fonts and PDF with network disabled", async () => {
+      const downloadPromise = page.waitForEvent("download");
+      await page.locator("#offlineEdition").evaluate(button => button.click());
+      const download = await downloadPromise;
+      const offlineFile = path.join(output, "pages-offline.html");
+      await download.saveAs(offlineFile);
+      const offline = await context.newPage();
+      try {
+        await context.setOffline(true);
+        await offline.goto(require("node:url").pathToFileURL(offlineFile).href);
+        await offline.waitForFunction(() => startReady);
+        assert.equal(await offline.evaluate(async () => {
+          await WebResources.loadDocumentFont();
+          const pdf = await (await WebResources.pdf()).PDFDocument.create();
+          pdf.addPage();
+          return new TextDecoder().decode((await pdf.save()).slice(0, 5));
+        }), "%PDF-");
+      } finally {
+        await context.setOffline(false);
+        await offline.close();
+      }
     });
     await test("settings backup stays JSON and excludes archives", async () => {
       const backup = await page.evaluate(() => JSON.parse(settingsJSON()));
