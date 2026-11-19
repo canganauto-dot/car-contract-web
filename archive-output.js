@@ -325,6 +325,7 @@ const ArchiveOutput = {
       else doc.body.append(this.papers(entry, face, true, mode));
     }
     await Promise.all([...doc.images].map((img) => img.decode()));
+    await WebResources.loadDocumentFont(doc);
     await doc.fonts.ready;
     if (!frame.isConnected || PrintPlan.mode() !== mode) return;
     this.printFrame = frame;

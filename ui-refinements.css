@@ -58,7 +58,7 @@
       a,
       div
     ):not(.paper, .paper *) {
-    font-family: var(--app-ui-font-family, "Sakkal Majalla", serif) !important;
+    font-family: var(--app-ui-font-family, "Contract Naskh", serif) !important;
     font-weight: 400 !important;
   }
   .app-ui {
@@ -296,7 +296,7 @@
     background: var(--ui-surface);
   }
   #fillPanel {
-    --app-ui-font-family: "Sakkal Majalla", Tahoma, "Segoe UI", Arial, sans-serif;
+    --app-ui-font-family: "Contract Naskh", Tahoma, "Segoe UI", Arial, sans-serif;
     --fill-field-bg: #f8fafc;
     --fill-field-ink: #111;
     overflow: auto;
@@ -742,7 +742,7 @@
 }
 .paper .scene-node,
 .paper .scene-node * {
-  font-family: "Sakkal Majalla", serif !important;
+  font-family: "Contract Naskh", serif !important;
 }
 @media screen {
   .app-ui {
@@ -1239,7 +1239,7 @@
   #fillPanel :is(#cards,#bookFields) label.entry-field:has(.missing-value):not(:focus-within) > .entry-caption {color:#fff}
   #fillPanel :is(#cards,#bookFields) label.entry-field > :is(input,select,textarea),
   #fillPanel :is(#cards,#bookFields) label.entry-field .entry-date > .date-text {line-height:1.15}
-  #toolbar, #workbench, #homeScreen, #settingsDrawer, dialog {font-family:"Sakkal Majalla",serif;font-size:17px}
+  #toolbar, #workbench, #homeScreen, #settingsDrawer, dialog {font-family:"Contract Naskh",serif;font-size:17px}
   #toolbar :is(button,input,select), #workbench :is(button,input,select) {font-family:inherit!important;font-size:17px}
 }
 

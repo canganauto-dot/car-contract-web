@@ -1,5 +1,6 @@
 """Build the web application without reading browser archives or old build outputs."""
 import argparse
+import base64
 import hashlib
 import json
 from pathlib import Path
@@ -43,7 +44,7 @@ def build(output):
         '<!--SETTINGS-->': read('settings-shell.html'),
         '<!--MENU-->': read('menu-shell.html'),
         '<!--FEATURES-->': read('features.html'),
-        '<!--STYLES-->': '<style id="documentStyles">\n' + '\n'.join(line.lstrip() for name in STYLES for line in read(name).splitlines()) + '\n</style>\n<link rel="stylesheet" href="assets/css/theme.css">',
+        '<!--STYLES-->': '<link id="contractFontStyles" rel="stylesheet" href="assets/css/contract-font.css">\n<style id="documentStyles">\n' + '\n'.join(line.lstrip() for name in STYLES for line in read(name).splitlines()) + '\n</style>\n<link rel="stylesheet" href="assets/css/theme.css">',
         '<!--SCRIPTS-->': '\n'.join(f'<script defer src="assets/js/{name}"></script>' for name in scripts),
     }
     shell = read('editor-shell.html')
@@ -53,6 +54,13 @@ def build(output):
         shell = shell.replace(marker_text, content)
     files = {'index.html': shell.encode('utf-8'),
              'assets/css/theme.css': read('theme.css').encode('utf-8')}
+    font = base64.b64encode((SOURCE / 'vendor/NotoNaskhArabic.ttf').read_bytes()).decode('ascii')
+    license_text = read('vendor/NotoNaskhArabic-OFL.txt')
+    files['assets/css/contract-font.css'] = (
+        f'/*{license_text}*/\n@font-face{{font-family:"Contract Naskh";'
+        f'src:url(data:font/ttf;base64,{font}) format("truetype");'
+        'font-weight:400 700;size-adjust:80%;font-display:block;}'
+    ).encode('utf-8')
     files['assets/js/seed.js'] = ('const ContractSeed=' + json.dumps(seed, ensure_ascii=False,separators=(",",":"))
                                + ';\nconst ContractAssets=' + json.dumps(assets, ensure_ascii=False) + ';').encode('utf-8')
     for name in ['contract-math.js'] + SCRIPTS:

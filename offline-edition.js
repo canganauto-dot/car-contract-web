@@ -50,6 +50,7 @@ const OfflineEdition = {
     const page = new DOMParser().parseFromString(html,"text/html");
     await Promise.all([...page.querySelectorAll('link[rel="stylesheet"][href]')].map(async link => {
       const style = page.createElement("style");
+      if (link.id) style.id = link.id;
       style.textContent = await (await this.resource(link.getAttribute("href"))).text();
       link.replaceWith(style);
     }));

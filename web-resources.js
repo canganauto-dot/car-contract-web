@@ -21,7 +21,15 @@ const WebResources = {
   styles() {
     const stylesheet = document.getElementById("documentStyles");
     if (!stylesheet) throw Error("تعذر تحميل تنسيق المستند.");
-    return stylesheet.textContent;
+    const face = document.getElementById("contractFontStyles");
+    const fontRules = Array.from(face.sheet.cssRules, rule => rule.cssText).join("\n");
+    return fontRules + "\n" + stylesheet.textContent;
+  },
+  async loadDocumentFont(doc = document) {
+    for (const weight of [400, 700]) {
+      const faces = await doc.fonts.load(weight + ' 20px "Contract Naskh"', "العقد 0123456789 ABC");
+      if (!faces.length) throw Error("تعذّر تحميل خط العقد. أعد فتح النسخة.");
+    }
   },
   async embedImages(paper) {
     await document.fonts.ready;

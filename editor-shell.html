@@ -16,6 +16,7 @@
         z-index:2147483647; background:#17222d; color:#9abed9; pointer-events:none;
       }
       #startupThread svg { position:absolute; top:50%; left:0; transform:translateY(-50%); width:100%; height:38px; overflow:hidden }
+      #startupThread button { position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); pointer-events:auto }
       html[data-revealing] body { animation:startup-reveal .45s ease-out both }
       html[data-revealing] body > #startupThread { animation:startup-cover .45s ease-out both }
       @keyframes startup-cover { to { opacity:0 } }

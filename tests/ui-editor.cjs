@@ -146,7 +146,7 @@ fs.mkdirSync(output, { recursive: true });
         appearance:{...UIPreferences.value}, fill:clone(cfg.design.fillAppearance),
       }));
       const temp = fs.mkdtempSync(path.join(os.tmpdir(), "contract-fill-parity-"));
-      const offline = await browser.newPage({viewport:page.viewportSize()});
+      const offline = await browser.newPage({viewport:page.viewportSize(), deviceScaleFactor:2});
       try {
         await page.evaluate(async () => {
           UIPreferences.set("theme", "deep-ocean");
@@ -190,6 +190,33 @@ fs.mkdirSync(output, { recursive: true });
           await document.fonts.ready;
         });
         assert.deepEqual(await snapshot(offline), online);
+        const typography = p => p.evaluate(() => {
+          const paper = $("canvas").querySelector(".paper");
+          const sample = document.createElement("div");
+          sample.className = "scene-node";
+          sample.textContent = "يتعهد الطرف الثاني بتسديد المبلغ المتبقي 12345 ضمن المدة المحددة";
+          sample.style.cssText = "width:40mm;font-size:18px;line-height:1.2;white-space:normal";
+          paper.append(sample);
+          try {
+            const range = document.createRange();
+            const lines = [];
+            let previousY;
+            for (let i = 0; i < sample.textContent.length; i++) {
+              range.setStart(sample.firstChild, i);
+              range.setEnd(sample.firstChild, i + 1);
+              const y = range.getBoundingClientRect().top;
+              if (y !== previousY) lines.push(i);
+              previousY = y;
+            }
+            return {lines, family:getComputedStyle(sample).fontFamily,
+              loaded:[...document.fonts].some(f => f.family.includes("Contract Naskh") && f.status === "loaded"),
+              embedded:WebResources.styles().includes("data:font/ttf;base64,")};
+          } finally { sample.remove(); }
+        });
+        const layout = await typography(page);
+        assert(layout.loaded && layout.embedded && layout.family.includes("Contract Naskh"));
+        assert(layout.lines.length > 1);
+        assert.deepEqual(await typography(offline), layout);
         const book = p => p.evaluate(async () => {
           await Workbench.start(4);
           document.activeElement.blur();

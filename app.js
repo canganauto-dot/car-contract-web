@@ -38,6 +38,18 @@ function render() {
     cfg.printSides = $("printSides").value;
     scheduleConfig();
   };
+  try {
+    await WebResources.loadDocumentFont();
+  } catch {
+    const cover = $("startupThread");
+    cover.replaceChildren();
+    const retry = document.createElement("button");
+    retry.textContent = "تعذّر تحميل خط العقد. إعادة المحاولة";
+    retry.onclick = () => location.reload();
+    cover.append(retry);
+    document.body.inert = false;
+    return;
+  }
   buildInputs();
   await App.init();
   await ContractFiles.init();

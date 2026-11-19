@@ -463,7 +463,7 @@ class ContractEditor {
       if (shortText && shortText.split(/\s+/u).length <= 2 && !content.querySelector("br,table")) {
         content.classList.add("short-text-line");
         const measure = this.textMeasure ||= document.createElement("canvas").getContext("2d");
-        measure.font = [el.style.fontStyle || "normal", el.style.fontWeight, el.style.fontSize, el.style.fontFamily].join(" ");
+        measure.font = [el.style.fontStyle || "normal", el.style.fontWeight || "400", el.style.fontSize, '"Contract Naskh"'].join(" ");
         const width = measure.measureText(shortText.replace(/\s+/gu, " ")).width;
         const available = n.w * MM - 2 * (parseFloat(el.style.borderWidth) || 0);
         if (available > 0 && width > available) {
