@@ -1,0 +1,216 @@
+<dialog id="feedbackDialog" aria-labelledby="feedbackHeading">
+  <form method="dialog"><h2 id="feedbackHeading"></h2><p id="feedbackMessage"></p>
+    <div class="row-buttons"><button id="feedbackAccept" value="yes" class="primary">موافق</button><button id="feedbackCancel" value="no">إلغاء</button></div>
+  </form>
+</dialog>
+<section id="homeScreen">
+  <header class="home-heading">
+    <h1 dir="ltr" lang="en" class="contracts-mark">Contracts</h1>
+    <button id="homeCreate" class="primary"><span aria-hidden="true">＋</span> إضافة عقد</button>
+  </header>
+  <div class="home-search">
+    <label class="archive-query"><i data-archive-icon="search"></i><input id="archiveSearch" type="search" aria-label="بحث في جميع العقود" placeholder="ابحث باسم الزبون أو عدد العقد أو المركبة…" /></label>
+    <button id="filterToggle" title="فلترة العقود" aria-label="فلترة العقود" aria-expanded="false" aria-controls="archiveFilters"><i data-archive-icon="filter"></i><span id="filterCount"></span></button>
+  </div>
+  <form id="archiveFilters" hidden>
+    <label>من تاريخ<input type="date" name="fromDate"></label>
+    <label>إلى تاريخ<input type="date" name="toDate"></label>
+    <label>الشركة<select name="company"><option value="">كل الشركات</option></select></label>
+    <label>نوع العقد<select name="kind"><option value="">كل الأنواع</option><option value="installment">أقساط</option><option value="cash">كاش</option><option value="external">خارجي</option><option value="exchange">استبدال</option></select></label>
+    <label>حالة المبلغ<select name="payment"><option value="">كل الحالات</option><option value="full">واصل كامل</option><option value="remaining">عليه باقي</option><option value="partial">واصل جزئي</option><option value="unpaid">بدون دفعة</option><option value="unknown">المبلغ غير مكتمل</option></select></label>
+    <label>قيمة البحث<select name="basis"><option value="total">إجمالي العقد</option><option value="paid">الواصل</option><option value="remaining">الباقي</option></select></label>
+    <label>من مبلغ (د.ع)<input name="minAmount" inputmode="numeric"></label>
+    <label>إلى مبلغ (د.ع)<input name="maxAmount" inputmode="numeric"></label>
+    <button type="reset">مسح الفلاتر</button>
+  </form>
+  <div class="archive-tools">
+    <label class="select-visible"><input type="checkbox" id="allArchive"> تحديد الكل</label>
+    <span id="pickedCount" aria-live="polite"></span>
+    <div class="archive-outputs">
+      <button data-output="download" disabled><i data-archive-icon="download"></i>تنزيل PDF</button>
+      <button data-output="print" disabled><i data-archive-icon="print"></i>طباعة</button>
+      <button data-output="face" disabled><i data-archive-icon="face"></i>طباعة الوجه</button>
+    </div>
+  </div>
+  <p id="archiveStatus" role="status"></p>
+  <div class="archive-columns">
+    <section>
+      <h2><i data-archive-icon="print"></i>العقود المطبوعة <span id="printedCount"></span></h2>
+      <div id="printedArchive" data-build></div>
+    </section>
+    <section>
+      <h2><i data-archive-icon="pending"></i>العقود المعلّقة <span id="draftCount"></span></h2>
+      <div id="draftArchive" data-build></div>
+    </section>
+  </div>
+</section>
+<dialog id="archiveViewer">
+  <header><strong id="viewTitle"></strong><div class="archive-view-actions">
+    <select id="archivePrintSides" aria-label="طريقة الطباعة" title="اختر نفس وضع الوجهين من إعدادات الطابعة"><option value="simplex">وجه واحد</option><option value="duplex">وجهان</option></select>
+    <button id="viewEdit">متابعة التعديل</button>
+    <button id="viewCopy" title="حفظ بيانات العقد JSON" aria-label="حفظ بيانات العقد JSON">JSON</button>
+    <button id="viewSave" title="تنزيل PDF" aria-label="تنزيل PDF"><i data-archive-icon="download"></i></button>
+    <button id="viewPrint" title="طباعة" aria-label="طباعة"><i data-archive-icon="print"></i></button>
+    <button id="viewClose" title="إغلاق" aria-label="إغلاق"><i data-archive-icon="close"></i></button>
+  </div></header>
+  <div id="archiveViewBody" data-build></div>
+</dialog>
+<div id="customerPhotoTools">
+  <button id="customerCapture" title="صورة الزبون" aria-label="صورة الزبون"></button>
+  <button id="customerUpload" hidden></button>
+  <input
+    id="customerPhotoFile"
+    type="file"
+    accept="image/png,image/jpeg,image/webp"
+    hidden
+  />
+</div>
+<section id="companyDynamic">
+  <h3>كتابات الشركة المتغيرة</h3>
+  <div id="companyFieldValues" data-build></div>
+  <div class="inline-add">
+    <input
+      id="companyFieldLabel"
+      placeholder="اسم الحقل، مثلاً رقم الحساب"
+    /><input id="companyFieldKey" placeholder="الكود، مثلاً account" /><input
+      id="companyFieldDefault"
+      placeholder="القيمة الابتدائية للشركات"
+    /><button id="addCompanyField">＋ إضافة</button>
+  </div>
+  <h3>صور حسب الشركة</h3>
+  <p class="hint">
+    تظهر هنا فقط خانات الصور المتغيرة المضافة للتصميم. صور المركبات وصورة الزبون
+    والصور الثابتة مستقلة.
+  </p>
+  <div id="companyImageValues" data-build></div>
+</section>
+<section id="formulaSettings">
+  <h3>الكتابات المحسوبة</h3>
+  <p class="hint">
+    حسابات مثل total - deposit أو SUM(total, deposit). استخدم الكود بين {{ }}
+    داخل النص. الدوال المتاحة: SUM، MIN، MAX، ABS، ROUND.
+  </p>
+  <div id="formulaRows" data-build></div>
+  <div class="properties-grid">
+    <label>اسم الحقل<input id="formulaLabel" /></label
+    ><label>الكود<input id="formulaKey" placeholder="net_value" /></label>
+  </div>
+  <label
+    >المعادلة<input
+      id="formulaExpression"
+      dir="ltr"
+      placeholder="total - deposit" /></label
+  ><label
+    >العرض<select id="formulaFormat">
+      <option value="number">رقم</option>
+      <option value="money">مبلغ مفصول بفواصل</option>
+    </select></label
+  ><button id="addFormula">حفظ المعادلة</button>
+  <p id="formulaMessage" role="status"></p>
+</section>
+<dialog id="setupDialog">
+  <form id="setupForm">
+    <h2>إعداد هذا الكمبيوتر</h2>
+    <p>
+      تُحفظ هذه المعلومات لكل العقود، ويمكن تعديلها لاحقاً من إعدادات الملء.
+    </p>
+    <div class="properties-grid">
+      <label
+        >حرف الكمبيوتر<input id="setupPrefix" maxlength="4" required /></label
+      ><label>اسم المنظّم<input id="setupOrganizer" required /></label>
+    </div>
+    <datalist id="setupBranches"><option value="الدورة"></option><option value="الجادرية"></option><option value="البياع"></option><option value="النجف"></option><option value="كربلاء"></option><option value="الموصل"></option><option value="كركوك"></option></datalist><label>الفرع<input id="setupBranch" required list="setupBranches" /></label
+    ><label class="check"
+      ><input id="setupHasAgent" type="checkbox" />يوجد وكيل</label
+    >
+    <div id="setupAgentFields">
+      <label>اسم الوكيل<input id="setupAgent" /></label>
+      <div class="properties-grid">
+        <label>رقم الوكالة<input id="setupAgencyNo" /></label
+        ><label>تاريخ الوكالة<input id="setupAgencyDate" type="date" /></label>
+      </div>
+      <label>جهة إصدار الوكالة<input id="setupAgencyFrom" /></label>
+    </div>
+    <button type="submit" class="primary">حفظ وبدء الاستخدام</button>
+  </form>
+</dialog>
+<dialog id="imageTypeDialog">
+  <header>
+    <h2>إضافة خانة صورة</h2>
+    <button data-close="imageTypeDialog">×</button>
+  </header>
+  <div class="image-type-grid">
+    <button id="insertStaticImage">
+      <b>صورة ثابتة</b><span>من الكمبيوتر؛ تبقى نفسها بكل العقود.</span></button
+    ><button id="insertCustomerImage">
+      <b>صورة الزبون</b><span>خانة مرتبطة بصورة الزبون في الملء.</span></button
+    ><button id="chooseCompanyImage">
+      <b>صورة حسب الشركة</b><span>تتغير عند اختيار شركة أخرى.</span></button
+    ><button id="chooseVehicleImage">
+      <b>صورة حسب المركبة</b
+      ><span>تتغير حسب علامة السيارة أو موديلها، مستقلة عن الشركة.</span>
+    </button>
+  </div>
+  <section id="companyImageCreate" hidden>
+    <label>خانة موجودة<select id="existingImageSlot"></select></label
+    ><label
+      >أو اسم خانة جديدة<input
+        id="newImageSlotLabel"
+        placeholder="مثلاً: ختم الشركة" /></label
+    ><button id="insertCompanyImage" class="primary">
+      إضافة الخانة المتغيرة
+    </button>
+  </section>
+  <section id="vehicleImageCreate" hidden>
+    <label>خانة موجودة<select id="existingVehicleSlot"></select></label
+    ><label
+      >أو اسم خانة جديدة<input
+        id="newVehicleSlotLabel"
+        placeholder="مثلاً: صورة المركبة" /></label
+    ><button id="insertVehicleImage" class="primary">إضافة خانة المركبة</button>
+  </section>
+</dialog>
+<section id="vehicleImageSettings">
+  <h3>صور المركبات</h3>
+  <p class="hint">
+    صورة افتراضية لكل علامة، ويمكن تخصيص صورة لمركبة معيّنة. تبديل الشركة لا
+    يغيّر هذه الصور.
+  </p>
+  <label
+    >العلامة أو المركبة<select id="vehicleImageTarget" data-build></select
+  ></label>
+  <div id="vehicleImageValues" data-build></div>
+  <details id="vehicleImageHistory" hidden>
+    <summary>صور محفوظة قبل فصل الشركات عن المركبات</summary>
+    <div id="vehicleHistoryList" data-build></div>
+  </details>
+</section>
+<dialog id="cameraDialog">
+  <header>
+    <h2>التقاط صورة الزبون</h2>
+    <button id="closeCamera">×</button>
+  </header>
+  <div id="cameraFrame"><video id="cameraVideo" autoplay playsinline muted></video></div>
+  <label class="camera-zoom">التكبير <input id="cameraZoom" type="range" min="100" max="300" value="110" step="5"><output id="cameraZoomValue">110%</output></label>
+  <p id="cameraStatus" role="status"></p>
+  <div class="row-buttons">
+    <button id="cameraUploadFallback" title="تحميل صورة" aria-label="تحميل صورة"></button>
+    <button id="takeCustomerPhoto" class="primary" title="التقاط صورة" aria-label="التقاط صورة"></button>
+    <button id="customerPhotoRemove" title="حذف الصورة الحالية" aria-label="حذف الصورة الحالية"></button>
+    <img id="customerPhotoPreview" alt="الصورة الحالية" hidden>
+  </div>
+</dialog>
+<dialog id="printResultDialog">
+  <h2>هل اكتملت الطباعة؟</h2>
+  <p>
+    أكد اكتمالها لحفظ النسخة ضمن العقود المطبوعة. إذا ألغيت الطباعة تبقى ضمن
+    المسودات.
+  </p>
+  <div class="row-buttons">
+    <button id="confirmPrinted" class="primary">تمت الطباعة</button
+    ><button id="cancelPrinted">لم تتم</button>
+  </div>
+</dialog>
+<input id="contractJSON" type="file" accept=".json,application/json" hidden>
+<dialog id="signedDialog"><header><strong>رفع النسخة الموقعة</strong><button id="signedClose">إغلاق</button></header><div class="row-buttons"><button id="signedFolder">مجلد حفظ السكان</button><button id="signedDevice">تحميل من الجهاز</button><button id="signedCamera">فتح الكاميرا</button></div><p id="signedStatus"></p><input id="signedInput" type="file" accept="application/pdf,image/jpeg,image/png" multiple hidden><video id="signedVideo" autoplay playsinline muted></video><button id="signedCapture" hidden>التقاط صفحة</button><div id="signedShots"></div><button id="signedFinish" disabled>حفظ صفحات السكان</button></dialog>
+<dialog id="printLayoutDialog"><header><strong>ترتيب أوراق الطباعة على وجهين</strong><button id="printLayoutClose">إغلاق</button></header><p>انقل الأوراق والظهور الفارغة، ثم احفظ الترتيب واعتمد التصميم.</p><div id="printLayoutRows"></div><div class="row-buttons"><button id="printLayoutSave">حفظ الترتيب</button><button id="printLayoutReset">الترتيب التلقائي</button></div></dialog>

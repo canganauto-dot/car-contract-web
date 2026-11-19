@@ -1,0 +1,672 @@
+body.home-mode {
+  --archive-surface: #fff;
+  --archive-line: #d6dfda;
+  --archive-ink: #203b35;
+  --archive-muted: #576e65;
+  --archive-accent: #216952;
+  --archive-wash: #edf3ef;
+  background: #f6f7f3;
+  color: var(--archive-ink);
+}
+[data-theme="dark"] body.home-mode {
+  --archive-surface: #192b2a;
+  --archive-line: #344b45;
+  --archive-ink: #e6efea;
+  --archive-muted: #b0c2ba;
+  --archive-accent: #8dcfb1;
+  --archive-wash: #243934;
+  background: #11201e;
+}
+.home-mode #toolbar {
+  position: absolute;
+  top: 45px;
+  right: clamp(16px, 4vw, 72px);
+  z-index: 3;
+  width: auto;
+  min-height: 0;
+  height: auto;
+  padding: 0;
+  display: flex;
+  gap: 6px;
+  border: 0;
+  box-shadow: none;
+  background: transparent;
+}
+.home-mode #toolbar :is(#homeButton, #exportShortcut, #saveStatus) {
+  display: none;
+}
+.home-mode #toolbar button {
+  width: 34px;
+  height: 34px;
+  border-radius: 9px;
+}
+.home-mode:not([inert]) #toolbar {
+  visibility: visible;
+}
+#homeScreen {
+  padding: 0 clamp(16px, 4vw, 72px) 28px;
+}
+.home-heading {
+  position: relative;
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  min-height: 126px;
+  margin: 0 0 16px;
+  border-bottom: 1px solid var(--archive-line);
+}
+.home-heading .contracts-mark {
+  grid-column: 2;
+  margin: 0;
+  color: var(--archive-ink);
+  font:
+    700 clamp(42px, 5vw, 73px) / 1.25 "Segoe Script",
+    "Brush Script MT",
+    cursive;
+  letter-spacing: -0.09em;
+  position: relative;
+  transform: rotate(-4deg);
+  padding: 0 0.18em 0.09em 0;
+}
+.contracts-mark::after {
+  content: "";
+  position: absolute;
+  border-top: 2px solid var(--archive-accent);
+  left: -5%;
+  right: 1%;
+  bottom: 7%;
+  height: 8px;
+  border-radius: 60%;
+  transform: rotate(1deg);
+}
+.home-heading #homeCreate {
+  grid-column: 3;
+  justify-self: end;
+  border-radius: 10px;
+  padding: 9px 18px;
+  font-size: 15px;
+}
+#homeScreen button,
+#archiveViewer button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+}
+#homeScreen i,
+#archiveViewer i {
+  display: inline-flex;
+  flex: none;
+}
+.home-search {
+  display: flex;
+  flex-direction: row;
+  gap: 8px;
+  margin: 0;
+}
+.archive-query {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: 1;
+  min-width: 0;
+  border: 1px solid var(--archive-line);
+  border-radius: 10px;
+  background: var(--archive-surface);
+  padding: 0 14px;
+}
+.archive-query:focus-within {
+  outline: 2px solid var(--archive-accent);
+}
+.archive-query #archiveSearch {
+  max-width: none;
+  min-width: 0;
+  width: 100%;
+  height: 43px;
+  background: transparent;
+  outline: 0;
+  border: 0;
+  font-size: 14px;
+}
+#filterToggle {
+  padding: 0 14px;
+  border-radius: 10px;
+}
+#filterToggle[aria-expanded="true"] {
+  border-color: var(--archive-accent);
+}
+#archiveFilters:not([hidden]) {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(125px, 1fr));
+  gap: 12px;
+  align-items: end;
+  padding: 14px;
+  margin-top: 8px;
+  background: var(--archive-surface);
+  border: 1px solid var(--archive-line);
+  border-radius: 10px;
+}
+#archiveFilters label {
+  display: grid;
+  gap: 5px;
+  font-weight: 600;
+}
+#archiveFilters :is(input, select) {
+  height: 32px;
+}
+.archive-tools,
+.archive-outputs,
+.archive-view-actions {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+.archive-tools {
+  min-height: 55px;
+  flex-wrap: wrap;
+}
+.archive-tools button {
+  min-height: 30px;
+}
+.archive-outputs {
+  margin-inline-start: auto;
+}
+.archive-tools input,
+.archive-list input {
+  width: 15px;
+  height: 15px;
+  vertical-align: middle;
+}
+.select-visible {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+#pickedCount {
+  color: var(--archive-muted);
+}
+#archiveStatus {
+  margin: 0 0 8px;
+  color: var(--archive-muted);
+}
+#archiveStatus:empty {
+  display: none;
+}
+.archive-columns {
+  direction: rtl;
+  gap: 18px;
+  min-height: calc(100vh - 275px);
+  align-content: stretch;
+}
+.archive-columns > section {
+  min-width: 0;
+  padding: 0 0 10px;
+  overflow: hidden;
+  border: 1px solid var(--archive-line);
+  border-radius: 13px;
+  background: var(--archive-surface);
+}
+.archive-columns h2 {
+  padding: 16px 17px;
+  margin: 0;
+  gap: 9px;
+  font-size: 16px;
+}
+.archive-columns h2 i {
+  color: var(--archive-accent);
+}
+.archive-columns h2 span {
+  margin-inline-start: auto;
+  color: var(--archive-accent);
+  background: var(--archive-wash);
+}
+.archive-list {
+  width: 100%;
+  border-collapse: collapse;
+  text-align: start;
+  font-size: 15px;
+  font-variant-numeric: tabular-nums;
+}
+.archive-list :is(th, td) {
+  padding: 9px 5px;
+  border-bottom: 1px solid var(--archive-line);
+  text-align: start;
+}
+.archive-list th {
+  font-size: 13px;
+  color: var(--archive-muted);
+  background: var(--archive-wash);
+  font-weight: 600;
+}
+.archive-list .tickcol {
+  width: 32px;
+  text-align: center;
+}
+.archive-list .ordinal {
+  width: 26px;
+  text-align: center;
+  color: var(--archive-muted);
+}
+.archive-list .statecol {
+  width: 46px;
+  text-align: center;
+}
+.archive-list time,
+.archive-list bdi {
+  white-space: nowrap;
+}
+.archive-list tbody tr {
+  cursor: pointer;
+}
+.archive-list tbody tr:hover,
+.archive-list tr.is-picked {
+  background: var(--archive-wash);
+}
+#homeScreen .archive-open {
+  padding: 2px 0;
+  border: 0;
+  min-height: 0;
+  text-align: start;
+  background: none;
+  color: inherit;
+  font-weight: 650;
+}
+.archive-list .state-ok {
+  color: var(--archive-accent);
+}
+.archive-list .state-missing {
+  color: #a34c45;
+}
+.archive-list .remove-draft {
+  border: 0;
+  background: transparent;
+  color: #ad554d;
+  padding: 4px;
+}
+.archive-empty {
+  color: var(--archive-muted);
+  padding: 34px 12px;
+}
+#archiveViewer {
+  width: min(1020px, 96vw);
+  max-width: 96vw;
+  height: 92vh;
+  max-height: 96vh;
+  padding: 0;
+  overflow: hidden;
+}
+#archiveViewer[open] {
+  display: flex;
+  flex-direction: column;
+}
+#archiveViewer header {
+  padding: 9px 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin: 0;
+}
+#archiveViewBody {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  background: #dce3e2;
+  padding: 12px;
+}
+#archiveViewBody .paper {
+  display: block;
+  margin: 0 auto 12px;
+}
+#archiveViewBody:has(iframe) {
+  padding: 0;
+  overflow: hidden;
+}
+#archiveViewBody iframe {
+  width: 100%;
+  height: 100%;
+  border: 0;
+}
+@media (max-width: 850px) {
+  .archive-columns {
+    grid-template-columns: 1fr;
+  }
+}
+@media (max-width: 580px) {
+  .home-heading {
+    min-height: 94px;
+  }
+  .home-heading .contracts-mark {
+    font-size: 37px;
+  }
+  .home-mode #toolbar {
+    top: 32px;
+    gap: 2px;
+  }
+  .home-mode #toolbar button {
+    width: 25px;
+    height: 28px;
+  }
+  .home-heading #homeCreate {
+    padding: 7px;
+    font-size: 12px;
+  }
+  .archive-tools {
+    gap: 4px;
+    padding: 7px 0;
+  }
+  .archive-outputs {
+    gap: 3px;
+  }
+  .archive-outputs button {
+    font-size: 11px;
+    padding: 3px 5px;
+  }
+}
+#cameraFrame {
+  width: min(420px, 75vw);
+  aspect-ratio: 1;
+  overflow: hidden;
+  margin: 12px auto;
+  background: #17222a;
+  border-radius: 8px;
+}
+#cameraFrame #cameraVideo {
+  display: block;
+  width: 100%;
+  height: 100%;
+  max-height: none;
+  object-fit: cover;
+  margin: 0;
+  border-radius: 0;
+  transform-origin: center;
+}
+.camera-zoom {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  justify-content: center;
+}
+.camera-zoom input {
+  width: 220px;
+}
+.home-heading {
+  min-height: 58px;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--line, #dce2e6);
+}
+.home-heading .contracts-mark {
+  font-family:
+    Segoe UI,
+    Arial,
+    sans-serif !important;
+  font-size: 22px !important;
+  font-weight: 600;
+  font-style: normal;
+  letter-spacing: 0.3px;
+  transform: none;
+  margin: 0;
+  line-height: 1.4;
+  text-shadow: none;
+}
+.contracts-mark::after {
+  display: none;
+}
+#toolbar {
+  display: flex;
+  align-items: center;
+  flex-wrap: nowrap !important;
+  gap: 5px;
+  min-height: 42px;
+  height: 42px;
+  overflow: hidden;
+  background: #d8e0e8;
+  border-color: #b7c4cf;
+}
+#toolbar .fill-tools {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+#toolbar #printShortcut {
+  margin-inline-start: auto;
+  background: #315d7d;
+  color: #fff;
+}
+#exportShortcut,
+#loadContract {
+  background: #447467;
+  color: white;
+}
+#toolbar #saveStatus {
+  max-width: 110px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 10px;
+}
+#fillPrint {
+  background: #315d7d;
+  color: white;
+  padding: 3px 12px;
+  min-height: 25px;
+}
+#pageRail {
+  background: transparent !important;
+  border: 0 !important;
+  border-radius: 0;
+  padding: 5px;
+}
+.page-item.active button {
+  background: transparent !important;
+  border-color: transparent !important;
+}
+#selectAllPages {
+  width: 100%;
+  font-size: 10px;
+  margin-bottom: 7px;
+  white-space: nowrap;
+  padding: 3px;
+}
+#viewEdit {
+  white-space: nowrap;
+  min-width: 115px;
+  background: #50788d;
+  color: #fff;
+  border-color: #50788d;
+}
+#signedDialog,
+#printLayoutDialog {
+  width: min(720px, 92vw);
+  max-height: 90vh;
+  overflow: auto;
+}
+#signedVideo {
+  width: 100%;
+  max-height: 45vh;
+  background: #1e2b36;
+}
+#signedShots,
+.layout-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin: 6px 0;
+}
+.layout-row span {
+  flex: 1;
+  min-width: 220px;
+}
+.upload-signed {
+  background: #426b83;
+  color: white;
+  min-height: 23px;
+  margin: 0 4px;
+}
+body,
+body.home-mode {
+  --archive-surface: #e3e9ef;
+  --archive-line: #bbc7d2;
+  --archive-ink: #25394b;
+  --archive-accent: #4b6b84;
+  --archive-wash: #d5dfe8;
+  background: #d4dde6;
+  color: #223747;
+}
+[data-theme="dark"] body,
+[data-theme="dark"] body.home-mode {
+  --archive-surface: #263544;
+  --archive-line: #4d6071;
+  --archive-ink: #e2e9f0;
+  --archive-accent: #9fb7ca;
+  --archive-wash: #304355;
+  background: #1d2b39;
+  color: #e5ecf3;
+}
+[data-theme="dark"] #toolbar {
+  background: #2c3e50;
+  border-color: #4d6377;
+}
+#cards {
+  --card-surface: #c1cdd8;
+  --field-bg: #34495b;
+}
+#cards :is(input, select, textarea) {
+  background: #34495b !important;
+  color: #f2f6fa !important;
+}
+[data-theme="dark"] #cards {
+  --card-surface: #344758;
+  --field-bg: #e4ebf2;
+}
+[data-theme="dark"] #cards :is(input, select, textarea) {
+  background: #e4ebf2 !important;
+  color: #172b3c !important;
+}
+@media print {
+  #signedDialog,
+  #printLayoutDialog,
+  #contractJSON {
+    display: none !important;
+  }
+}
+#toolbar .fill-tools,
+#toolbar .design-tools {
+  flex-wrap: nowrap !important;
+  flex: none;
+  min-width: 0;
+}
+#toolbar #printSides {
+  width: 88px;
+  flex: 0 0 88px;
+  max-width: 88px;
+}
+#toolbar label {
+  flex: none;
+}
+#toolbar #contractDate {
+  width: 115px;
+}
+#toolbar #contractTime {
+  width: 100px;
+}
+#toolbar #archiveContractType {
+  width: 92px;
+}
+#toolbar #contractNumber {
+  width: 62px;
+}
+#cards :is(input, select, textarea) {
+  color-scheme: dark;
+}
+[data-theme="dark"] #cards :is(input, select, textarea) {
+  color-scheme: light;
+}
+body.design-mode #toolbar .fill-tools {
+  display: none !important;
+}
+#cards input::placeholder,
+#cards textarea::placeholder {
+  color: #c1ccd5;
+  opacity: 1;
+}
+[data-theme="dark"] #cards input::placeholder,
+[data-theme="dark"] #cards textarea::placeholder {
+  color: #607181;
+}
+dialog .row-buttons {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+dialog .row-buttons button {
+  margin: 0 !important;
+  align-self: center;
+  min-height: 32px;
+  line-height: 20px;
+  padding: 6px 12px;
+}
+dialog button.primary {
+  transform: none;
+  vertical-align: middle;
+}
+#tokenSuggestions {
+  position: fixed;
+  z-index: 1000;
+  width: 285px;
+  max-height: 245px;
+  overflow: auto;
+  border: 1px solid #8da5b9;
+  border-radius: 7px;
+  background: #edf2f6;
+  box-shadow: 0 8px 24px #152a4140;
+  padding: 4px;
+  color: #203b50;
+  direction: rtl;
+}
+#tokenSuggestions button {
+  display: block;
+  width: 100%;
+  text-align: right;
+  border: 0;
+  background: transparent;
+}
+#tokenSuggestions button.active {
+  background: #cedfeb;
+  color: #173b59;
+  box-shadow: inset -3px 0 #3383b9;
+}
+.nine-align {
+  display: grid !important;
+  grid-template-columns: repeat(3, 1fr) !important;
+  gap: 4px;
+}
+.nine-align button[aria-pressed="true"] {
+  background: inherit !important;
+  color: #27a4e3 !important;
+  box-shadow:
+    0 0 0 2px #53b8e288,
+    inset 0 0 9px #53b8e255 !important;
+}
+#selectAllPages {
+  display: block;
+  width: 15px !important;
+  height: 15px;
+  margin: 7px auto 14px;
+  padding: 0;
+}
+#exchangePaymentFields {
+  margin-bottom: 5px;
+}
+#exchangePaymentFields label {
+  grid-column: span 6;
+}
+#exchangePaymentFields label:last-child {
+  grid-column: span 12;
+}
+@media print {
+  #tokenSuggestions {
+    display: none !important;
+  }
+}

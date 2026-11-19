@@ -1,0 +1,1493 @@
+/* Only this authorized field decoration participates in printed documents. */
+.scene-node.field-underlined::after {
+  content: "";
+  position: absolute;
+  inset-inline: 0;
+  bottom: 0;
+  border-bottom: var(--field-underline-width, 1px) solid
+    var(--field-underline, currentColor);
+  pointer-events: none;
+}
+.scene-node.field-underlined .node-content,
+.scene-node.field-underlined .node-content * {
+  text-decoration-line: none !important;
+}
+
+/* UI islands explicitly exclude the document canvas. No rem/root-font or zoom changes. */
+@media screen {
+  :root {
+    --ui-font: 18px;
+    --ui-gap: 2px;
+    --ui-radius: 8px;
+    --work-width: 292px;
+    --ui-preview: 48vw;
+  }
+  :root {
+    --ui-accent: #275e83;
+    --ui-accent-ink: #fff;
+    --ui-surface: #f5f7fa;
+    --ui-subtle: #e6edf3;
+    --ui-border: #aebdca;
+    --ui-ink: #20384b;
+    --ui-muted: #486275;
+    --ui-field: #34495b;
+    --ui-field-ink: #fff;
+    --ui-canvas: #d3dee7;
+  }
+  .app-ui,
+  .app-ui
+    :where(
+      button,
+      input,
+      select,
+      textarea,
+      label,
+      span,
+      p,
+      b,
+      strong,
+      h1,
+      h2,
+      h3,
+      h4,
+      summary,
+      small,
+      output,
+      th,
+      td,
+      a,
+      div
+    ):not(.paper, .paper *) {
+    font-family: var(--app-ui-font-family, "Sakkal Majalla", serif) !important;
+    font-weight: 400 !important;
+  }
+  .app-ui {
+    font-size: var(--ui-font);
+    color: var(--ui-ink);
+  }
+  .app-ui
+    :where(
+      div,
+      section,
+      fieldset,
+      nav,
+      header,
+      footer,
+      ul,
+      ol,
+      li,
+      table,
+      thead,
+      tbody
+    ):not(.paper, .paper *) {
+    font-size: inherit !important;
+  }
+  #saveStatus {
+    color: var(--ui-muted) !important;
+  }
+  #validation {
+    color: #9b2338;
+  }
+  [data-theme="dark"] #validation {
+    color: #ffc7cf;
+  }
+  .app-ui
+    :where(
+      button,
+      input,
+      select,
+      textarea,
+      label,
+      span,
+      p,
+      summary,
+      small,
+      output,
+      th,
+      td,
+      a
+    ):not(.paper, .paper *) {
+    font-size: inherit !important;
+  }
+  .app-ui :is(h2, h3, h4):not(.paper, .paper *) {
+    font-size: 1.06em;
+    line-height: 1.5;
+  }
+  .app-ui :is(button, input, select, textarea) {
+    border-radius: var(--ui-radius);
+    min-height: 30px;
+    line-height: 1.4;
+  }
+  .app-ui button {
+    background: var(--ui-surface);
+    color: var(--ui-ink);
+    border-color: var(--ui-border);
+  }
+  .app-ui button:hover:not(:disabled) {
+    background: var(--ui-subtle);
+    border-color: var(--ui-accent);
+  }
+  .app-ui
+    button:is(.primary, .active, [aria-selected="true"], [aria-pressed="true"]),
+  #cards #printAll {
+    background: var(--ui-accent) !important;
+    color: var(--ui-accent-ink) !important;
+    border-color: var(--ui-accent) !important;
+  }
+  .app-ui button:disabled {
+    cursor: not-allowed;
+    opacity: 0.5;
+  }
+  .app-ui :is(button, input, select, textarea, a, summary):focus-visible {
+    outline: 3px solid var(--ui-ink);
+    outline-offset: 3px;
+  }
+  .app-ui :is(input, select, textarea) {
+    caret-color: currentColor;
+    accent-color: var(--ui-accent);
+  }
+  .app-ui input[type="checkbox"] {
+    width: 18px !important;
+    height: 18px !important;
+    min-height: 18px !important;
+    flex: none !important;
+  }
+  .app-ui input[type="range"] {
+    direction: ltr;
+    min-height: 30px;
+    accent-color: var(--ui-accent);
+  }
+  .app-ui ::selection {
+    background: var(--ui-accent);
+    color: var(--ui-accent-ink);
+  }
+  .app-ui .hint,
+  .app-ui small {
+    color: var(--ui-muted);
+    line-height: 1.6;
+  }
+  .app-ui,
+  #canvas {
+    scrollbar-width: thin;
+    scrollbar-color: var(--ui-border) var(--ui-subtle);
+  }
+  .app-ui ::-webkit-scrollbar,
+  #canvas::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+  .app-ui ::-webkit-scrollbar-thumb,
+  #canvas::-webkit-scrollbar-thumb {
+    background: var(--ui-border);
+    border-radius: 8px;
+  }
+  body.workbench-closed {--work-width:0px}
+  body.has-workbench {
+    padding-left: 0 !important;
+    padding-right: var(--work-width) !important;
+  }
+  #workbench {
+    left: auto;
+    right: 0;
+    width: var(--work-width);
+    padding: 8px;
+    background: var(--ui-surface);
+    color: var(--ui-ink);
+    border-left: 1px solid var(--ui-border);
+    gap: 6px;
+    z-index: 200;
+  }
+  #workbench[hidden] {
+    display: none;
+  }
+  #workbench > button {
+    min-height: 34px;
+    height: auto;
+    text-align: right;
+    padding: 6px 10px;
+    white-space: normal;
+  }
+  #workbench .work-tile {
+    background: var(--ui-subtle);
+    border: 1px solid transparent;
+    border-radius: var(--ui-radius);
+    margin: 6px 0;
+  }
+  #workbench .work-tile.active {
+    outline: 0;
+    border-color: var(--ui-accent);
+  }
+  #workbench .work-tile button {
+    background: transparent;
+    border: 0;
+    color: var(--ui-ink);
+    font-size: 0.92em;
+    white-space: normal;
+    line-height: 1.5;
+    min-height: 34px;
+  }
+  #workbench .work-tile button:last-child {
+    min-width: 30px;
+  }
+  body:not(.design-mode) .workspace {
+    grid-template-columns:
+      minmax(0, 1fr) max(240px, calc(var(--ui-preview) - 124px))
+      76px;
+    padding: 10px;
+    gap: 8px;
+  }
+  body.design-mode .workspace {
+    grid-template-columns: minmax(260px, 300px) minmax(0, 1fr) 76px;
+  }
+  #toolbar {
+    background: var(--ui-surface);
+    color: var(--ui-ink);
+    border-color: var(--ui-border);
+    flex-wrap: wrap !important;
+    height: auto !important;
+    min-height: 44px;
+    padding: 6px 10px;
+    gap: 6px;
+  }
+  #toolbar .fill-tools,
+  #toolbar .design-tools {
+    flex-wrap: wrap !important;
+    flex: 1;
+    gap: 6px;
+  }
+  #toolbar label {
+    font-size: 0.92em;
+    gap: 5px;
+  }
+  #toolbar label[hidden],
+  #toolbar .fill-tools[hidden] {
+    display: none !important;
+  }
+  #toolbar :is(input, select) {
+    height: auto;
+    min-height: 30px;
+  }
+  #toolbar #contractDate {
+    width: 9.6em;
+  }
+  #toolbar #contractTime {
+    width: 8em;
+  }
+  #toolbar #archiveContractType,
+  #toolbar #bookType {
+    width: auto;
+    min-width: 7em;
+    max-width: 15em;
+  }
+  #toolbar #printSides {
+    width: 6.7em;
+    max-width: none;
+    flex-basis: auto;
+  }
+  #toolbarBrand {
+    font-size: 1.35em;
+  }
+  #homeScreen {
+    min-width: 0;
+    background: var(--ui-subtle);
+  }
+  #homeScreen :is(input, select) {
+    color: var(--ui-ink);
+    background: var(--ui-surface);
+  }
+  #fillPanel {
+    --app-ui-font-family: "Sakkal Majalla", Tahoma, "Segoe UI", Arial, sans-serif;
+    --fill-field-bg: #f8fafc;
+    --fill-field-ink: #111;
+    overflow: auto;
+    background: var(--ui-subtle);
+    border-radius: var(--ui-radius);
+    padding: 6px;
+    container-type: inline-size;
+  }
+  #cards {
+    height: auto;
+    min-height: 100%;
+    justify-content: flex-start;
+    gap: calc(var(--ui-gap) + 3px);
+    --card-surface: var(--ui-surface);
+  }
+  #cards > .card {
+    padding: calc(var(--ui-gap) + 1px);
+    border-radius: var(--ui-radius);
+    flex: none;
+    background: var(--ui-surface);
+  }
+  #cards .card-heading {
+    margin-bottom: var(--ui-gap);
+    gap: 6px;
+  }
+  #cards h2 {
+    font-size: 1.04em;
+    line-height: 1.4;
+  }
+  #cards .card-heading h2 {
+    margin-inline-end: auto;
+  }
+  #cards .grid {
+    gap: var(--ui-gap);
+  }
+  #cards label {
+    font-size: 0.94em;
+    white-space: normal;
+    line-height: 1.4;
+    gap: 5px;
+  }
+  #cards label > span {
+    line-height: 1.4;
+  }
+  #cards :is(input, select, textarea),
+  #cards .extra-card input {
+    font-size: 1em;
+    line-height: 1.4;
+    height: auto;
+    min-height: 30px;
+    padding: 4px 6px;
+    background: var(--fill-field-bg) !important;
+    color: var(--fill-field-ink) !important;
+    border-radius: var(--ui-radius);
+  }
+  #cards textarea {
+    max-height: none;
+    min-height: 3.3em;
+    resize: vertical;
+    width: 100%;
+  }
+  #cards input.missing-value {
+    border-color: #dc4b62;
+    border-width: 2px;
+  }
+  #cards .ui-collapsed > :not(.card-heading) {
+    display: none !important;
+  }
+  #cards .extras-editor {
+    gap: var(--ui-gap);
+  }
+  #bookFields {
+    max-height: none;
+    overflow: visible;
+    padding: 6px;
+  }
+  #bookFields > label {
+    grid-template-columns: minmax(90px, 30%) minmax(0, 1fr);
+    gap: var(--ui-gap);
+    font-size: 1em;
+  }
+  #bookFields :is(input, select, textarea) {
+    color: var(--fill-field-ink);
+    background: var(--fill-field-bg);
+  }
+  #editorPanel {
+    background: var(--ui-surface);
+    border-color: var(--ui-border);
+  }
+  #editorPanel section {
+    border-color: var(--ui-border);
+  }
+  #editorPanel label {
+    font-size: 0.94em;
+  }
+  #editorPanel input[type="color"] {
+    min-height: 30px;
+  }
+  #editorPanel [data-prop="opacity"] {
+    direction: ltr;
+  }
+  #boxColorsPanel h3 {
+    font-size: 1em;
+  }
+  .box-color-tools {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 6px;
+  }
+  .box-color-row {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    padding: 4px;
+    border: 1px solid var(--ui-border);
+    border-radius: var(--ui-radius);
+  }
+  .box-color-button {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    flex: 1;
+    min-width: 0;
+    padding: 3px;
+    border: 0 !important;
+  }
+  #editorPanel .line-controls {
+    grid-column: 1/-1;
+    display: grid;
+    grid-template-columns: auto auto minmax(32px, 1fr) 3.4em auto;
+    gap: 4px;
+    align-items: center;
+    padding: 3px 5px;
+  }
+  #editorPanel .line-controls .box-color-button {
+    min-height: 26px;
+    padding: 2px 4px 5px;
+    width: auto;
+  }
+  #editorPanel .line-controls .box-color-button small {
+    display: none;
+  }
+  #editorPanel .line-controls label {
+    display: flex;
+    align-items: center;
+    gap: 3px;
+    margin: 0;
+  }
+  #editorPanel .line-controls input[type=number] {
+    width: 4em;
+    min-width: 0;
+  }
+  #editorPanel .line-controls input[type=range] {
+    width: 100%;
+    min-width: 0;
+    direction: rtl;
+    padding: 0;
+    accent-color: var(--ui-accent);
+  }
+  .line-controls output {
+    direction: ltr;
+    text-align: center;
+    font-variant-numeric: tabular-nums;
+  }
+  .box-color-button > span {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+  }
+  .box-color-button > svg {
+    width: 22px;
+    height: 22px;
+    flex: none;
+  }
+  .box-color-button small {
+    margin-inline-start: auto;
+    display: flex;
+  }
+  .box-color-button small svg {
+    width: 16px;
+    height: 16px;
+  }
+  .box-color-button[aria-expanded="true"] small {
+    transform: rotate(180deg);
+  }
+  #boxColorPalette {
+    max-width: calc(100vw - 16px);
+    max-height: calc(100vh - 16px);
+    overflow: auto;
+    background: var(--ui-surface);
+    color: var(--ui-ink);
+    border: 1px solid var(--ui-border);
+  }
+  #boxColorPalette button.palette-swatch {
+    min-height: 22px;
+    min-width: 22px;
+  }
+  #boxColorPalette input[type="range"] {
+    direction: ltr;
+  }
+  #boxColorPalette .palette-preview span {
+    display: block;
+    width: 100%;
+  }
+  #shade {z-index:1800}
+  #settingsDrawer {
+    z-index:1801;
+    width: min(760px, 94vw);
+    background: var(--ui-surface);
+  }
+  #settingsTabs {
+    display:grid;
+    grid-template-columns:repeat(auto-fit,minmax(min(100%,7.8em),1fr));
+    overflow:visible;
+    background:var(--ui-subtle);
+    gap:4px;
+  }
+  #settingsTabs button {
+    min-width:0;
+    min-height:34px;
+    padding:3px 6px;
+    white-space:normal;
+    line-height:1.15;
+  }
+  #settingsContent {
+    overflow:auto;
+  }
+  #settingsContent .row-buttons {
+    display:grid;
+    grid-template-columns:repeat(auto-fit,minmax(min(100%,8.5em),1fr));
+    align-items:stretch;
+    gap:6px;
+    margin-block:8px;
+  }
+  #settingsContent .row-buttons > button, #settingsTabs button {
+    display:inline-flex;
+    align-items:center;
+    justify-content:center;
+    text-align:center;
+    min-width:0;
+    margin:0;
+    white-space:normal;
+  }
+  #settingsContent .row-buttons > button {
+    min-height:34px;
+    padding:4px 8px;
+    line-height:1.2;
+  }
+  #settingsContent .row-buttons > button[hidden] {display:none}
+  #settingsContent #designSettings .preference-group {margin-block:0 12px}
+  #appearanceSettings {
+    padding: 12px;
+  }
+  dialog.app-ui {
+    max-width: min(90vw, 900px);
+    max-height: 90vh;
+    overflow: auto;
+    color: var(--ui-ink);
+    background: var(--ui-surface);
+    border: 1px solid var(--ui-border);
+    border-radius: var(--ui-radius);
+  }
+  dialog.app-ui .row-buttons,
+  dialog.app-ui footer {
+    align-items: center;
+    gap: 8px;
+  }
+  dialog.app-ui::backdrop {
+    background: #101e2e80;
+  }
+  .table-editor-control {
+    position: fixed;
+    z-index: 80;
+    pointer-events: auto;
+    touch-action: none;
+    transform: translate(-50%, -50%);
+    padding: 0;
+    width: 22px;
+    height: 22px;
+    min-height: 22px;
+    border: 1px solid #275e83;
+    background: #fff;
+    color: #173e5b;
+  }
+  .table-pick {
+    width: 16px;
+    height: 16px;
+    min-height: 16px;
+    border-radius: 50%;
+  }
+  .table-pick[aria-pressed="true"] {
+    background: #275e83;
+    outline: 2px solid white;
+  }
+  .table-resize svg {
+    width: 18px;
+    height: 18px;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 2;
+  }
+  .table-resize.column {
+    cursor: col-resize;
+  }
+  .table-resize.row {
+    cursor: row-resize;
+  }
+  .table-editor-control:focus-visible {
+    outline: 3px solid #dc7b19;
+    outline-offset: 2px;
+  }
+  .scene-node td.picked-cell,
+  .scene-node th.picked-cell {
+    outline: 2px solid #007cda;
+    outline-offset: -2px;
+  }
+  @container (max-width:540px) {
+    #cards .grid > label {
+      grid-column: span 6 !important;
+    }
+    #cards .grid > label:has(textarea),
+    #cards .grid > label:has(#buyer),
+    #cards .grid > label:has(#guarantor),
+    #cards .grid > label:has(#vin) {
+      grid-column: span 12 !important;
+    }
+    #cards .extras-editor {
+      grid-template-columns: 1fr;
+    }
+  }
+  @media (max-width: 1050px) {
+    body.design-mode .workspace {
+      grid-template-columns: 240px minmax(0, 1fr) 52px;
+    }
+    #toolbar .fill-tools {
+      flex-basis: 100%;
+    }
+  }
+  @media (max-width: 850px) {
+    body.has-workbench {
+      padding-right: 0 !important;
+    }
+    #workbench {
+      position: relative;
+      inset: auto;
+      width: 100%;
+      max-height: 160px;
+      min-height: 44px;
+      order: 2;
+      flex-direction: row;
+      flex-wrap: wrap;
+      border: 0;
+      border-top: 1px solid var(--ui-border);
+    }
+    #workItems {
+      display: flex;
+      gap: 5px;
+      flex: 1;
+      overflow: auto;
+    }
+    #workbench .work-tile {
+      flex: none;
+      max-width: 220px;
+    }
+    body:not(.design-mode) .workspace,
+    body.design-mode .workspace {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr);
+      grid-template-rows: max-content max-content minmax(500px, 1fr);
+      align-content: start;
+      overflow: auto;
+    }
+    #fillPanel,
+    #editorPanel {
+      grid-column: 1;
+      grid-row: 1;
+      min-height: max-content;
+      height: auto;
+      max-height: none;
+      overflow: visible;
+      container-type: normal;
+    }
+    #pageRail {
+      grid-column: 1;
+      grid-row: 2;
+      display: flex;
+      max-height: 110px;
+      overflow: auto;
+      gap: 5px;
+    }
+    #pageRail > * {
+      flex: none;
+    }
+    #canvas {
+      grid-column: 1;
+      grid-row: 3;
+      min-height: 500px;
+    }
+    #cards {
+      min-height: 0;
+      height: auto;
+    }
+    #toolbar {
+      max-height: 40vh;
+      overflow: auto;
+      flex-shrink: 0;
+    }
+    #homeScreen {
+      overflow: auto;
+    }
+  }
+  @media (max-width: 480px) {
+    .ui-settings-grid {
+      grid-template-columns: 1fr;
+    }
+    #toolbar .fill-tools label {
+      max-width: 100%;
+      flex-wrap: wrap;
+    }
+    #cards .grid > label {
+      grid-column: span 12 !important;
+    }
+    #bookFields > label {
+      grid-template-columns: 1fr;
+    }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .app-ui *,
+    .app-ui *::before,
+    .app-ui *::after {
+      animation: none !important;
+      transition: none !important;
+      scroll-behavior: auto !important;
+    }
+  }
+}
+@media print {
+  .table-editor-control {
+    display: none !important;
+  }
+}
+.paper .scene-node,
+.paper .scene-node * {
+  font-family: "Sakkal Majalla", serif !important;
+}
+@media screen {
+  .app-ui {
+    font-size: 17px;
+  }
+  #fillPanel {
+    font-size: var(--ui-font);
+  }
+  #fillPanel #cards :is(input, select, textarea),
+  #fillPanel #bookFields :is(input, select, textarea) {
+    background: var(--fill-field-bg) !important;
+    color: var(--fill-field-ink) !important;
+    font-size: calc(var(--ui-font) + 4px) !important;
+  }
+  #appMenu,
+  #cashSplitLabel {
+    display: none !important;
+  }
+  #extraEditors .extra-card[hidden],
+  #cashPaymentRows .cash-payment-row[hidden],
+  #addPaymentSlot[hidden] {
+    display: none !important;
+  }
+  #cards:not(.exchange-form) #extraEditors,
+  #cards #cashPaymentRows:not([hidden]) {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  #cards #cashPaymentRows .cash-payment-row,
+  #cards:not(.exchange-form) #extraEditors .extra-card {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  #cards:not(.exchange-form) #extraEditors .extra-card > input:first-child,
+  #extraEditors:not(:has(.extra-card:not([hidden]))) {
+    display: none;
+  }
+  #cards #addPaymentSlot {
+    margin-block: var(--ui-gap);
+  }
+  #cards #cashFields .grid > label {
+    grid-column: 1/-1 !important;
+  }
+  #workbench .work-tile {
+    flex-wrap: wrap;
+  }
+  @media (min-width: 851px) {
+    body.has-workbench {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) var(--work-width);
+      grid-template-rows: auto minmax(0, 1fr);
+      direction: ltr;
+      padding: 0 !important;
+    }
+    body.has-workbench > * {
+      direction: rtl;
+    }
+    body.has-workbench #toolbar {
+      grid-column: 1/-1;
+      grid-row: 1;
+      position: relative;
+      inset: auto;
+      width: 100%;
+    }
+    body.has-workbench :is(#homeScreen, .workspace) {
+      grid-column: 1;
+      grid-row: 2;
+      min-width: 0;
+    }
+    body.has-workbench #workbench {
+      grid-column: 2;
+      grid-row: 2;
+      position: relative;
+      inset: auto;
+      height: 100%;
+      width: 100%;
+      min-height: 0;
+    }
+  }
+  #cards :is(#buyerInputs, #guarantorInputs, #paymentInputs, #installmentInputs, #financialNotes),
+  #cards :is(#carInputs,#oldVehicleInputs) {
+    grid-template-columns: repeat(12, minmax(0, 1fr));
+  }
+  #cards :is(#buyerInputs, #guarantorInputs, #paymentInputs, #installmentInputs, #financialNotes) > label[data-field],
+  #cards :is(#carInputs,#oldVehicleInputs) > label[data-field] {
+    grid-column: var(--entry-span) !important;
+  }
+  #cards :is(.extra-card, .cash-payment-row) > label,
+  #cards label[data-field]:not(.check),
+  #cards #cashFields .grid > label:has(span) {
+    display: grid;
+    grid-template-columns: min(6.5em, 40%) minmax(0, 1fr);
+    align-items: center;
+  }
+  #cards label.short-field:not(.check) {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+  #cards label[data-field]:not(.check) > :is(input, select, textarea),
+  #cards #cashFields .grid input:not([type=checkbox]) {
+    width: 100%;
+    box-sizing: border-box;
+  }
+  @container (max-width: 570px) {
+    #cards :is(.extra-card, .cash-payment-row) > label,
+    #cards label[data-field]:not(.check),
+    #cards #cashFields .grid > label:has(span) {
+      grid-template-columns: minmax(0, 1fr);
+      gap: 1px;
+      align-self: end;
+    }
+  }
+}
+@media screen {
+  #toolbar .bar-group,
+  #workbench .work-create,
+  #workbench .work-actions {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+  #toolbar .bar-group + .bar-group {
+    padding-inline-start: 6px;
+    border-inline-start: 1px solid var(--ui-border);
+  }
+  #toolbar .bar-files {
+    margin-inline-start: auto;
+  }
+  #toolbar .bar-files #printShortcut {
+    margin-inline-start: 0;
+  }
+  body.has-workbench:not(.workbench-closed):not(.design-mode)
+    #toolbar
+    .bar-files
+    :is(#printShortcut, #exportShortcut) {
+    display: none;
+  }
+  #toolbar .fill-tools {
+    min-width: 0;
+  }
+  #workbench .work-create > button {
+    flex: 1;
+    padding: 5px 3px;
+  }
+  #workbench #workNew {
+    color: var(--ui-accent-ink);
+    background: var(--ui-accent);
+  }
+  #workListTitle {
+    font: inherit;
+    margin: 5px 0 0;
+    padding-block-start: 9px;
+    border-block-start: 1px solid var(--ui-border);
+  }
+  #workbench .work-tile {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    padding: 3px;
+    gap: 2px;
+  }
+  #workbench .work-actions {
+    grid-column: 1/-1;
+    border-block-start: 1px solid var(--ui-border);
+    padding-block-start: 3px;
+  }
+  #workbench .work-actions button {
+    flex: 1;
+    min-height: 27px;
+  }
+  #workbench .work-name {
+    text-align: start;
+    overflow-wrap: anywhere;
+  }
+  #pageRail .rail-heading {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 3px;
+    padding: 4px 0 6px;
+    font-size: 12px;
+    background: var(--ui-subtle);
+    color: var(--ui-ink);
+  }
+  .preference-group {
+    min-width: 0;
+    margin: 8px 0 14px;
+    padding: 8px 12px 12px;
+    border: 1px solid var(--ui-border);
+    border-radius: var(--ui-radius);
+  }
+  .preference-group legend {
+    padding-inline: 6px;
+    color: var(--ui-ink);
+  }
+  #priceCatalogButton {
+    margin-block-start: 8px;
+  }
+  @media (max-width: 850px) {
+    #workListTitle {
+      display: none;
+    }
+    #workItems {
+      min-width: 100%;
+    }
+    #workbench .work-tile {
+      min-width: 150px;
+    }
+    #workbench .work-create {
+      flex: 1;
+    }
+  }
+}
+
+@media screen {
+  #workbench .work-tile { position:relative; display:block; min-width:0; }
+  #workbench .work-name { width:100%; display:block; text-overflow:ellipsis; white-space:nowrap; overflow:hidden; }
+  #workbench .work-actions {
+    display:flex; position:absolute; inset-inline-end:2px; top:50%; transform:translateY(-50%);
+    gap:2px; padding:2px; border:0; border-radius:var(--ui-radius); background:var(--ui-surface);
+    opacity:0; pointer-events:none;
+  }
+  #workbench .work-tile:is(:hover,:focus-within) .work-actions { opacity:1; pointer-events:auto; }
+  #workbench .work-actions button, .app-ui button:has(>svg:only-child) {
+    display:inline-grid; place-items:center; line-height:1; padding:3px;
+  }
+  #workbench .work-actions button { width:27px; min-width:27px; height:27px; border:1px solid var(--ui-border); }
+  #workbench .work-actions button:last-child {color:#b93c48}
+  .app-ui button > svg:only-child {display:block; margin:auto; pointer-events:none}
+  @media (hover:none) {
+    #workbench .work-actions {opacity:1; pointer-events:auto;position:static;transform:none;justify-content:flex-end}
+  }
+  #fillPanel {--label-width:6.4em;--label-gap:6px}
+  #fillPanel #cards label[data-field]:not(.check), #fillPanel #cards :is(.extra-card,.cash-payment-row,#transferNoteField,#cashFields) label:has(>span),
+  #fillPanel .external-party-fields label {
+    display:grid; grid-template-columns:minmax(0,var(--label-width)) minmax(0,1fr); align-items:center; gap:var(--label-gap);
+  }
+  #fillPanel #cards label.short-field:not(.check) {grid-template-columns:2.7em minmax(0,1fr)}
+  #fillPanel #transferNoteField input,#fillPanel .external-party-fields input {width:100%;box-sizing:border-box}
+  .entry-date {position:relative;display:block;min-width:0;width:100%;direction:ltr}
+  #toolbar .entry-date {width:10em}
+  #fillPanel #cards .entry-date > .date-text,#fillPanel #bookFields .entry-date > .date-text,#toolbar .entry-date > .date-text {
+    width:100%;box-sizing:border-box;text-align:left;padding-inline:5px;font-variant-numeric:tabular-nums;
+  }
+  #toolbar .entry-date input[type=date], #fillPanel .entry-date input[type=date] {
+    position:absolute;inset:auto 0 0 auto;opacity:0;pointer-events:none;width:1px!important;min-width:0;height:1px;min-height:0;padding:0;border:0
+  }
+  @container (max-width:570px) {
+    #fillPanel #cards label[data-field]:not(.check), #fillPanel #cards :is(.extra-card,.cash-payment-row,#transferNoteField,#cashFields) label:has(>span),#fillPanel .external-party-fields label {
+      grid-template-columns:minmax(0,1fr); gap:2px;
+    }
+  }
+  .template-dialog {width:min(440px,92vw);max-height:86vh;overflow:auto;color:var(--ui-ink);background:var(--ui-surface);border:1px solid var(--ui-border);border-radius:10px}
+  .template-dialog form,.template-dialog label {display:grid;gap:6px}
+  .template-pages {display:grid;gap:3px;margin-block:6px}
+  .template-pages >div {display:grid;grid-template-columns:1fr auto auto auto;align-items:center;gap:3px}
+  .template-import,.template-dialog footer {display:flex;gap:6px}
+}
+@media screen {
+  .offline-edition #homeScreen > :not(.offline-home),.offline-edition #settingsShortcut {display:none!important}
+  .offline-home {margin:auto;text-align:center;padding:2rem}
+  .offline-home button {margin:.4em;padding:.6em 1.4em}
+  body.offline-edition:not(.home-mode) #toolbar .bar-files :is(#printShortcut,#exportShortcut) {display:inline-grid!important}
+}
+@media screen {
+  body.has-workbench #toolbar {z-index:1600;overflow:visible}
+  .home-search {align-items:center}
+  .home-search :is(.archive-query,#filterToggle) {height:36px;min-height:36px;box-sizing:border-box}
+  .studio-dialog {width:min(34rem,90vw);max-height:84vh;overflow:auto}
+  .studio-dialog label {display:grid;grid-template-columns:9em minmax(0,1fr);align-items:center;gap:.5em;margin:.35em 0}
+  .studio-dialog select[size],.studio-dialog section {width:100%}
+  .studio-dialog section {max-height:27vh;overflow:auto}
+  .studio-dialog button {margin:.4em .2em}
+}
+@media screen {
+  #cards.exchange-form #extraEditors {
+    grid-template-columns:minmax(0,1fr);
+    gap:5px;
+  }
+  #cards.exchange-form #extraEditors .extra-card:not([hidden]) {
+    display:grid;
+    grid-template-columns:minmax(0,.8fr) minmax(0,1fr) minmax(10.2em,1fr);
+    gap:6px;
+    align-items:end;
+  }
+  #fillPanel #cards.exchange-form #extraEditors .extra-card > label {
+    display:grid;
+    grid-template-columns:minmax(0,1fr);
+    gap:2px;
+    min-width:0;
+  }
+  #cards.exchange-form #extraEditors .extra-card > input {
+    align-self:end;
+    box-sizing:border-box;
+    min-width:0;
+  }
+  #fillPanel #cards.exchange-form #exchangePaymentFields {
+    grid-template-columns:repeat(3,minmax(0,1fr));
+    margin:0;
+    gap:5px;
+  }
+  #fillPanel #cards.exchange-form #exchangePaymentFields > label {grid-column:auto!important}
+  @container (max-width:350px) {
+    #fillPanel #cards.exchange-form #exchangePaymentFields {grid-template-columns:repeat(2,minmax(0,1fr))}
+    #fillPanel #cards.exchange-form #exchangePaymentFields > label:last-child {grid-column:1/-1!important}
+  }
+  @container (max-width:410px) {
+    #cards.exchange-form #extraEditors .extra-card:not([hidden]) {
+      grid-template-columns:minmax(0,1fr) minmax(9.5em,1fr);
+    }
+    #cards.exchange-form #extraEditors .extra-card > input {grid-column:1/-1}
+  }
+}
+@media screen {
+  #fillPanel #cards .card-heading .vehicle-company {display:flex;flex:0 1 auto;align-items:center;min-width:0;width:auto}
+  #fillPanel #cards #companySelect {display:block;flex:0 1 12em;width:12em;min-width:8em;max-width:100%;height:auto;padding-inline:.5em}
+  #fillPanel .external-party-fields select {grid-column:1/-1;width:100%;max-width:none;min-width:0}
+}
+@media screen {
+  #cards:not(.exchange-form) #extraEditors .extra-title-field {display:none}
+  #bookFields > label:has(#bookCompany) {display:grid;grid-template-columns:auto minmax(10em,1fr);align-items:center;gap:6px}
+  #bookFields #bookCompany {width:100%;min-width:0}
+  @container (max-width:410px) {
+    #cards.exchange-form .extra-title-field {grid-column:1/-1}
+  }
+}
+/* Unified compact entry fields, shared by contract and standalone book forms. */
+@media screen {
+  #fillPanel #cards label.entry-field,
+  #fillPanel #bookFields label.entry-field {
+    display:flex!important;
+    flex-direction:column;
+    align-items:stretch;
+    justify-content:flex-start;
+    gap:0;
+    min-width:0;
+    margin:0;
+    padding:0;
+    border:1px solid var(--ui-border,#94a4b4);
+    border-radius:6px;
+    background:var(--ui-subtle,#e7edf2);
+    overflow:hidden;
+    box-sizing:border-box;
+  }
+  #fillPanel :is(#cards,#bookFields) label.entry-field > .entry-caption {
+    display:block;
+    flex:none;
+    margin:0;
+    padding:1px 5px;
+    min-height:0;
+    font-size:11px;
+    font-weight:400;
+    line-height:15px;
+    text-align:center;
+    color:var(--ui-ink,#293c4b);
+    white-space:normal;
+    overflow-wrap:anywhere;
+  }
+  #fillPanel :is(#cards,#bookFields) label.entry-field > :is(input,select,textarea),
+  #fillPanel :is(#cards,#bookFields) label.entry-field .entry-date > .date-text {
+    box-sizing:border-box;
+    width:100%;
+    min-width:0;
+    max-width:100%;
+    border:0;
+    border-radius:0;
+    margin:0;
+    padding:3px 6px;
+    min-height:29px;
+    height:auto;
+    line-height:1.35;
+    background:var(--fill-field-bg)!important;
+    color:var(--fill-field-ink)!important;
+  }
+  #fillPanel :is(#cards,#bookFields) label.entry-field > .entry-date {
+    flex:1;
+    min-width:0;
+    margin:0;
+    padding:0;
+    background:var(--fill-field-bg);
+  }
+  #fillPanel :is(#cards,#bookFields) label.entry-field .entry-date > .date-text {padding-inline:5px}
+  #fillPanel label.entry-field:focus-within {
+    border-color:var(--ui-accent,#2877ae);
+    box-shadow:0 0 0 1px var(--ui-accent,#2877ae);
+  }
+  #fillPanel label.entry-field:has(.missing-value) {border-color:#c74750}
+  #fillPanel #cards label.entry-field[hidden],
+  #fillPanel #bookFields label.entry-field[hidden] {display:none!important}
+  #fillPanel #cards .grid {gap:5px}
+  #fillPanel #cards #paymentInputs > label[data-field] {--entry-span:span 6!important}
+  #fillPanel #cards #installmentInputs > label[data-field] {--entry-span:span 6!important}
+  #fillPanel #cards #cashFields .grid {grid-template-columns:repeat(2,minmax(0,1fr))}
+  #fillPanel #cards #cashFields .grid > label.entry-field {grid-column:span 1!important}
+  #fillPanel #cards :is(.extra-card,.cash-payment-row) {gap:5px;align-items:stretch}
+  #fillPanel #cards #extraEditors .extra-title-field {display:none!important}
+  #fillPanel #cards.exchange-form #extraEditors .extra-title-field {display:flex!important}
+  #fillPanel #bookFields {
+    display:grid;
+    grid-template-columns:repeat(2,minmax(0,1fr));
+    align-content:start;
+    align-items:start;
+    gap:5px;
+    padding:6px;
+    max-height:none;
+    overflow:visible;
+  }
+  #fillPanel #bookFields > :is(h3,button,section,div),
+  #fillPanel #bookFields > label:has(textarea),
+  #fillPanel #bookFields > label:has(#bookCompany) {grid-column:1/-1}
+  @container (max-width:410px) {
+    #fillPanel #cards #carInputs > label:has(#car) {--entry-span:span 12!important}
+    #fillPanel #cards #carInputs > label:has(#color),
+    #fillPanel #cards #carInputs > label:has(#model) {--entry-span:span 6!important}
+    #fillPanel #cards #buyerInputs > label:has(#buyerAddress),
+    #fillPanel #cards #guarantorInputs > label:has(#guarantorAddress) {--entry-span:span 12!important}
+    #fillPanel #cards :is(#buyerInputs,#guarantorInputs) > label.short-field {--entry-span:span 4!important}
+    #fillPanel #cards #installmentInputs > label:has(#firstDate) {--entry-span:span 12!important}
+  }
+  @container (max-width:300px) {
+    #fillPanel #bookFields,
+    #fillPanel #cards #cashFields .grid {grid-template-columns:minmax(0,1fr)}
+    #fillPanel #cards #paymentInputs > label[data-field] {--entry-span:span 12!important}
+  }
+}
+/* A single continuous path outlines the raised title and input body. */
+@media screen {
+  #fillPanel {--entry-focus:var(--ui-accent);--entry-focus-ink:var(--ui-accent-ink)}
+  #fillPanel #cards label.entry-field,
+  #fillPanel #bookFields label.entry-field {
+    --entry-edge:var(--ui-entry-tab);
+    position:relative;
+    border:0;
+    border-radius:0;
+    background:transparent;
+    overflow:visible;
+    padding:0 2px 2px;
+    box-shadow:none;
+    isolation:isolate;
+  }
+  #fillPanel label.entry-field::before {content:none}
+  #fillPanel label.entry-field > svg.entry-frame {
+    position:absolute;inset:0;width:100%;height:100%;z-index:-1;pointer-events:none;overflow:visible;
+  }
+  #fillPanel .entry-frame path {
+    fill:var(--fill-field-bg);stroke:var(--entry-edge);stroke-width:0.75;vector-effect:non-scaling-stroke;
+  }
+  #fillPanel :is(#cards,#bookFields) label.entry-field > .entry-caption {
+    align-self:flex-start;position:relative;box-sizing:border-box;
+    max-width:calc(100% - 14px);margin:0 0 0 0;padding:1px 9px 0;
+    min-height:18px;line-height:17px;font-size:16px;font-weight:400;
+    border:0;border-radius:0;background:transparent;color:var(--ui-ink);text-align:center;
+  }
+  #fillPanel :is(#cards,#bookFields) label.entry-field > :is(input,select,textarea),
+  #fillPanel :is(#cards,#bookFields) label.entry-field .entry-date > .date-text {
+    border:0;border-radius:5px;text-align:center;text-align-last:center;
+    outline:none!important;box-shadow:none!important;min-height:29px;
+    padding-block:2px;
+  }
+  #fillPanel :is(#cards,#bookFields) label.entry-field > .entry-date {border-radius:5px}
+  #fillPanel #cards label.entry-field:has(.missing-value),
+  #fillPanel #bookFields label.entry-field:has(.missing-value) {--entry-edge:#c74750}
+  #fillPanel #cards label.entry-field:focus-within,
+  #fillPanel #bookFields label.entry-field:focus-within {
+    --entry-edge:var(--entry-focus);box-shadow:none;outline:none;
+  }
+  #fillPanel :is(#cards,#bookFields) label.entry-field:focus-within > .entry-caption {
+    color:var(--entry-focus-ink);
+  }
+  #fillPanel #cards .card-heading {align-items:center}
+  #fillPanel #cards .card-heading .vehicle-company {align-self:center;flex:0 1 13em}
+  #fillPanel #cards .card-heading label.entry-field > #companySelect {
+    flex:0 0 auto;width:100%;min-width:0;min-height:29px;height:29px;padding:2px 6px;
+  }
+  #fillPanel #cards > .external-party {min-width:0}
+  #externalSellerCard {border-color:#7b8cb9}
+  #externalBuyerCard {border-color:#5e9b87}
+  #externalOtherCard {border-color:#9585ad}
+  #fillPanel #cards .external-party-fields {
+    grid-template-columns:repeat(6,minmax(0,1fr));
+    gap:5px;
+  }
+  #fillPanel #cards .external-party-fields > label {grid-column:span 2!important;min-width:0}
+  #fillPanel #cards .external-party-fields > :is(.party-address,.party-company) {grid-column:span 3!important}
+  #fillPanel #cards .external-party-fields.has-manager > .party-name {grid-column:span 4!important}
+  #fillPanel #cards #externalOtherFields > label.check {grid-column:1/-1!important;margin:0;min-height:23px}
+  @container (max-width:350px) {
+    #fillPanel #cards .external-party-fields > label,
+    #fillPanel #cards .external-party-fields.has-manager > .party-name {grid-column:span 3!important}
+    #fillPanel #cards .external-party-fields:not(.has-manager) > .party-company {grid-column:1/-1!important}
+  }
+}
+
+@media screen {
+  #fillPanel :is(input, select, textarea) {font-weight:700!important}
+  #fillPanel .entry-frame .entry-tab-fill {fill:var(--entry-edge);stroke:none}
+  #fillPanel :is(#cards,#bookFields) label.entry-field > .entry-caption {font-weight:400!important}
+  #fillPanel :is(#cards,#bookFields) label.entry-field:has(.missing-value):not(:focus-within) > .entry-caption {color:#fff}
+  #fillPanel :is(#cards,#bookFields) label.entry-field > :is(input,select,textarea),
+  #fillPanel :is(#cards,#bookFields) label.entry-field .entry-date > .date-text {line-height:1.15}
+  #toolbar, #workbench, #homeScreen, #settingsDrawer, dialog {font-family:"Sakkal Majalla",serif;font-size:17px}
+  #toolbar :is(button,input,select), #workbench :is(button,input,select) {font-family:inherit!important;font-size:17px}
+}
+
+@media screen {
+  #fillPanel :is(#cards,#bookFields) label.entry-field > .entry-caption {
+    width:var(--entry-title-width,auto);
+    flex-shrink:0;
+  }
+}
+@media screen {
+  #fillPanel #cards > .card {
+    position:relative;padding:5px 34px 5px 5px;min-height:48px;
+  }
+  #fillPanel #cards > .card > .card-heading {
+    position:absolute;inset:0 0 0 auto;width:var(--heading-width);margin:0;padding:4px 0;
+    display:flex;flex-direction:column;justify-content:center;align-items:center;
+    border-inline-end:1px solid var(--ui-border);cursor:pointer;gap:3px;
+  }
+  #fillPanel #cards > .card > .card-heading h2 {
+    writing-mode:vertical-rl;transform:rotate(180deg);margin:0;
+    font-size:15px;line-height:18px;font-weight:400;white-space:nowrap;
+  }
+  #fillPanel #cards > .card > .card-heading::before {
+    content:"";width:0;height:0;border-inline:4px solid transparent;
+    border-bottom:5px solid currentColor;flex:none;
+  }
+  #fillPanel #cards > .ui-collapsed > .card-heading::before {transform:rotate(180deg)}
+  #fillPanel #cards > .card > .section-body {
+    display:grid!important;grid-template-rows:minmax(0,1fr);min-height:0;opacity:1;
+    transition:grid-template-rows .22s ease,opacity .18s ease;
+  }
+  #fillPanel #cards > .ui-collapsed > .section-body {
+    grid-template-rows:minmax(0,0fr);overflow:hidden;opacity:0;pointer-events:none;
+  }
+  #fillPanel #cards .section-inner {min-height:0;overflow:hidden}
+  #fillPanel #cards .section-inner > .grid {margin-block:3px}
+  #fillPanel #cards > .ui-collapsed {min-height:48px}
+  #fillPanel #cards > .ui-collapsed > .card-heading h2 {font-size:12px;line-height:14px;max-height:34px;white-space:normal}
+  #fillPanel #cards :is(#carInputs,#oldVehicleInputs) > label:has(#plate,#oldPlate),
+  #fillPanel #cards :is(#carInputs,#oldVehicleInputs) > label:has(#vin) {--entry-span:span 9!important}
+  #fillPanel #cards :is(#carInputs,#oldVehicleInputs) > label:has(#mileage,#oldMileage),
+  #fillPanel #cards :is(#carInputs,#oldVehicleInputs) > label:has(#warrantyYears) {--entry-span:span 3!important}
+  #fillPanel #cards :is(#carInputs,#oldVehicleInputs) > label:has(#companySelect),
+  #fillPanel #cards :is(#carInputs,#oldVehicleInputs) > label:has(#brand) {--entry-span:span 6!important}
+  #fillPanel #cards #installmentInputs > label:has(#payment) {--entry-span:span 6!important}
+  #fillPanel #cards #installmentInputs > label:has(#count),
+  #fillPanel #cards #installmentInputs > label:has(#phaseSecondCount),
+  #fillPanel #cards #installmentInputs > label:has(#firstDate) {--entry-span:span 3!important}
+  #fillPanel #cards #addPaymentSlot {padding:1px 8px;min-height:23px;height:23px;margin-block:3px;font-size:15px;line-height:19px}
+  #fillPanel #cards #notes {min-height:29px;resize:none;overflow:hidden;box-sizing:border-box}
+  #toolbar #fillPrint {display:inline-grid;place-items:center;width:30px;min-width:30px;height:29px;padding:4px}
+  #toolbar #fillPrint svg {width:18px;height:18px}
+}
+@media screen {
+  #fillPanel #cards label.entry-field > :is(input,select,textarea),
+  #fillPanel #bookFields label.entry-field > :is(input,select,textarea),
+  #fillPanel #cards #companySelect {
+    flex:0 0 auto;
+  }
+  #fillPanel #cards label.entry-field:has(> #companySelect) {
+    align-self:stretch;
+    width:100%;
+  }
+}
+@media screen {
+  #fillPanel #cards > .card:has(> .card-heading) {
+    --heading-width:28px;
+    background-image:linear-gradient(to left,var(--section-border) var(--heading-width),transparent var(--heading-width));
+  }
+  #fillPanel #cards > .card > .card-heading {background:transparent;color:var(--ui-ink)}
+  #fillPanel #cards > .card > .card-heading h2 {color:inherit}
+  #fillPanel :is(#buyerInputs,#guarantorInputs) label.entry-field > .entry-caption {
+    white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+  }
+  #fillPanel #cards :is(#buyerInputs,#guarantorInputs) > label:has(:is(#buyerIdDate,#guarantorIdDate)) {--entry-span:span 2!important}
+  #fillPanel #cards :is(#buyerInputs,#guarantorInputs) > label:has(:is(#buyerIdFrom,#guarantorIdFrom)) {--entry-span:span 4!important}
+  #fillPanel #cards :is(#buyerInputs,#guarantorInputs) .entry-date:has(:is(#buyerIdDate,#guarantorIdDate)) .date-text {padding-inline:1px!important;font-variant-numeric:tabular-nums}
+  #paymentCard .metrics, #installmentSummaryOptions {display:flex;align-items:center;flex-wrap:wrap;gap:3px 8px}
+  #installmentSummaryOptions[hidden] {display:none!important}
+  #cameraDialog .row-buttons {display:flex;justify-content:center;align-items:center;gap:12px}
+  #cameraDialog .row-buttons button {width:40px;height:40px;padding:0;border-radius:50%;display:grid;place-items:center}
+  #cameraDialog #customerPhotoPreview {width:40px;height:40px;object-fit:cover}
+}
+@media screen {
+  #pageRail {box-sizing:border-box;padding:4px;scrollbar-width:thin;min-width:0}
+  #pageRail .page-item {min-width:0;margin:0 0 4px;box-sizing:border-box}
+  #pageRail .page-item button {
+    display:grid;grid-template-columns:minmax(0,1fr);place-items:center;
+    width:100%;min-width:0;max-width:100%;height:auto;box-sizing:border-box;
+    margin:0;padding:4px 2px;gap:3px;
+  }
+  #pageRail .page-thumb {
+    box-sizing:border-box;width:min(100%,44px);height:auto;aspect-ratio:210/297;
+    margin:0;min-width:0;justify-self:center;
+  }
+  #pageRail .page-item small {min-width:0;max-width:100%;overflow-wrap:anywhere;text-align:center}
+  #pageRail .page-item > input {inset:6px auto auto 50%;margin:0;transform:translateX(5px)}
+  @media (max-width:850px) {
+    #pageRail .page-item {flex:0 0 58px}
+  }
+}
+
+@media screen {
+  #fillPanel input:is(
+    [type="number"],[type="tel"],[inputmode="numeric"],[inputmode="decimal"],
+    #cashReceived,#buyerId,#guarantorId,#model,#oldModel,#mileage,#oldMileage,
+    #district,#street,#house,#guarantorDistrict,#guarantorStreet,#guarantorHouse,
+    #externalSellerPhone,#externalBuyerPhone,#externalSellerId,#externalBuyerId,
+    [id^="bookInput-"][id$="Phone"],[id^="bookInput-"][id$="Id"],
+    #bookInput-model,#bookInput-mileage,#bookInput-total,#bookInput-deposit,#bookInput-payment
+  ) {
+    direction:ltr;
+    text-align:center;
+    unicode-bidi:isolate;
+  }
+}
+@media screen {
+  .fill-layout-panel {position:fixed;z-index:9000;inset:4rem auto auto 1rem;width:min(18rem,42vw);max-height:80vh;overflow:auto;padding:12px;border:1px solid #8294a0;border-radius:10px;background:Canvas;color:CanvasText;box-shadow:0 5px 24px #0003}
+  .fill-layout-panel section,.fill-layout-panel {display:grid;gap:7px}
+  .fill-layout-panel label {display:grid;grid-template-columns:1fr 1fr;align-items:center;gap:6px}
+  .fill-layout-panel input,.fill-layout-panel select {min-width:0;width:100%}
+  .fill-layout-panel footer {display:flex;gap:8px}
+}
+@media print {.fill-layout-panel {display:none!important}}
+@media screen {
+  body:has(.fill-layout-panel) #fillPanel :is(label,.card-heading,.external-party .card-heading) {cursor:grab;touch-action:none;user-select:none}
+  body:has(.fill-layout-panel) #fillPanel label :is(input,textarea,select) {pointer-events:none}
+  #fillPanel .fill-size-grip {position:absolute;bottom:0;left:0;width:12px;height:12px;z-index:8;background:#1979ab;border:2px solid white;box-sizing:border-box;cursor:nesw-resize;touch-action:none}
+  .fill-layout-panel {overflow-y:auto;overscroll-behavior:contain}
+}
+@media screen {
+  body > .fill-layout-panel {width:min(310px,38vw);max-width:calc(100vw - 24px);box-sizing:border-box;grid-template-columns:minmax(0,1fr);overflow-x:hidden}
+  .fill-layout-panel > section {grid-template-columns:minmax(0,1fr)}
+  .fill-layout-panel footer {display:grid;grid-template-columns:repeat(3,minmax(0,1fr))}
+  .fill-layout-panel button,.fill-layout-panel select,.fill-layout-panel input {box-sizing:border-box;min-width:0;max-width:100%}
+}
+@media screen {
+  #fillPanel #cards #buyerInputs > label:has(#buyer) {grid-column:span 5!important}
+  #fillPanel #buyerInputs > #customerPhotoTools {display:grid;align-self:end;justify-items:center;grid-column:span 1;margin:0;padding:0;min-width:0}
+  #fillPanel #buyerInputs #customerCapture {width:32px;height:32px;min-height:0;display:grid;place-items:center;padding:3px}
+  .fill-layout-panel > strong {cursor:move;touch-action:none;user-select:none}
+}
+@media screen {
+}
+@media screen {
+  #fillPanel label.payment-with-remove {position:relative}
+  #fillPanel label.payment-with-remove input {padding-inline-end:24px}
+  #fillPanel .payment-with-remove .remove-payment {position:absolute;inset-inline-end:3px;bottom:4px;width:20px;height:20px;min-height:0;padding:0;display:grid;place-items:center;line-height:1;color:#a23238}
+}
+@media screen {
+  #fillPanel #paymentCard {
+    --schedule-field-gap:5px;
+  }
+  #fillPanel #paymentCard > .section-body > .section-inner {
+    display:grid;
+    gap:var(--schedule-field-gap);
+  }
+  #fillPanel #paymentCard .payment-overview {
+    display:grid;
+    grid-template-columns:minmax(0,1fr) auto;
+    align-items:start;
+    gap:var(--schedule-field-gap);
+  }
+  #fillPanel #paymentCard #paymentActions {
+    display:grid;
+    justify-items:end;
+    gap:2px;
+    width:min(135px,34cqw);
+    min-width:0;
+  }
+  #fillPanel #paymentCard #paymentActions:not(:has(> :not([hidden]))) {display:none}
+  #fillPanel #paymentCard .payment-overview:not(:has(#paymentActions > :not([hidden]))) {
+    grid-template-columns:minmax(0,1fr);
+  }
+  #fillPanel #paymentCard #paymentActions > :is(label,button) {
+    min-width:0;
+    max-width:100%;
+    margin:0;
+  }
+  #fillPanel #paymentCard #paymentActions > label {
+    min-height:23px;
+    line-height:1.1;
+    padding-block:0;
+    white-space:nowrap;
+  }
+  @container (max-width:340px) {
+    #fillPanel #paymentCard .payment-overview {grid-template-columns:minmax(0,1fr)}
+    #fillPanel #paymentCard #paymentActions {
+      display:flex;
+      width:auto;
+      gap:var(--schedule-field-gap);
+      justify-content:space-between;
+      align-items:center;
+    }
+    #fillPanel #paymentCard #paymentActions > button {max-width:50%}
+  }
+  #fillPanel #paymentCard .payment-schedule-fields {
+    display:grid;
+    row-gap:var(--schedule-field-gap);
+    min-width:0;
+  }
+  #fillPanel #paymentCard .payment-schedule-fields > * {
+    margin-block:0;
+  }
+  #fillPanel #paymentCard .payment-schedule-fields :is(#installmentInputs,#cashPaymentRows,#extraEditors) {
+    row-gap:var(--schedule-field-gap);
+  }
+}
+
+
+@media screen {
+  #fillPanel #cards > .card.external-party {padding-block:4px}
+  #fillPanel #cards > .external-party .section-inner > .external-party-fields {margin-block:0}
+  #fillPanel #cards .external-party-fields .entry-caption {
+    overflow:hidden;
+    text-overflow:ellipsis;
+    white-space:nowrap;
+    padding-inline:5px;
+  }
+  #fillPanel #cards .external-party-fields label.entry-field > :is(input,select),
+  #fillPanel #cards .external-party-fields .entry-date > .date-text {
+    min-height:27px;
+    padding-block:0;
+  }
+}
+@media screen {
+  #customerCapture {container-type:size}
+  #customerCapture > svg {
+    width:min(72cqw,72cqh);
+    height:min(72cqw,72cqh);
+    display:block;
+  }
+}
+
+
+@media screen {
+  #fillPanel #cards.exchange-form > #oldVehiclePanel {--section-border:#aa4953;border-color:var(--section-border)}
+  #fillPanel #cards.exchange-form > #carCard {--section-border:#418568;border-color:var(--section-border)}
+  #fillPanel #transferAutomaticNote:not([hidden]) {
+    display:block;
+    color:var(--ui-ink);
+    font-size:16px;
+    padding-inline:5px;
+  }
+  #fillPanel #cashTransferOption,#fillPanel #payAtTransferOption {margin:0}
+}
+
+@media screen {
+  #cards > .card[data-card-drop="before"] {box-shadow:0 -3px var(--ui-focus)}
+  #cards > .card[data-card-drop="after"] {box-shadow:0 3px var(--ui-focus)}
+}

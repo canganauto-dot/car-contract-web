@@ -1,0 +1,155 @@
+<!doctype html>
+<html lang="ar" dir="rtl" data-starting>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>منظومة عقود السيارات</title>
+    <script>
+      const startupMinimum = new Promise(resolve => requestAnimationFrame(() => setTimeout(resolve, 3000)));
+    </script>
+    <style>
+      #startupThread { display:none }
+      html[data-starting], html[data-starting] body { background:#17222d !important }
+      html[data-starting] body > :not(#startupThread) { visibility:hidden !important }
+      html:is([data-starting],[data-revealing]) body > #startupThread {
+        display:block !important; position:fixed; inset:0; width:100vw; height:100dvh;
+        z-index:2147483647; background:#17222d; color:#9abed9; pointer-events:none;
+      }
+      #startupThread svg { position:absolute; top:50%; left:0; transform:translateY(-50%); width:100%; height:38px; overflow:hidden }
+      html[data-revealing] body { animation:startup-reveal .45s ease-out both }
+      html[data-revealing] body > #startupThread { animation:startup-cover .45s ease-out both }
+      @keyframes startup-cover { to { opacity:0 } }
+      @keyframes startup-reveal { from { opacity:.92 } to { opacity:1 } }
+      #startupThread .thread-wave { position:absolute; left:50%; width:96px; transform:translate(-50%,-50%); background:#17222d }
+      #startupThread path { animation:thread-flex 4s ease-in-out infinite alternate }
+      @keyframes thread-flex {
+        from { d:path("M0 19 C16 19 16 6 32 12 S52 33 65 23 S82 19 96 19") }
+        to { d:path("M0 19 C16 19 22 32 36 24 S53 6 68 16 S82 19 96 19") }
+      }
+      @media (prefers-reduced-motion:reduce) {
+        #startupThread path,
+        html[data-revealing] body,
+        html[data-revealing] #startupThread {animation:none}
+      }
+    </style>
+    <!--STYLES-->
+  </head>
+  <body class="home-mode" inert>
+    <div id="startupThread" role="status" aria-label="جارٍ استرجاع البيانات والتفضيلات">
+      <svg class="thread-wave" viewBox="0 0 96 38" aria-hidden="true">
+        <path d="M0 19 C16 19 16 6 32 12 S52 33 65 23 S82 19 96 19" fill="none" stroke="currentColor" stroke-width="2"/>
+      </svg>
+    </div>
+    <header id="toolbar">
+      <nav class="bar-group" aria-label="التنقل">
+        <button
+          id="homeButton"
+          title="الرئيسية والأرشيف"
+          aria-label="الرئيسية والأرشيف"
+        >
+          ⌂
+        </button>
+      </nav>
+      <div class="fill-tools">
+        <label>العقد<input id="contractNumber" readonly /></label
+        ><label>التاريخ<input id="contractDate" type="date" /></label>
+        <label
+          >الساعة<input
+            id="contractTime"
+            type="time"
+            title="امسح القيمة لاعتماد وقت الطباعة"
+        /></label>
+        <label
+          >نوع العقد<select id="archiveContractType">
+            <option value="installment">أقساط</option>
+            <option value="cash">كاش</option>
+            <option value="external">خارجي</option>
+            <option value="exchange">استبدال</option>
+          </select></label
+        >
+        <select
+          id="printSides"
+          title="اختر نفس الوضع من إعدادات الطابعة"
+          aria-label="طريقة الطباعة"
+        >
+          <option value="simplex">وجه واحد</option>
+          <option value="duplex">وجهان</option>
+        </select>
+      </div>
+      <div class="design-tools">
+        <button data-action="leave" title="حفظ المسودة والعودة للملء">
+          الملء</button
+        ><button data-action="text" title="إضافة نص">T</button
+        ><button data-action="shapes" title="الأشكال">◇</button
+        ><button data-action="image" title="إضافة صورة">▧</button
+        ><button data-action="table" title="إضافة جدول">▦</button
+        ><button data-action="page" title="إضافة صفحة">＋ صفحة</button
+        ><span class="divider"></span
+        ><button data-action="undo" title="تراجع Ctrl+Z">↶</button
+        ><button data-action="redo" title="إعادة Ctrl+Y">↷</button
+        ><button data-action="duplicate" title="نسخ العنصر Ctrl+D">⧉</button
+        ><button data-action="delete" title="حذف Delete">⌫</button
+        ><button id="layoutPrint">ترتيب الطباعة</button>
+        <button data-action="approve" class="primary">اعتماد التصميم</button>
+      </div>
+
+      <span id="saveStatus" role="status"></span>
+      <div class="bar-group bar-files" role="group" aria-label="ملفات المستند">
+        <button id="printShortcut" title="طباعة العقد">⎙</button>
+        <button id="exportShortcut" title="تصدير بيانات العقد JSON">↓</button>
+        <button
+          id="loadContract"
+          title="استيراد مستند JSON"
+          aria-label="استيراد مستند JSON"
+        >
+          ↑
+        </button>
+      </div>
+      <div class="bar-group" role="group" aria-label="إعدادات الواجهة">
+        <button id="themeToggle" title="تبديل المظهر" aria-label="تبديل المظهر">
+          ◐
+        </button>
+        <button id="settingsShortcut" title="الإعدادات">⚙</button>
+      </div>
+      <button id="previewToggle" hidden></button>
+    </header>
+    <!--MENU-->
+    <main class="workspace">
+      <aside id="pageRail" data-build></aside>
+      <section id="canvas">
+        <div class="preview-controls">
+          <label class="page-control"
+            >الصفحة<select id="pagePreview">
+              <option value="all">كل الصفحات</option>
+            </select></label
+          ><select id="zoom" aria-label="التكبير">
+            <option value="fit">ملاءمة</option>
+            <option value="0.5">50%</option>
+            <option value="0.75">75%</option>
+            <option value="1">100%</option>
+            <option value="1.25">125%</option>
+            <option value="1.5">150%</option>
+          </select>
+        </div>
+        <div id="pages" data-build></div>
+        <div id="selectionLayer" data-build></div>
+      </section>
+      <aside id="fillPanel"><!--CARDS--></aside>
+      <!--EDITOR-->
+    </main>
+    <div id="shapePicker" hidden>
+      <b>الأشكال</b>
+      <div id="shapesGrid" data-build></div>
+    </div>
+    <input
+      id="editorImageFile"
+      type="file"
+      accept="image/png,image/jpeg,image/webp"
+      hidden
+    />
+    <div class="drawer-shade" id="shade" hidden></div>
+    <!--SETTINGS-->
+    <!--FEATURES-->
+    <!--SCRIPTS-->
+  </body>
+</html>

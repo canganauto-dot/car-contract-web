@@ -1,0 +1,227 @@
+<aside id="editorPanel" hidden>
+  <div class="panel-title">
+    <b>خصائص العنصر</b><span id="selectionCount"></span>
+  </div>
+  <p id="emptySelection">
+    اختر عنصراً من الصفحة. Ctrl لتحديد عدة عناصر. دبل كلك لتحرير النص.
+  </p>
+  <section id="geometryPanel" hidden>
+    <label>اسم العنصر<input id="nodeName" /></label>
+    <div class="properties-grid">
+      <label>X / مم<input data-prop="x" type="number" step="0.1" /></label
+      ><label>Y / مم<input data-prop="y" type="number" step="0.1" /></label
+      ><label
+        >العرض / مم<input
+          data-prop="w"
+          type="number"
+          min="1"
+          step="0.1" /></label
+      ><label
+        >الارتفاع / مم<input data-prop="h" type="number" min="1" step="0.1"
+      /></label>
+    </div>
+    <label class="check"
+      ><input id="aspectLock" type="checkbox" />تثبيت نسبة الأبعاد</label
+    ><label
+      >عتامة العنصر بالكامل <output>100%</output
+      ><input data-prop="opacity" type="range" min="0" max="1" step="0.05"
+    /></label>
+    <div class="row-buttons">
+      <button data-action="front">للأمام</button
+      ><button data-action="back">للخلف</button
+      ><button data-action="alignRight">محاذاة يمين</button
+      ><button data-action="alignTop">محاذاة أعلى</button>
+    </div>
+  </section>
+  <section id="textPanel" hidden>
+    <h3>النص والخط</h3>
+    <div id="textTools">
+      <div class="row-buttons">
+        <select id="fontFamily">
+          <option>Sakkal Majalla</option>
+          <option>Arial</option>
+          <option>Tahoma</option>
+          <option>Traditional Arabic</option>
+          <option>Times New Roman</option></select
+        ><input
+          id="fontSize"
+          type="number"
+          min="6"
+          max="96"
+          value="18"
+          aria-label="حجم الخط"
+        />
+      </div>
+      <div class="row-buttons">
+        <button data-format="bold" title="عريض"><b>B</b></button
+        ><button data-format="italic" title="مائل"><i>I</i></button
+        ><button data-format="underline" title="تسطير"><u>U</u></button
+        ><button data-format="strikeThrough" title="شطب"><s>S</s></button
+        ><input id="fontColor" type="color" aria-label="لون النص" />
+      </div>
+    </div>
+    <div class="properties-grid">
+      <label hidden
+        >المحاذاة<select id="textAlign">
+          <option value="right">يمين</option>
+          <option value="center">وسط</option>
+          <option value="left">يسار</option>
+          <option value="justify">ضبط</option>
+        </select></label
+      ><label
+        >تباعد الأسطر<input
+          id="lineHeight"
+          type="number"
+          min="0.8"
+          max="3"
+          step="0.05"
+          value="1.2"
+      /></label>
+    </div>
+    <div class="alignment-buttons">
+      <button data-align="right" title="محاذاة يمين" aria-label="محاذاة يمين">
+        <svg
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="1.8"
+        >
+          <path d="M2 4h20" />
+          <path d="M8 9h14" />
+          <path d="M2 14h20" />
+          <path d="M8 19h14" />
+        </svg></button
+      ><button data-align="center" title="محاذاة وسط" aria-label="محاذاة وسط">
+        <svg
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="1.8"
+        >
+          <path d="M2.0 4h20" />
+          <path d="M4.0 9h16" />
+          <path d="M2.0 14h20" />
+          <path d="M4.0 19h16" />
+        </svg></button
+      ><button data-align="left" title="محاذاة يسار" aria-label="محاذاة يسار">
+        <svg
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="1.8"
+        >
+          <path d="M2 4h20" />
+          <path d="M2 9h14" />
+          <path d="M2 14h20" />
+          <path d="M2 19h14" />
+        </svg></button
+      ><button data-align="justify" title="محاذاة ضبط" aria-label="محاذاة ضبط">
+        <svg
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="1.8"
+        >
+          <path d="M2 4h20" />
+          <path d="M2 9h20" />
+          <path d="M2 14h20" />
+          <path d="M2 19h20" />
+        </svg>
+      </button>
+    </div>
+    <label
+      >إدراج كتابة متغيرة<select id="insertVariable">
+        <option value="">اختر الخانة…</option>
+      </select></label
+    ><button data-action="editText">تحرير النص داخل البوكس</button>
+    <p class="hint">
+      حدد الكلمات أثناء التحرير لتنسيق جزء من النص. الرموز {{…}} تبقى مرتبطة
+      ببيانات العقد.
+    </p>
+    <label>اسم الخانة المتغيرة<input id="variableLabel" /></label>
+  </section>
+  <section id="appearancePanel" hidden>
+    <h3>المظهر</h3>
+    <div class="properties-grid">
+      <label
+        >لون التسطير<input data-prop="decorationColor" type="color" /></label
+      ><label>التعبئة<input data-prop="fill" type="color" /></label
+      ><label>الإطار<input data-prop="stroke" type="color" /></label
+      ><label
+        >سمك الإطار px<input
+          data-prop="strokeWidth"
+          type="number"
+          min="0"
+          max="20"
+          step="0.5" /></label
+      ><label
+        >الزوايا / مم<input
+          data-prop="radius"
+          type="number"
+          min="0"
+          max="100"
+          step="0.5"
+      /></label>
+    </div>
+    <label
+      >سمك التسطير px<input data-prop="underlineWidth" type="number" min="0.25" max="20" step="0.25"></label><label>نمط الإطار<select data-prop="dash">
+        <option value="solid">متصل</option>
+        <option value="dashed">متقطع</option>
+        <option value="dotted">منقط</option>
+      </select></label
+    ><label class="check"
+      ><input id="noFill" type="checkbox" />تعبئة شفافة</label
+    >
+  </section>
+  <section id="imagePanel" hidden>
+    <h3>الصورة</h3>
+    <button data-action="replaceImage">استبدال الصورة</button
+    ><label
+      >طريقة العرض<select data-prop="fit">
+        <option value="contain">الصورة كاملة</option>
+        <option value="cover">ملء الإطار وقص الزائد</option>
+        <option value="fill">تمديد</option>
+      </select></label
+    ><label
+      >ارتباط الصورة<select id="imageBinding">
+        <option value="">صورة مستقلة</option>
+        <option value="company">فورمة الشركة المختارة</option>
+        <option value="receipt">استلام حسب نوع السيارة</option>
+        <option value="maintenance">صيانة حسب نوع السيارة</option>
+      </select></label
+    >
+  </section>
+  <section id="tablePanel" hidden>
+    <h3>الجدول</h3>
+    <button data-action="tableMode">تحرير الخلايا</button>
+    <p class="hint">
+      في تحرير الخلايا: Ctrl يحدد عدة خلايا، ودبل كلك يحرر النص. Escape يرجع
+      لتحريك الجدول.
+    </p>
+    <div class="row-buttons">
+      <button data-table="merge">دمج</button
+      ><button data-table="split">فصل</button
+      ><button data-table="row">＋ صف</button
+      ><button data-table="column">＋ عمود</button>
+    </div>
+    <div class="properties-grid">
+      <label
+        >ارتفاع الصف / مم<input
+          id="rowHeight"
+          type="number"
+          min="2"
+          step="0.5" /></label
+      ><label
+        >عرض العمود / مم<input
+          id="columnWidth"
+          type="number"
+          min="2"
+          step="0.5"
+      /></label>
+    </div>
+  </section>
+  <details id="layersPanel" open>
+    <summary>طبقات الصفحة</summary>
+    <div id="layersList" data-build></div>
+  </details>
+</aside>

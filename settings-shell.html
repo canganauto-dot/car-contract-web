@@ -1,0 +1,156 @@
+<aside class="drawer" hidden="" id="settingsDrawer">
+  <header>
+    <h2>الإعدادات</h2>
+    <button id="closeSettings">إغلاق</button>
+  </header>
+  <nav aria-label="أقسام الإعدادات" id="settingsTabs" role="tablist">
+    <button
+      aria-controls="deviceSettings"
+      data-settings-tab="device"
+      id="tab-device"
+      role="tab"
+    >
+      الجهاز والوكيل</button
+    ><button
+      aria-controls="companySettings"
+      data-settings-tab="company"
+      id="tab-company"
+      role="tab"
+    >
+      الشركات</button
+    ><button
+      aria-controls="vehicleSettings"
+      data-settings-tab="vehicle"
+      id="tab-vehicle"
+      role="tab"
+    >
+      المركبات والأسعار</button
+    ><button
+      aria-controls="designSettings"
+      data-settings-tab="design"
+      id="tab-design"
+      role="tab"
+    >
+      التصميم والحسابات</button
+    ><button
+      aria-controls="storageSettings"
+      data-settings-tab="storage"
+      id="tab-storage"
+      role="tab"
+    >
+      الحفظ والنسخ
+    </button>
+  </nav>
+  <div id="settingsContent">
+    <details
+      aria-labelledby="tab-device"
+      data-settings-panel="device"
+      id="deviceSettings"
+      open=""
+      role="tabpanel"
+    >
+      <summary>الحاسبة والمنظم والوكيل</summary>
+      <div class="section">
+        <div class="grid" data-build="" id="fixedInputs"></div>
+        <details>
+          <summary>الخانات الأساسية للملء</summary>
+          <p>اختر الخانات التي تُحدّد بالأحمر حتى تكتمل قبل طباعة العقد.</p>
+          <div id="requiredChoices" data-build></div>
+          <button id="resetRequired" type="button">
+            استعادة الخانات الافتراضية
+          </button>
+        </details>
+        <p class="mini">
+          المنظم والفرع والوكيل محفوظون ولا يشملهم التصفير. الرقم يُحجز مرة عند
+          إنشاء عقد جديد؛ إعادة الطباعة لا تزيده.
+        </p>
+      </div>
+    </details>
+    <details
+      aria-labelledby="tab-company"
+      data-settings-panel="company"
+      id="companySettings"
+      role="tabpanel"
+    >
+      <summary>الشركات والفورمات</summary>
+      <div class="section">
+        <select data-build="" id="settingsCompany"></select>
+        <div class="grid" data-build="" id="companyInputs"></div>
+        <div class="row-buttons">
+          <button class="primary" id="saveCompany">حفظ الشركة</button
+          ><button id="addCompany">إضافة شركة</button
+          ><button class="danger" id="deleteCompany">حذف الشركة</button>
+        </div>
+        <p class="mini">
+          العقد يعرض أعلى الفورمة فقط. التخويل والكفالة يعرضان الفورمة كاملة.
+          الصفحات 2 و3 و5 والكمبيالات بدون فورمة.
+        </p>
+      </div>
+    </details>
+    <details
+      aria-labelledby="tab-vehicle"
+      data-settings-panel="vehicle"
+      id="vehicleSettings"
+      role="tabpanel"
+    >
+      <summary>قائمة السيارات وترتيبها</summary>
+      <div class="section">
+        <table class="table-editor">
+          <thead>
+            <tr>
+              <th>الرقم</th>
+              <th>الاسم</th>
+              <th>العلامة</th>
+              <th>حمل</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody data-build="" id="catalogRows"></tbody>
+        </table>
+        <div class="row-buttons" id="catalogActions">
+          <button class="primary" id="saveCatalog">حفظ القائمة</button>
+          <button id="addCar">إضافة سيارة</button>
+        </div>
+      </div>
+    </details>
+    <section
+      aria-labelledby="tab-design"
+      data-settings-panel="design"
+      id="designSettings"
+      role="tabpanel"
+    >
+      <fieldset class="preference-group">
+        <legend>قوالب العقود والكتب</legend>
+        <div class="row-buttons" id="templateActions"></div>
+      </fieldset>
+      <fieldset class="preference-group">
+        <legend>واجهة الملء والمتغيرات</legend>
+        <div class="row-buttons" id="fieldActions"></div>
+      </fieldset>
+    </section>
+    <details
+      aria-labelledby="tab-storage"
+      data-settings-panel="storage"
+      id="storageSettings"
+      role="tabpanel"
+    >
+      <summary>الحفظ والنسخ الاحتياطية</summary>
+      <div class="section">
+        <h3>ملف الإعدادات والتصميم</h3>
+        <div class="row-buttons">
+          <button class="primary" id="saveBound">حفظ الإعدادات الآن</button>
+          <button id="exportHTML">تصدير الإعدادات والتصميم JSON</button>
+        </div>
+        <p class="mini" id="fileStatus"></p>
+        <p class="mini">تُحفظ آخر 10 نسخ للإعدادات في هذا المتصفح.</p>
+        <label for="backupList">النسخ الاحتياطية المحفوظة</label>
+        <select data-build="" id="backupList"></select>
+        <div class="row-buttons">
+          <button id="restoreBackup">استرجاع النسخة المختارة</button
+          ><button id="downloadBackup">تنزيل النسخة المختارة JSON</button>
+        </div>
+        <div class="mini" id="backupStatus"></div>
+      </div>
+    </details>
+  </div>
+</aside>

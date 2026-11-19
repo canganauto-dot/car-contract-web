@@ -1,0 +1,635 @@
+/* One vertical entry form. Section colours are borders only. */
+#fillPanel {
+  overflow: visible;
+  background: var(--entry-bg, #fff);
+  border: 0;
+}
+#cards {
+  --card-surface: #eff3f6;
+  --missing-border: #bb3945;
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  height: 100%;
+  padding: 2px;
+  min-height: 0;
+  justify-content: space-between;
+}
+#cards > .card {
+  order:var(--fill-default-order,0);
+  --section-border: #6099be;
+  display: block;
+  flex: none;
+  min-width: 0;
+  overflow: visible;
+  margin: 0;
+  padding: 7px 9px;
+  border: 1px solid var(--section-border);
+  border-radius: 9px;
+  background: var(--card-surface);
+  box-shadow: 0 1px 3px #18384706;
+}
+#cards > #oldVehiclePanel {--fill-default-order:1}
+#cards > #guarantorCard {
+  --fill-default-order:1;
+  --section-border: #9b82bc;
+}
+#cards > #carCard {
+  --fill-default-order:2;
+  --section-border: #579c89;
+}
+#cards > #paymentCard {
+  --fill-default-order:3;
+  --section-border: #b79c63;
+}
+.card-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 6px;
+  min-height: 20px;
+}
+#cards h2 {
+  font-size: 13px;
+  line-height: 20px;
+  margin: 0;
+  padding: 0;
+  background: none;
+  color: inherit;
+  border: 0;
+}
+#cards .grid {
+  display: grid;
+  grid-template-columns: repeat(12, minmax(0, 1fr));
+  gap: 5px 9px;
+}
+#cards label {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  min-width: 0;
+  margin: 0;
+  font-size: 11px;
+  white-space: nowrap;
+}
+#cards label > span {
+  flex: none;
+  line-height: 1.15;
+}
+#cards input,
+#cards select,
+#cards textarea {
+  flex: 1;
+  min-width: 0;
+  width: 0;
+  height: 27px;
+  padding: 3px 5px;
+  font-size: 13px;
+  border-color: #cad5dd;
+  background: var(--field-bg, #fff);
+  color: inherit;
+}
+#cards input[type="checkbox"] {
+  flex: none;
+  width: 14px;
+  height: 14px;
+  margin: 0;
+}
+#cards label.check {
+  justify-content: flex-start;
+  flex-direction: row-reverse;
+}
+#cards textarea {
+  height: 48px;
+  min-height: 48px;
+  max-height: 48px;
+  line-height: 14px;
+  resize: none;
+  padding: 2px 5px;
+}
+#cards .mini,
+#noteInputs:empty {
+  display: none;
+}
+#financialNotes {
+  margin-top: 5px;
+}
+#customerPhotoTools {
+  margin: 0;
+  display: flex;
+  align-items: center;
+}
+.extras-editor {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 5px 9px;
+  margin-top: 6px;
+}
+.extra-card {
+  display: grid;
+  grid-template-columns: minmax(0, 0.9fr) minmax(0, 1fr) minmax(0, 1.35fr);
+  gap: 4px;
+  padding: 0;
+  background: none;
+  border: 0;
+}
+#cards .extra-card input {
+  width: 100%;
+  font-size: 11px;
+  height: 26px;
+}
+.metrics {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin: 6px 0 0;
+  font-size: 11px;
+  line-height: 18px;
+}
+.notice {
+  padding: 3px 6px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  background: transparent;
+  border: 1px solid #c68362;
+  border-radius: 4px;
+  line-height: 17px;
+  color: #a4512e;
+  cursor: pointer;
+  margin-top: 4px;
+  max-width: 100%;
+}
+.notice:empty {
+  display: none;
+}
+/* Settings are a single workspace with five clearly scoped tabs. */
+#settingsDrawer {
+  width: min(930px, 94vw);
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background: var(--entry-bg, #fff);
+}
+#settingsDrawer > header {
+  padding: 17px 20px;
+  margin: 0;
+  border-bottom: 1px solid #dce4e9;
+  flex: none;
+}
+#settingsTabs {
+  display: flex;
+  gap: 4px;
+  padding: 10px 14px;
+  flex: none;
+  flex-wrap: wrap;
+  border-bottom: 1px solid #dce4e9;
+}
+#settingsTabs button {
+  flex: 1;
+  white-space: nowrap;
+  font-size: 12px;
+  border-color: transparent;
+  background: none;
+  padding: 8px;
+}
+#settingsTabs button[aria-selected="true"] {
+  border-color: #719f96;
+  background: #f1f7f5;
+  color: #205f50;
+}
+#settingsContent {
+  overflow: auto;
+  min-height: 0;
+  padding: 20px;
+  flex: 1;
+}
+#settingsContent > [data-settings-panel] {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+}
+#settingsContent > [data-settings-panel] > summary {
+  display: none;
+}
+#settingsContent .section {
+  padding: 0;
+}
+#settingsContent .grid {
+  gap: 12px;
+}
+#companyInputs {
+  grid-template-columns: 1fr 1fr;
+  margin: 14px 0;
+}
+#companyInputs .full {
+  grid-column: auto;
+}
+#companyInputs label:has(#editCompanyFull) {
+  grid-column: 1/-1;
+}
+#settingsCompany,
+#vehicleImageTarget {
+  max-width: 450px;
+}
+#settingsContent h3 {
+  margin: 18px 0 10px;
+  font-size: 14px;
+}
+#companyDynamic > h3:first-child {
+  margin-top: 25px;
+}
+#companyFieldValues {
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+#companyImageValues,
+#vehicleImageValues {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  margin-top: 14px;
+}
+.image-library-card {
+  border: 1px solid #d2dde5;
+  border-radius: 8px;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+  background: var(--entry-bg, #fff);
+  min-width: 0;
+}
+.image-library-card img {
+  width: 100%;
+  height: 135px;
+  object-fit: contain;
+  background: #f1f4f6;
+  border-radius: 5px;
+}
+.image-library-card small {
+  color: #70858f;
+}
+.image-library-card button {
+  font-size: 11px;
+}
+.image-library-card strong {
+  font-size: 13px;
+}
+#vehicleImageHistory {
+  margin-top: 18px;
+}
+#vehicleHistoryList {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 10px;
+}
+#vehicleSettings > .section {
+  margin-top: 25px;
+  border-top: 1px solid #dce4e9;
+  padding-top: 18px;
+}
+#vehicleSettings > .section:before {
+  content: "دليل المركبات";
+  display: block;
+  font-weight: 700;
+  font-size: 14px;
+  margin-bottom: 10px;
+}
+#formulaDetails {
+  border: 0;
+  margin: 0;
+  padding: 0;
+}
+#formulaDetails > summary {
+  display: none;
+}
+#formulaSettings {
+  padding: 0;
+}
+#imageTypeDialog {
+  width: min(600px, 94vw);
+}
+.image-type-grid {
+  grid-template-columns: 1fr 1fr;
+}
+.image-type-grid button {
+  min-height: 90px;
+}
+#vehicleImageCreate,
+#companyImageCreate {
+  display: grid;
+  gap: 10px;
+  margin-top: 18px;
+  padding-top: 15px;
+  border-top: 1px solid #dce4e9;
+}
+[data-theme="dark"] {
+  --entry-bg: #1b2936;
+  --field-bg: #21313f;
+}
+[data-theme="dark"] #cards > .card {
+  --field-bg: #2b4050;
+  --missing-border: #ff8890;
+  background: #192733;
+  border: 1px solid var(--section-border);
+}
+[data-theme="dark"] #cards h2,
+[data-theme="dark"] .extra-card {
+  background: none;
+}
+[data-theme="dark"] #cards input,
+[data-theme="dark"] #cards select,
+[data-theme="dark"] #cards textarea {
+  border-color: #405768;
+}
+#cards :is(input, select, textarea).missing-value {
+  border-color: var(--missing-border);
+}
+[data-theme="dark"] #settingsTabs,
+[data-theme="dark"] #settingsDrawer > header {
+  border-color: #394d5c;
+}
+[data-theme="dark"] #settingsTabs button[aria-selected="true"] {
+  background: #24433c;
+  color: #d7f1e7;
+}
+[data-theme="dark"] .image-library-card {
+  border-color: #405768;
+}
+[data-theme="dark"] .image-library-card img {
+  background: #263744;
+}
+@media (min-height: 920px) {
+  #cards {
+    gap: 10px;
+  }
+  #cards > .card {
+    padding: 11px 12px;
+  }
+  #cards .grid {
+    gap: 8px 12px;
+  }
+  #cards input,
+  #cards select {
+    height: 30px;
+  }
+  .card-heading {
+    margin-bottom: 9px;
+  }
+}
+@media (max-height: 850px) {
+  .workspace {
+    padding: 7px;
+    gap: 7px;
+  }
+  #cards {
+    gap: 5px;
+  }
+  #cards > .card {
+    padding: 5px 7px;
+  }
+  .card-heading {
+    margin-bottom: 4px;
+    min-height: 18px;
+  }
+  #cards h2 {
+    line-height: 18px;
+  }
+  #cards .grid {
+    gap: 4px 7px;
+  }
+  #cards input,
+  #cards select {
+    height: 24px;
+  }
+  #cards .extra-card input {
+    height: 24px;
+  }
+  .extras-editor {
+    margin-top: 4px;
+    gap: 4px 7px;
+  }
+  .metrics {
+    margin-top: 4px;
+  }
+  #cards textarea {
+    height: 45px;
+    min-height: 45px;
+    max-height: 45px;
+  }
+}
+@media (max-width: 1150px) {
+  #cards label {
+    font-size: 10px;
+    gap: 3px;
+  }
+  #cards input,
+  #cards select {
+    font-size: 12px;
+  }
+  #cards .grid {
+    column-gap: 6px;
+  }
+  #cards .extra-card input {
+    font-size: 10px;
+  }
+}
+@media print {
+  dialog,
+  #homeScreen,
+  #customerPhotoTools,
+  #companyDynamic,
+  #formulaSettings,
+  #settingsTabs,
+  #settingsContent,
+  #vehicleImageSettings {
+    display: none !important;
+  }
+}
+
+#cards .vehicle-company {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+#cards #companySelect {
+  width: 135px;
+  flex: none;
+  height: 22px;
+  padding-block: 0;
+}
+#carChoices {
+  position: fixed;
+  margin: 0;
+  inset: auto;
+  border: 1px solid #93aab4;
+  border-radius: 6px;
+  padding: 3px;
+  background: var(--entry-bg, white);
+  color: inherit;
+  overflow: auto;
+}
+#carChoices button {
+  display: block;
+  width: 100%;
+  text-align: right;
+  border: 0;
+  background: transparent;
+  color: inherit;
+}
+#carChoices [data-brand="changan"] { --vehicle-color: #377ec3; }
+#carChoices [data-brand="deepal"] { --vehicle-color: #9763b9; }
+#carChoices [data-cargo="true"] { --vehicle-color: #aa742e; }
+#carChoices button[role="option"] {
+  border-inline-start: 4px solid var(--vehicle-color, #718595);
+  background: color-mix(in srgb, var(--vehicle-color, #718595) 12%, var(--ui-surface));
+  color: var(--ui-ink);
+}
+#carChoices button[role="option"]:hover,
+#carChoices button[aria-selected="true"] {
+  background: color-mix(in srgb, var(--vehicle-color, #718595) 32%, var(--ui-surface)) !important;
+  color: var(--ui-ink) !important;
+  border-inline-start-color: var(--vehicle-color, #718595) !important;
+}
+.schedule-page .scene-node[data-type="table"] table {
+  width: 100%;
+  height: auto;
+  border-collapse: collapse;
+  table-layout: fixed;
+  direction: rtl;
+}
+.schedule-page .scene-node[data-type="table"] :is(td, th) {
+  box-sizing: border-box;
+  height: 6mm;
+  line-height: 1.05;
+  padding: 0 0.6mm;
+  text-align: center;
+  overflow: hidden;
+  white-space: nowrap;
+  border: 1px solid #c3cfd4;
+}
+.schedule-page th {
+  background: #e8eff1;
+}
+.schedule-page .scene-node[data-type="table"] td:nth-child(2) {
+  direction: ltr;
+}
+.schedule-page tr:has(td):not(:has(td:not(:empty))) {
+  display: none;
+}
+@media print {
+  #carChoices {
+    display: none !important;
+  }
+}
+/* Only the home shell is painted until setup and archive restoration finish.
+   Keep the measuring canvas laid out: legacy templates use its dimensions. */
+html[data-starting] body > :not(#startupThread):not(#homeScreen):not(#toolbar):not(.workspace) {
+  display: none !important;
+}
+html[data-starting] body.home-mode > .workspace {
+  display: grid !important;
+  position: fixed !important;
+  inset: 0;
+  opacity: 0;
+  pointer-events: none;
+}
+html[data-starting] #toolbar {
+  visibility: hidden;
+}
+#cards.cash-form {
+  justify-content: flex-start;
+}
+#cashFields .grid {
+  margin-block: 5px;
+}
+#cashFields .grid > label {
+  grid-column: span 4;
+}
+#cashPaymentRows:not([hidden]) {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px 12px;
+  margin: 7px 0;
+}
+.cash-payment-row {
+  display: grid;
+  align-items: center;
+  grid-template-columns: auto minmax(0, 1fr) minmax(0, 1.55fr);
+  gap: 4px;
+}
+#cards .cash-payment-row input {
+  width: 100%;
+}
+.cash-transfer {
+  margin-top: 6px !important;
+}
+.transfer-entry:not([hidden]) {
+  display: grid;
+  grid-template-columns: 1fr;
+  margin-top: 6px;
+}
+.scene-node:is(.letter-grid, .letter-directory) table {
+  direction: rtl;
+}
+.scene-node:is(.letter-grid, .letter-directory) :is(th, td) {
+  padding: 0 1.2mm;
+  line-height: 1.05;
+}
+.scene-node.letter-grid tr:nth-child(even) {
+  background: #f0f0f0;
+}
+.scene-node.letter-grid th {
+  background: #ededed;
+  text-align: center;
+  font-weight: 700;
+}
+.scene-node.letter-grid td {
+  text-align: center;
+}
+.scene-node.letter-directory td:first-child {
+  background: #e8e8e8;
+  font-weight: 700;
+}
+.scene-node.letter-directory td:last-child {
+  direction: ltr;
+}
+.scene-node.vehicle-cell .node-content {
+  display: grid;
+  align-content: center;
+}
+#feedbackDialog {
+  width: min(420px, 92vw);
+  border-radius: 14px;
+  padding: 22px;
+}
+#feedbackDialog p {
+  white-space: pre-line;
+  line-height: 1.7;
+  margin: 14px 0 20px;
+}
+#requiredChoices {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 7px;
+}
+#requiredChoices label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+#requiredChoices input {
+  width: auto;
+}
+.drag-marquee {
+  position: absolute;
+  pointer-events: none;
+  border: 1px solid #218bd0;
+  background: #298dd028;
+  z-index: 10000;
+}

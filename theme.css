@@ -1,0 +1,323 @@
+/* Application chrome only. Contract pages keep their approved colors and styles. */
+@media screen {
+  :root {
+    --ui-secondary: #516683;
+    --ui-zone: #b2c7e5;
+    --ui-subtle: color-mix(in srgb, var(--ui-canvas) 82%, var(--ui-zone));
+    --ui-border: color-mix(in srgb, var(--ui-ink) 37%, var(--ui-surface));
+    --ui-muted: color-mix(in srgb, var(--ui-secondary) 66%, var(--ui-ink));
+    --ui-field: color-mix(in srgb, var(--ui-surface) 89%, var(--ui-canvas));
+    --ui-field-ink: var(--ui-ink);
+    --ui-entry-tab: color-mix(in srgb, var(--ui-zone) 27%, var(--ui-surface));
+    --ui-focus: color-mix(in srgb, var(--ui-accent) 54%, var(--ui-ink));
+    --ui-hover: color-mix(in srgb, var(--ui-zone) 35%, var(--ui-surface));
+    --ui-bakheet: #0f528c;
+    --ui-imad: #94283a;
+    --ui-danger: #962c42;
+    --ui-danger-wash: color-mix(in srgb, var(--ui-danger) 11%, var(--ui-surface));
+    --ui-shadow: 0 8px 28px rgb(0 0 0 / 18%);
+  }
+
+  :root[data-theme="dark"] {
+    --ui-bakheet: #a9d8ff;
+    --ui-imad: #ffabb8;
+    --ui-danger: #ffb5c1;
+    --ui-shadow: 0 8px 28px rgb(0 0 0 / 34%);
+  }
+
+  [data-palette] :is(body, body.home-mode) {
+    --archive-surface: var(--ui-surface);
+    --archive-line: var(--ui-border);
+    --archive-ink: var(--ui-ink);
+    --archive-muted: var(--ui-muted);
+    --archive-accent: var(--ui-focus);
+    --archive-wash: var(--ui-subtle);
+    --entry-bg: var(--ui-subtle);
+    --field-bg: var(--ui-field);
+    background: var(--ui-canvas);
+    color: var(--ui-ink);
+  }
+
+  [data-palette] body :is(#toolbar, #settingsDrawer, #settingsTabs, #settingsDrawer > header,
+    #editorPanel, #workbench, .fill-layout-panel, #tokenSuggestions, #shapePicker, .app-menu,
+    .preview-controls, #archiveFilters, #boxColorPalette, #archiveViewer, dialog) {
+    background: var(--ui-surface);
+    color: var(--ui-ink);
+    border-color: var(--ui-border);
+  }
+
+  [data-palette] body :is(#fillPanel, #pageRail, #homeScreen, .archive-columns > section) {
+    background: var(--ui-subtle);
+    color: var(--ui-ink);
+    border-color: var(--ui-border);
+  }
+
+  [data-palette] body #pageRail {background: var(--ui-subtle) !important}
+
+  [data-palette] #canvas {
+    background: var(--ui-canvas);
+    border-color: var(--ui-border);
+  }
+
+  body:not(.design-mode) #pages > .paper {content-visibility: auto}
+
+  :is(.app-ui, .fill-layout-panel, #archiveViewer)
+    :is(input:not([type="checkbox"], [type="radio"], [type="range"], [type="color"]), select, textarea):not(.paper *) {
+    background: var(--ui-field);
+    color: var(--ui-field-ink);
+    border-color: var(--ui-border);
+    border-radius: var(--ui-radius);
+  }
+
+  [data-palette] #fillPanel :is(#cards,#bookFields) :is(input, select, textarea) {
+    color-scheme: light;
+  }
+
+  [data-palette] :is(.app-ui, .fill-layout-panel) :is(input,textarea):not(.paper *)::placeholder {
+    color: var(--ui-muted);
+    opacity: 1;
+  }
+
+  [data-palette] :is(.app-ui, .fill-layout-panel) :is(input,textarea):not(.paper *):-webkit-autofill {
+    -webkit-text-fill-color: var(--ui-field-ink);
+    box-shadow: inset 0 0 0 100px var(--ui-field);
+  }
+
+  [data-palette] :is(.app-ui, .fill-layout-panel) select :is(option, optgroup) {
+    background: var(--ui-field);
+    color: var(--ui-field-ink);
+  }
+
+  [data-palette] .app-ui :is(#settingsCompany,#letterCompany)
+    :is(option[value="bakheet"], option[value="imad"]) {
+    color: var(--ui-company-ink, var(--ui-field-ink));
+  }
+
+  [data-palette] .app-ui :is(#settingsCompany,#letterCompany):has(option[value="bakheet"]:checked),
+  [data-palette] .app-ui :is(#settingsCompany,#letterCompany) option[value="bakheet"] {
+    --ui-company-ink: var(--ui-bakheet);
+  }
+
+  [data-palette] .app-ui :is(#settingsCompany,#letterCompany):has(option[value="imad"]:checked),
+  [data-palette] .app-ui :is(#settingsCompany,#letterCompany) option[value="imad"] {
+    --ui-company-ink: var(--ui-imad);
+  }
+
+  [data-palette] :is(#settingsDrawer,dialog)
+    :is(#settingsCompany,#letterCompany):has(:is(option[value="bakheet"],option[value="imad"]):checked) {
+    background: color-mix(in srgb, var(--ui-company-ink) 8%, var(--ui-field)) !important;
+    color: var(--ui-company-ink) !important;
+  }
+
+  [data-palette] #fillPanel :is(#cards,#bookFields) :is(input,textarea)::placeholder {color: #526174}
+
+  [data-palette] #fillPanel :is(#cards,#bookFields) :is(input,textarea):-webkit-autofill {
+    -webkit-text-fill-color: var(--fill-field-ink);
+    box-shadow: inset 0 0 0 100px var(--fill-field-bg);
+  }
+
+  [data-palette] #fillPanel select :is(option,optgroup) {
+    background: var(--fill-field-bg);
+    color: var(--fill-field-ink);
+  }
+
+  #fillPanel :is(#companySelect,#bookCompany):has(option[value="bakheet"]:checked) {--fill-field-bg: #ebf5ff}
+  #fillPanel :is(#companySelect,#bookCompany):has(option[value="imad"]:checked) {--fill-field-bg: #fff1f2}
+
+  [data-palette] :is(.app-ui, .fill-layout-panel) button:not(.palette-swatch, .paper *) {
+    border-radius: var(--ui-radius);
+  }
+
+  [data-palette] .app-ui button:hover:not(:disabled,.palette-swatch,.paper *) {
+    background: var(--ui-hover);
+    color: var(--ui-ink);
+    border-color: var(--ui-focus);
+  }
+
+  .app-ui :is(button,input,select,textarea,a,summary):not(.paper *):focus-visible {
+    outline: 2px solid var(--ui-focus);
+    outline-offset: 2px;
+  }
+
+  [data-palette] :is(#toolbar #printShortcut, #fillPrint, #viewEdit, #loadContract, #exportShortcut, .upload-signed),
+  [data-palette] .app-ui button:is(.primary, .active, [aria-selected="true"], [aria-pressed="true"]):not(.paper *, .palette-swatch),
+  [data-palette] .app-ui .page-item.active button {
+    background: var(--ui-accent) !important;
+    border-color: var(--ui-accent) !important;
+    color: var(--ui-accent-ink) !important;
+  }
+
+  [data-palette] #pageRail .page-item.active button small {color: inherit}
+  [data-palette] #pageRail .page-thumb {
+    background: var(--ui-field);
+    border-color: var(--ui-border);
+    color: var(--ui-muted);
+  }
+
+  [data-palette] #editorPanel :is([data-format], [data-align], .nine-align button):is(.active,[aria-pressed="true"]) {
+    box-shadow: inset 0 0 0 1px var(--ui-focus) !important;
+  }
+
+  [data-palette] #editorPanel :is([data-format], [data-align]) .ui-icon,
+  [data-palette] #editorPanel :is([data-format], [data-align]):is(.active,[aria-pressed="true"]) svg {
+    color: inherit !important;
+  }
+
+  [data-palette] :is(.app-ui, .fill-layout-panel) button.danger,
+  [data-palette] #workbench .work-actions button:last-child,
+  [data-palette] #fillPanel .payment-with-remove .remove-payment {
+    color: var(--ui-danger);
+    background: var(--ui-danger-wash);
+    border-color: var(--ui-border);
+  }
+
+  [data-palette] :is(#workbench > button, .work-tile, .layer-item, .fill-layout-panel section,
+    .image-library-card, .formula-row, #settingsContent .section, .preference-group) {
+    background: var(--ui-surface);
+    border-color: var(--ui-border);
+    color: var(--ui-ink);
+  }
+
+  [data-palette] :is(.work-tile.active, .layer-item.active, #carChoices button.active) {
+    background: var(--ui-hover);
+    color: var(--ui-ink);
+    outline-color: var(--ui-focus);
+  }
+
+  [data-palette] #workbench .work-tile button:not(:hover,:focus-visible) {background: transparent}
+  [data-palette] :is(#tokenSuggestions, .preview-controls, .fill-layout-panel, dialog.app-ui) {box-shadow: var(--ui-shadow)}
+  [data-palette] :is(.app-ui .mini, .app-ui .hint, .app-ui .archive-empty, .app-ui .muted, #formulaMessage) {color: var(--ui-muted)}
+  [data-palette] :is(#settingsContent, #editorPanel, .studio-dialog, .fill-layout-panel) section {border-color: var(--ui-border)}
+
+  [data-palette] #cards > .card {
+    --theme-section: color-mix(in srgb, var(--section-border, var(--ui-zone)) 42%, var(--ui-field));
+    --card-surface: var(--ui-surface);
+    --field-bg: var(--ui-field);
+    background-color: var(--ui-surface);
+    border-color: var(--theme-section);
+  }
+
+  [data-palette] #fillPanel #cards > .card:has(> .card-heading) {
+    background-image: linear-gradient(to left, var(--theme-section) var(--heading-width), transparent var(--heading-width));
+  }
+
+  [data-palette] #fillPanel #cards > .card > .card-heading {
+    border-color: var(--theme-section);
+    color: var(--ui-ink);
+  }
+
+  [data-palette] #fillPanel #cards.exchange-form > :is(#oldVehiclePanel, #carCard) {
+    border-color: var(--theme-section);
+  }
+
+  [data-palette] #fillPanel .entry-frame path:not(.entry-tab-fill) {
+    stroke: var(--entry-stroke, var(--entry-custom-edge, var(--ui-border)));
+  }
+
+  [data-palette] #fillPanel label.entry-field .entry-tab-fill {
+    fill: var(--entry-stroke, var(--entry-custom-edge, var(--entry-edge)));
+  }
+
+  [data-palette] #fillPanel label.entry-field:focus-within .entry-tab-fill {
+    fill: var(--ui-accent);
+  }
+
+  [data-palette] #fillPanel label.entry-field:has(.missing-value) {
+    --entry-stroke: #c74750;
+  }
+
+  [data-palette] #fillPanel label.entry-field:focus-within {
+    --entry-stroke: var(--ui-focus);
+  }
+
+  [data-palette] #fillPanel .fill-size-grip {
+    background: var(--ui-accent);
+    border-color: var(--ui-accent-ink);
+  }
+
+  .appearance-dialog {width: min(34rem, 94vw)}
+  .ui-settings-grid {display: grid; gap: 16px; margin-block: 8px 12px}
+  .theme-picker {
+    min-inline-size: 0;
+    padding: 0;
+    margin: 0;
+    border: 0;
+  }
+  .theme-picker legend {padding: 0 0 6px}
+  .theme-tiles {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    max-inline-size: 420px;
+    gap: 6px;
+  }
+  .theme-tile {
+    display: block;
+    position: relative;
+    min-width: 0;
+    padding: 3px;
+    border: 2px solid transparent;
+    border-radius: 12px;
+    cursor: pointer;
+  }
+  .theme-tile:hover {border-color: var(--ui-border)}
+  .theme-tile:has(:checked) {border-color: var(--ui-focus)}
+  .theme-tile:focus-within:has(:focus-visible) {
+    outline: 2px dashed var(--ui-focus);
+    outline-offset: 1px;
+  }
+  .theme-tile input {
+    position: absolute;
+    inline-size: 1px;
+    block-size: 1px;
+    opacity: 0;
+    clip-path: inset(50%);
+  }
+  .theme-tile-face {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    justify-content: space-between;
+    aspect-ratio: 1;
+    box-sizing: border-box;
+    padding: 5px;
+    overflow: hidden;
+    border: 1px solid color-mix(in srgb, var(--tile-ink) 30%, transparent);
+    border-radius: 8px;
+    color: var(--tile-ink);
+    background: linear-gradient(145deg, var(--tile-key), var(--tile-zone), var(--tile-background));
+  }
+  .app-ui .theme-tile-face [lang="en"] {
+    max-inline-size: 100%;
+    box-sizing: border-box;
+    padding: 2px 5px;
+    border-radius: 4px;
+    overflow-wrap: anywhere;
+    font: 600 clamp(9px, 1.1vw, 12px) / 1.2 system-ui, sans-serif !important;
+    color: var(--tile-ink);
+    background: var(--tile-key);
+  }
+  .theme-tile input:checked + .theme-tile-face::after {
+    content: "✓";
+    align-self: flex-end;
+    display: grid;
+    place-items: center;
+    width: 19px;
+    height: 19px;
+    border-radius: 50%;
+    font: 600 12px / 1 system-ui, sans-serif;
+    background: var(--tile-ink);
+    color: var(--tile-key);
+  }
+  .theme-font-size {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    align-items: center;
+    padding: 5px 8px;
+    border: 1px solid var(--ui-border);
+    border-radius: var(--ui-radius);
+    background: var(--ui-subtle);
+  }
+  .theme-font-size input {grid-column: 1 / -1; width: 100%; margin: 0}
+  .theme-font-size output {direction: ltr; font-variant-numeric: tabular-nums}
+}

@@ -1,0 +1,107 @@
+.has-workbench {
+  padding-left: 178px !important;
+}
+#workbench {
+  position: fixed;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 166px;
+  padding: 6px;
+  background: #243746;
+  color: white;
+  z-index: 1500;
+  overflow: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+#workbench > b {
+  padding: 14px;
+  font-size: 20px;
+}
+#workbench > button {
+  min-height: 62px;
+  background: #e4ecf2;
+  color: #203448;
+  border: 0;
+  border-radius: 7px;
+}
+.work-tile {
+  display: flex;
+  background: #344f63;
+  border-radius: 6px;
+  margin: 7px 0;
+}
+.work-tile.active {
+  outline: 2px solid #66b8ed;
+}
+.work-tile button {
+  background: none;
+  color: white;
+  border: 0;
+  white-space: pre-line;
+  padding: 10px;
+}
+.work-tile button:first-child {
+  flex: 1;
+}
+#archiveKinds {
+  display: flex;
+  gap: 8px;
+  margin: 10px;
+}
+#archiveKinds .active {
+  background: #234863;
+  color: white;
+}
+.letter-picker {
+  width: 460px;
+  max-height: 80vh;
+  overflow: auto;
+  border: 0;
+  border-radius: 12px;
+  padding: 20px;
+}
+.letter-options,
+.letter-pending {
+  display: grid;
+  gap: 8px;
+}
+.letter-options button {
+  min-height: 50px;
+}
+.book-work #cards {
+  display: none !important;
+}
+#bookFields {
+  padding: 14px;
+  overflow: auto;
+  max-height: calc(100vh - 90px);
+}
+#bookFields label {
+  display: grid;
+  grid-template-columns: 110px 1fr;
+  gap: 8px;
+  align-items: center;
+  margin: 8px 0;
+}
+#bookFields input,
+#bookFields select,
+#bookFields textarea {
+  min-width: 0;
+  padding: 6px;
+}
+@media print {
+  body.has-workbench {
+    padding-left: 0 !important;
+  }
+  #workbench,
+  #bookFields {
+    display: none !important;
+  }
+}
+
+.book-work #archiveContractType {
+  pointer-events: none;
+}

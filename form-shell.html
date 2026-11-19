@@ -1,0 +1,91 @@
+<div class="cards" id="cards">
+  <section class="card external-party" id="externalSellerCard" data-fill-section="externalSeller" hidden>
+    <div class="card-heading"><h2>البائع</h2></div>
+    <div class="grid external-party-fields" id="externalSellerFields"></div>
+  </section>
+  <section class="card external-party" id="externalBuyerCard" data-fill-section="externalBuyer" hidden>
+    <div class="card-heading"><h2>المشتري</h2></div>
+    <div class="grid external-party-fields" id="externalBuyerFields"></div>
+  </section>
+  <section class="card external-party" id="externalOtherCard" data-fill-section="externalKeys" hidden>
+    <div class="card-heading"><h2>تفاصيل التنازل</h2></div>
+    <div class="grid external-party-fields" id="externalOtherFields"></div>
+  </section>
+  <section class="card" id="buyerCard">
+    <div class="card-heading"><h2>الزبون</h2></div>
+    <div class="grid three" data-build="" id="buyerInputs"></div>
+  </section>
+  <section class="card" id="guarantorCard">
+    <div class="card-heading"><h2>الكفيل</h2></div>
+    <div class="grid" data-build="" id="guarantorInputs"></div>
+  </section>
+  <section class="card" id="oldVehiclePanel" hidden>
+    <div class="card-heading"><h2>السيارة القديمة</h2></div>
+    <div class="grid" data-build id="oldVehicleInputs"></div>
+  </section>
+  <section class="card" id="carCard">
+    <div class="card-heading">
+      <h2 id="vehicleHeading">المركبة</h2>
+      <label class="vehicle-company"
+        >الشركة<select id="companySelect" data-build></select
+      ></label>
+    </div>
+    <div class="grid" data-build id="carInputs"></div>
+    <div id="carChoices" popover="manual" role="listbox" data-build></div>
+    <p class="mini">
+      اكتب رقم السيارة ثم Tab، أو اخترها من القائمة، أو اكتب اسمها. التصنيف
+      التلقائي يحدد صورة الصفحة الثانية.
+    </p>
+    <div class="grid" data-build="" id="noteInputs"></div>
+  </section>
+  <section class="card payments" id="paymentCard">
+    <div class="card-heading">
+      <h2>الدفع</h2>
+      <button id="fillPrint" type="button">طباعة العقد</button>
+    </div>
+    <div class="payment-overview">
+      <div class="grid three" data-build="" id="paymentInputs"></div>
+      <div id="paymentActions">
+        <button type="button" id="addPaymentSlot">إضافة دفعة</button>
+      </div>
+    </div>
+    <section id="cashFields" hidden>
+      <div class="grid">
+        <label
+          ><span>الواصل</span
+          ><input
+            id="cashReceived"
+            inputmode="numeric"
+            aria-label="المبلغ الواصل"
+        /></label>
+        <label id="cashSingleDate"
+          ><span>تاريخ السداد</span><input id="cashDueDate" type="date"
+        /></label>
+        <label id="cashSplitLabel"
+          ><input id="cashSplit" type="checkbox" />توزيع المتبقي على
+          دفعات</label
+        >
+      </div>
+    </section>
+    <label class="check" id="cashTransferOption" hidden>
+      <input id="cashTransferLetter" type="checkbox" />طباعة نقل ملكية
+    </label>
+    <label class="check" id="payAtTransferOption" hidden>
+      <input id="payAtTransfer" type="checkbox" />يسدّد عند التحويل؟
+    </label>
+    <div id="transferNoteField" class="transfer-entry" hidden>
+      <output id="transferAutomaticNote" hidden></output>
+      <label
+        ><span title="ملاحظة نقل الملكية">ملاحظة ن. م.</span
+        ><input id="cashTransferNote" maxlength="160"
+      /></label>
+    </div>
+    <div class="notice" id="validation"></div>
+    <div class="payment-schedule-fields">
+      <div class="grid" data-build id="installmentInputs"></div>
+      <div id="cashPaymentRows" data-build hidden></div>
+      <div class="extras-editor" data-build id="extraEditors"></div>
+      <div class="grid" data-build="" id="financialNotes"></div>
+    </div>
+  </section>
+</div>
