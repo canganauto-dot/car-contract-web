@@ -463,7 +463,7 @@ class ContractEditor {
       if (shortText && shortText.split(/\s+/u).length <= 2 && !content.querySelector("br,table")) {
         content.classList.add("short-text-line");
         const measure = this.textMeasure ||= document.createElement("canvas").getContext("2d");
-        measure.font = [el.style.fontStyle || "normal", el.style.fontWeight || "400", el.style.fontSize, '"Contract Naskh"'].join(" ");
+        measure.font = [el.style.fontStyle || "normal", el.style.fontWeight || "400", el.style.fontSize, '"Amiri"'].join(" ");
         const width = measure.measureText(shortText.replace(/\s+/gu, " ")).width;
         const available = n.w * MM - 2 * (parseFloat(el.style.borderWidth) || 0);
         if (available > 0 && width > available) {
@@ -531,7 +531,7 @@ class ContractEditor {
       height: n.h + "mm",
       zIndex: String(n.z || 0),
       opacity: String(n.type === "text" ? 1 : (n.opacity ?? 1)),
-      fontFamily: n.fontFamily || "Sakkal Majalla",
+      fontFamily: "Amiri",
       fontSize: (n.fontSize || 17) + "px",
       lineHeight: String(n.lineHeight || 1.2),
       fontWeight: n.weight || "400",
@@ -815,7 +815,7 @@ class ContractEditor {
     );
     if (!single && textNode) {
       $("textPanel").hidden = false;
-      $("fontFamily").value = textNode.fontFamily || "Sakkal Majalla";
+      $("fontFamily").value = "Amiri";
       $("fontSize").value = textNode.fontSize || 18;
       $("fontColor").value = this.hex(textNode.color || "#172c35");
       $("lineHeight").value = textNode.lineHeight || 1.2;
@@ -865,7 +865,7 @@ class ContractEditor {
     $("aspectLock").checked = single ? !!n.lockAspect : false;
     $("noFill").checked = !n.fill || n.fill === "transparent";
     if (single) {
-      $("fontFamily").value = n.fontFamily || "Sakkal Majalla";
+      $("fontFamily").value = "Amiri";
       $("fontSize").value = n.fontSize || 18;
       $("fontColor").value = this.hex(n.color || "#172c35");
       $("lineHeight").value = n.lineHeight || 1.2;
@@ -1419,7 +1419,7 @@ class ContractEditor {
       z,
       opacity: 1,
       fontSize: 20,
-      fontFamily: "Sakkal Majalla",
+      fontFamily: "Amiri",
       lineHeight: 1.2,
       color: "#213b47",
       align: "right",

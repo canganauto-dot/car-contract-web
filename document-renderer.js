@@ -1,6 +1,6 @@
 /* Editor schema 6. One scene, one pointer state machine, one renderer.
    All geometry is stored in millimetres. Legacy settings are read only by migration. */
-const CONTRACT_FONT = "Sakkal Majalla";
+const CONTRACT_FONT = "Amiri";
 const MM = 96 / 25.4,
   PAGE_NAMES = [
     "العقد",
@@ -274,7 +274,7 @@ function migrateLegacy(config) {
         opacity: 1,
         condition: el.closest("[data-condition]")?.dataset.condition || "",
         nowrap: cs.whiteSpace === "nowrap",
-        fontFamily: "Sakkal Majalla",
+        fontFamily: "Amiri",
         fontSize: parseFloat(cs.fontSize),
         lineHeight:
           (parseFloat(cs.lineHeight) || parseFloat(cs.fontSize) * 1.4) /
@@ -433,7 +433,7 @@ function migrateLegacy(config) {
         fit: "contain",
         caption: o.caption || "",
         fontSize: o.captionSize || 18,
-        fontFamily: "Sakkal Majalla",
+        fontFamily: "Amiri",
         color: "#163f4b",
         lineHeight: 1.2,
         lockAspect: o.type === "image",

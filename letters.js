@@ -87,7 +87,7 @@ const Letters = {
         w: 170,
         h,
         fontSize: size,
-        fontFamily: "Sakkal Majalla",
+        fontFamily: "Amiri",
         align: "center",
         color: "#203e55",
         lineHeight: 1.3,

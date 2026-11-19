@@ -227,7 +227,7 @@ const Cash = {
       type: "text",
       fontSize: 15,
       lineHeight: 14 / 15,
-      fontFamily: "Sakkal Majalla",
+      fontFamily: "Amiri",
       align: "justify",
       z: 10,
     };

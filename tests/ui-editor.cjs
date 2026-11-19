@@ -209,12 +209,12 @@ fs.mkdirSync(output, { recursive: true });
               previousY = y;
             }
             return {lines, family:getComputedStyle(sample).fontFamily,
-              loaded:[...document.fonts].some(f => f.family.includes("Contract Naskh") && f.status === "loaded"),
+              loaded:[...document.fonts].some(f => f.family.includes("Amiri") && f.status === "loaded"),
               embedded:WebResources.styles().includes("data:font/ttf;base64,")};
           } finally { sample.remove(); }
         });
         const layout = await typography(page);
-        assert(layout.loaded && layout.embedded && layout.family.includes("Contract Naskh"));
+        assert(layout.loaded && layout.embedded && layout.family.includes("Amiri"));
         assert(layout.lines.length > 1);
         assert.deepEqual(await typography(offline), layout);
         const book = p => p.evaluate(async () => {

@@ -54,13 +54,12 @@ def build(output):
         shell = shell.replace(marker_text, content)
     files = {'index.html': shell.encode('utf-8'),
              'assets/css/theme.css': read('theme.css').encode('utf-8')}
-    font = base64.b64encode((SOURCE / 'vendor/NotoNaskhArabic.ttf').read_bytes()).decode('ascii')
-    license_text = read('vendor/NotoNaskhArabic-OFL.txt')
-    files['assets/css/contract-font.css'] = (
-        f'/*{license_text}*/\n@font-face{{font-family:"Contract Naskh";'
-        f'src:url(data:font/ttf;base64,{font}) format("truetype");'
-        'font-weight:400 700;size-adjust:80%;font-display:block;}'
-    ).encode('utf-8')
+    rules = ["/*" + read("vendor/Amiri-OFL.txt") + "*/"]
+    for face, weight, style in [('Regular',400,'normal'), ('Bold',700,'normal'), ('Italic',400,'italic'), ('BoldItalic',700,'italic')]:
+        data = base64.b64encode((SOURCE / 'vendor' / f'Amiri-{face}.ttf').read_bytes()).decode('ascii')
+        rules.append(f'@font-face{{font-family:"Amiri";font-weight:{weight};font-style:{style};'
+                     f'src:url(data:font/ttf;base64,{data}) format("truetype");font-display:block;}}')
+    files['assets/css/contract-font.css'] = '\n'.join(rules).encode('utf-8')
     files['assets/js/seed.js'] = ('const ContractSeed=' + json.dumps(seed, ensure_ascii=False,separators=(",",":"))
                                + ';\nconst ContractAssets=' + json.dumps(assets, ensure_ascii=False) + ';').encode('utf-8')
     for name in ['contract-math.js'] + SCRIPTS:

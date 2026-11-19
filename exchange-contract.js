@@ -17,7 +17,7 @@ const Exchange = {
         w,
         h,
         z: 10,
-        fontFamily: "Sakkal Majalla",
+        fontFamily: "Amiri",
         fontSize: 17,
         lineHeight: 1.05,
         color: ink,

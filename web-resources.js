@@ -27,7 +27,7 @@ const WebResources = {
   },
   async loadDocumentFont(doc = document) {
     for (const weight of [400, 700]) {
-      const faces = await doc.fonts.load(weight + ' 20px "Contract Naskh"', "العقد 0123456789 ABC");
+      const faces = await doc.fonts.load(weight + ' 20px "Amiri"', "العقد 0123456789 ABC");
       if (!faces.length) throw Error("تعذّر تحميل خط العقد. أعد فتح النسخة.");
     }
   },
