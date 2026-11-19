@@ -63,7 +63,6 @@ const { chromium } = require("playwright"),
       path: "development/work/legacy-results/workflow-fill.png",
     });
     await p.evaluate(() => {
-      Services.library.entries = [];
       Services.beforePrint();
     });
     await p.evaluate(() => Services.confirmPrint());

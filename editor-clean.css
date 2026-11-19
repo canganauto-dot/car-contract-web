@@ -854,3 +854,18 @@ body.design-mode .fill-tools {
   white-space: nowrap !important;
   overflow-wrap: normal !important;
 }
+
+.exchange-clause-flow {
+  position: absolute;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+.exchange-clause-flow > .scene-node {
+  position: relative;
+  inset: auto !important;
+  height: auto !important;
+}
+.exchange-clause-flow > .scene-node > .node-content {
+  height: auto;
+}

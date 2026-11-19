@@ -143,12 +143,19 @@ const FieldStudio = {
     this.button($("fieldActions"),"خانات الملء والمتغيرات",()=>this.open());
     const b=this.button($("draftCount").parentElement,"",async()=>{
       if(Archive.busy)return;
-      const ids=new Set(Archive.selectedRows().filter(e=>e.kind==="draft").map(e=>e.id));
-      if(!ids.size || !await Feedback.ask("حذف المعلّقات المحددة ("+ids.size+")؟"))return;
-      await Services.flush();
-      if(ids.has("draft:"+d.recordId)){d=fresh();await putDB("draft",clone(d));}
-      Services.library.entries=Services.library.entries.filter(e=>e.kind!=="draft" || !ids.has(e.id));
-      await Services.persistLibrary();Archive.refresh();Workbench.paint();
+      const entries=Archive.selectedRows().filter(e=>e.kind==="draft" && !Archive.issued(e));
+      if(!entries.length || !await Feedback.ask("حذف المعلّقات المحددة ("+entries.length+")؟"))return;
+      try {
+        await Services.flush();
+        const next = entries.some(e => e.id === "draft:" + d.recordId) ? fresh() : undefined;
+        const ids = new Set(entries.map(e => e.id));
+        const selected = Services.library.entries.filter(e => e.kind === "draft" && ids.has(e.id));
+        await Services.persistLibrary(selected.map(e => [e.id, e, undefined]), null);
+        if (next) d = next;
+        Archive.refresh();Workbench.paint();
+      } catch (error) {
+        await Feedback.notice(error.message);
+      }
     });
     b.id="deletePickedDrafts";b.className="danger";b.title="حذف المعلّقات المحددة";
     b.setAttribute("aria-label",b.title);b.innerHTML=Archive.icon("trash");

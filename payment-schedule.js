@@ -129,7 +129,7 @@ const Schedule = {
     for (const n of page.nodes) {
       if (!/^schedule-col-/.test(n.id) || n.paymentCheck) continue;
       const div = document.createElement("div");
-      div.innerHTML = n.html;
+      div.innerHTML = safeMarkup(n.html, true);
       for (const row of div.querySelectorAll("tr")) {
         const head = !!row.querySelector("th"),
           cell = document.createElement(head ? "th" : "td");

@@ -566,26 +566,39 @@ class ContractServices {
     if (!data.recordId) data.recordId = "contract-" + crypto.randomUUID();
     this.pendingData = clone(data);
     clearTimeout(this.timer);
-    this.timer = setTimeout(() => this.flush(), 450);
+    this.timer = setTimeout(() => this.flush().catch(() => {}), 450);
   }
-  persistLibrary() {
-    this.library.updatedAt = Date.now();
-    // Entry documents are immutable after insertion. Copy the mutable entry
-    // wrappers and let IndexedDB serialize the snapshot once, without JSON.
-    const snapshot = {
-      ...this.library,
-      entries: this.library.entries.map(entry => ({ ...entry })),
-    };
-    this.queue = this.queue
-      .catch(() => {})
-      .then(() => putDB("contractArchive", snapshot))
-      .catch(() => {
-        $("saveStatus").textContent = "تعذر حفظ الأرشيف؛ احفظ نسخة البرنامج";
-      });
-    return this.queue;
+  persistLibrary(changes, draft) {
+    const edits = changes.filter(([, previous, replacement]) => previous !== replacement);
+    const replacements = new Map(edits.map(([id, , replacement]) => [id, replacement]));
+    const additions = edits.filter(([, previous, entry]) => !previous && entry).map(([, , entry]) => entry);
+    const apply = entries => additions.concat(
+      entries.map(entry => replacements.has(entry.id) ? replacements.get(entry.id) : entry).filter(Boolean),
+    );
+    this.savingArchive = (this.savingArchive || 0) + 1;
+    const save = this.queue.then(async () => {
+      await updateArchive(stored => {
+        const archive = stored || { version: 1, entries: [], configs: {} };
+        const entries = archive.entries;
+        for (const [id, previous] of changes) {
+          if (JSON.stringify(entries.find(entry => entry.id === id)) !== JSON.stringify(previous))
+            throw Error("تغيّر العقد في نافذة أخرى؛ صدّر تعديلاتك وأعد فتح العقد.");
+        }
+        if (edits.length)
+          return { ...archive, entries: apply(entries), updatedAt: Date.now() };
+      }, draft ?? undefined, draft === null ? edits.map(([id]) => id) : []);
+      if (edits.length) this.library.entries = apply(this.library.entries);
+    }).catch(error => {
+      $("saveStatus").textContent = error.message;
+      throw error;
+    }).finally(() => { this.savingArchive--; });
+    // A failed operation rejects its caller, but does not block later operations.
+    this.queue = save.catch(() => {});
+    return save;
   }
   async flush() {
     clearTimeout(this.timer);
+    await this.queue;
     if (this.pendingData) {
       const data = this.pendingData;
       this.pendingData = null;
@@ -593,28 +606,32 @@ class ContractServices {
         (e) => e.kind === "printed" && e.data.recordId === data.recordId,
       );
       const id = "draft:" + data.recordId;
-      const at = this.library.entries.findIndex(e => e.id === id);
+      const previous = this.library.entries.find(e => e.id === id);
       const fingerprint = this.fingerprint(data);
-      if (printed && this.fingerprint(printed.data) === fingerprint) {
-        if (at >= 0) {
-          this.library.entries.splice(at, 1);
-          await this.persistLibrary();
-        }
-      } else if (at < 0 || this.fingerprint(this.library.entries[at].data) !== fingerprint) {
-        const entry = { id, kind: "draft", data, updatedAt: Date.now(), note: "" };
-        if (at >= 0) this.library.entries[at] = entry;
-        else this.library.entries.unshift(entry);
-        await this.persistLibrary();
+      const replacement = printed && this.fingerprint(printed.data) === fingerprint
+        ? undefined
+        : previous && this.fingerprint(previous.data) === fingerprint
+          ? previous
+          : { id, kind: "draft", data, updatedAt: Date.now(), note: "" };
+      try {
+        await this.persistLibrary([[id, previous, replacement]], data);
+        if (!this.pendingData) $("saveStatus").textContent = "المسودة محفوظة";
+      } catch (error) {
+        this.pendingData ??= data;
+        throw error;
       }
     }
-    await this.queue;
     if (Workbench.ready) Workbench.paint();
   }
   async showHome() {
     if (App.mode === "design") App.leave();
     App.commitText();
     this.saveCurrent(d);
-    await this.flush();
+    try {
+      await this.flush();
+    } catch (error) {
+      if (startReady) return Feedback.notice(error.message);
+    }
     this.home = true;
     document.body.classList.add("home-mode");
     $("homeScreen").hidden = false;
@@ -638,6 +655,7 @@ class ContractServices {
     buildInputs();
     render();
     saveDraft();
+    await this.flush();
     $("buyer").focus({ preventScroll: true });
   }
   async openEntry(entry) {
@@ -653,14 +671,28 @@ class ContractServices {
     buildInputs();
     render();
     saveDraft();
+    await this.flush();
   }
   archivePanel() {
     Archive.refresh();
   }
-  beforePrint() {
+  beforePrint(deferCapture = false) {
     if (this.home || !d.number) return;
     this.refreshPrintClock();
-    if (!seed.offline) this.printCandidate = { data: SmartTables.snapshot(d) };
+    if (seed.offline) return;
+    this.printCandidate = { data: SmartTables.snapshot(d) };
+    if (!deferCapture) {
+      App.render();
+      const selected = [...$("pages").children].filter(p => Schedule.enabled(Number(p.dataset.page)));
+      this.capturePrint(PrintPlan.arrange(selected, d));
+    }
+  }
+  capturePrint(papers) {
+    const candidate = this.printCandidate;
+    if (!candidate) return;
+    candidate.papers = [...papers].map(paper => paper.cloneNode(true));
+    candidate.config = clone({ ...cfg, design: App.scene, printSides: PrintPlan.mode() });
+    candidate.styles = WebResources.styles();
   }
   afterPrint() {
     if (seed.offline) { this.printCandidate = null; return; }
@@ -687,36 +719,34 @@ class ContractServices {
     return true;
   }
   async confirmPrint() {
-    if (!this.printCandidate) return;
-    await this.flush();
     const candidate = this.printCandidate;
-    this.printCandidate = null;
+    if (!candidate) return;
+    await this.flush();
+    if (this.printCandidate !== candidate) return;
+    candidate.snapshot ??= await ArchiveOutput.snapshot(candidate);
+    if (this.printCandidate !== candidate) return;
     const key = candidate.data.recordId || "legacy-" + candidate.data.number;
-    candidate.data.recordId = key;
-    const previous = this.library.entries.find(
-      (e) => e.kind === "printed" && e.data.recordId === key,
-    );
-    this.library.entries = this.library.entries.filter(
-      (e) =>
-        !(e.kind === "printed" && e.data.recordId === key) &&
-        e.id !== "draft:" + key,
-    );
-    if (previous)
-      this.library.entries.unshift({
-        ...previous,
-        id: "revision:" + crypto.randomUUID(),
-        kind: "draft",
-        updatedAt: Date.now(),
+    const id = "printed:" + key;
+    const draftId = "draft:" + key;
+    const previous = this.library.entries.find(e => e.kind === "printed" && e.data.recordId === key);
+    const draft = this.library.entries.find(e => e.id === draftId);
+    const changes = [
+      [draftId, draft, undefined],
+      [id, previous?.id === id ? previous : undefined, {
+        id, kind: "printed", data: { ...candidate.data, recordId: key }, snapshot: candidate.snapshot,
+        updatedAt: Date.now(), note: "نسخة الطباعة الحالية",
+      }],
+    ];
+    if (previous) {
+      if (previous.id !== id) changes.push([previous.id, previous, undefined]);
+      const revisionId = "revision:" + crypto.randomUUID();
+      changes.push([revisionId, undefined, {
+        ...previous, id: revisionId, kind: "draft", updatedAt: Date.now(),
         note: "نسخة قبل إعادة الطباعة",
-      });
-    this.library.entries.unshift({
-      id: "printed:" + key,
-      kind: "printed",
-      data: candidate.data,
-      updatedAt: Date.now(),
-      note: "نسخة الطباعة الحالية",
-    });
-    await this.persistLibrary();
+      }]);
+    }
+    await this.persistLibrary(changes);
+    if (this.printCandidate === candidate) this.printCandidate = null;
     $("printResultDialog").close();
     $("saveStatus").textContent = "حُفظ العقد ضمن العقود المطبوعة";
     this.archivePanel();
@@ -835,15 +865,11 @@ class ContractServices {
   async init() {
     this.ensureSchemas();
     Images.scan();
-    const stored = await getDB("contractArchive");
-    this.library = stored || this.library;
-    if (!Array.isArray(this.library.entries))
-      this.library = { version: 1, entries: [], configs: {}, updatedAt: 0 };
     this.initialized = true;
     if (d.number) {
       if (!d.recordId) d.recordId = "legacy-" + d.number;
       this.saveCurrent(d);
-      await this.flush();
+      await this.flush().catch(() => {});
     }
     let fdetails = $("formulaDetails");
     if (!fdetails) {
@@ -922,7 +948,17 @@ class ContractServices {
     };
     $("addCompanyField").onclick = () => this.addCompanyField();
     $("addFormula").onclick = () => this.saveFormula();
-    $("confirmPrinted").onclick = () => this.confirmPrint();
+    $("confirmPrinted").onclick = async () => {
+      const button = $("confirmPrinted");
+      button.disabled = true;
+      try {
+        await this.confirmPrint();
+      } catch (error) {
+        await Feedback.notice(error.message);
+      } finally {
+        button.disabled = false;
+      }
+    };
     $("cancelPrinted").onclick = () => {
       this.printCandidate = null;
       $("printResultDialog").close();
@@ -989,7 +1025,10 @@ class ContractServices {
       },
       true,
     );
-    window.addEventListener("beforeunload", () => this.stopCamera());
+    window.addEventListener("beforeunload", event => {
+      this.stopCamera();
+      if (this.pendingData || this.savingArchive) event.preventDefault();
+    });
     Workspace.init();
     Images.init();
     this.decorateForm();

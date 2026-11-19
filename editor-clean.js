@@ -320,6 +320,10 @@ class ContractEditor {
     for (const page of displayPages) {
       if (!archived) EditorEnhancements.upgradePage(page);
       if (!archived && page.id >= 0) PaperLayout.apply(page);
+      if (!archived && page.id === 1 && !d.standaloneBook) {
+        if (External.active()) External.fitFontLayout(page);
+        if (d.contractType === "exchange") Exchange.fitFontLayout(page);
+      }
       if (!include(page.tableParent ?? page.id)) continue;
       ctx = baseCtx;
       if (page.id < 0) ctx = { ...baseCtx, ...Schedule.values(page) };
@@ -388,6 +392,9 @@ class ContractEditor {
           if (!show) element.style.opacity = ".3";
           paper.append(element);
         }
+      }
+      if (page.id === 1 && !design && !archived && d.contractType === "exchange" && !d.standaloneBook) {
+        Exchange.flowClauses(paper);
       }
       papers.append(paper);
     }
@@ -460,7 +467,7 @@ class ContractEditor {
       if (n.fitLetterNote && !n.manualFontSize) TransferLetter.fitNote(content, n);
 
       const shortText = content.textContent.trim();
-      if (shortText && shortText.split(/\s+/u).length <= 2 && !content.querySelector("br,table")) {
+      if (shortText && (n.fitSingleLine || shortText.split(/\s+/u).length <= 2) && !content.querySelector("br,table")) {
         content.classList.add("short-text-line");
         const measure = this.textMeasure ||= document.createElement("canvas").getContext("2d");
         measure.font = [el.style.fontStyle || "normal", el.style.fontWeight || "400", el.style.fontSize, '"Amiri"'].join(" ");
@@ -2086,7 +2093,7 @@ class ContractEditor {
       () => {
         if (document.activeElement?.closest("#fillPanel, #toolbar")) document.activeElement.blur();
         this.commitText();
-        Services.beforePrint();
+        Services.beforePrint(true);
         this.printing = true;
         this.render();
         PrintPlan.prepare();
@@ -2094,6 +2101,7 @@ class ContractEditor {
           p.style.display = "block";
           p.style.zoom = "1";
         });
+        Services.capturePrint($("pages").children);
       },
       { signal },
     );

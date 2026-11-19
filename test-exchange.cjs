@@ -1,3 +1,4 @@
+const overflowingText = require("./tests/layout-bounds.cjs");
 const { chromium } = require("playwright");
 const fs = require("node:fs"),
   path = require("node:path"),
@@ -73,18 +74,7 @@ const { pathToFileURL } = require("node:url");
         "development/work/legacy-results/exchange-preview.png",
       ),
     });
-    const overflow = await face.evaluate((p) =>
-      [...p.querySelectorAll(".node-content")].flatMap((content) => {
-        if (!content.textContent.trim()) return [];
-        const r = document.createRange();
-        r.selectNodeContents(content);
-        return r.getBoundingClientRect().bottom >
-          content.getBoundingClientRect().bottom + 4
-          ? [content.parentElement.dataset.node]
-          : [];
-      }),
-    );
-    assert.deepEqual(overflow, []);
+    assert.deepEqual(await overflowingText(face), []);
     assert.equal(
       await p
         .locator(
@@ -93,6 +83,13 @@ const { pathToFileURL } = require("node:url");
         .count(),
       0,
     );
+    assert(await face.evaluate(paper => {
+      const flow = paper.querySelector(".exchange-clause-flow");
+      const warranty = paper.querySelector('[data-node="exchange-warranty"]');
+      const clauses = [...(flow?.children || [])];
+      return clauses.length >= 7 && flow.getBoundingClientRect().bottom <= warranty.getBoundingClientRect().top &&
+        clauses.slice(1).every((clause, i) => clause.getBoundingClientRect().top >= clauses[i].getBoundingClientRect().bottom);
+    }), "Exchange clauses must clear each other and the warranty");
     await p.emulateMedia({ media: "screen" });
     await p.evaluate(async () => {
       Services.beforePrint();
@@ -102,18 +99,11 @@ const { pathToFileURL } = require("node:url");
     await p.reload();
     await p.waitForFunction(() => startReady);
     await p.locator("#printedArchive .archive-open").click();
-    assert.match(
-      await p
-        .locator('#archiveViewBody [data-node="exchange-old-3"]')
-        .textContent(),
-      /OLD00000000000001/,
-    );
-    assert.match(
-      await p
-        .locator('#archiveViewBody [data-node="exchange-new-3"]')
-        .textContent(),
-      /NEW00000000000002/,
-    );
+    await p.locator("#archiveViewBody iframe").waitFor();
+    const data = await p.evaluate(() => ArchiveOutput.entry.data);
+    assert.match(data.oldVin, /OLD00000000000001/);
+    assert.match(data.vin, /NEW00000000000002/);
+    assert.equal(await p.evaluate(() => ArchiveOutput.file?.type), "application/pdf");
     assert.deepEqual(errors, []);
     console.log(
       "PASS: exchange stacked vehicles, clauses, payment, A4 layout and archived vehicles",

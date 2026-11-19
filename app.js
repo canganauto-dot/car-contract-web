@@ -23,7 +23,11 @@ function render() {
       }
     }
     if (!cfg.setupComplete) Object.assign(cfg.fixed,{organizer:"",prefix:"",branch:""});
-    d = normalizeData(await getDB("draft"));
+    // Keep the recovered draft and its archive baseline from the same read.
+    const store = db.transaction("store").objectStore("store");
+    const [draft, archive] = await Promise.all([getDB("draft", store), getDB("contractArchive", store)]);
+    if (Array.isArray(archive?.entries)) Services.library = archive;
+    d = normalizeData(draft);
     await putDB("config", cfg);
   } catch (e) {
     d = fresh();

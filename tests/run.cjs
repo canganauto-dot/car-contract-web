@@ -20,6 +20,7 @@ const run = (command, args, cwd, env = process.env) =>
 
 (async () => {
   await run("py", ["-3", "-B", "tests/test_build.py"], source);
+  await run(process.execPath, ["tests/excel-export.cjs"], source);
   await run(process.execPath, ["tests/web.cjs"], source);
   await run(process.execPath, ["tests/ui-editor.cjs"], source);
   const web = await serve(path.join(source, "dist"));

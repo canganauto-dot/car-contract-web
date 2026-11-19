@@ -338,45 +338,34 @@ const assert = require("node:assert/strict");
     assert(await p.locator("#count").isVisible());
     assert.equal(await p.locator('[data-node="cash-title"]').count(), 0);
     await p.locator("#archiveContractType").selectOption("cash");
-    await p.evaluate(async () => {
+    const issued = await p.evaluate(async () => {
       await App.enter();
       App.page = 1;
       App.selection = new Set(["cash-title"]);
       App.property("fontSize", 26);
       await App.approve();
       Services.beforePrint();
+      const papers = Services.printCandidate.papers;
+      const find = id => papers.map(page => page.querySelector('[data-node="' + id + '"]')).find(Boolean);
+      const evidence = {
+        transfer: find("transfer-note")?.textContent,
+        titleSize: find("cash-title")?.style.fontSize,
+        forbiddenPages: papers.filter(page => ["3", "6"].includes(page.dataset.page)).length,
+        amount: find("cash-extra-money-3")?.textContent,
+      };
       await Services.confirmPrint();
       await Services.showHome();
+      return evidence;
     });
     await p.reload();
     await p.waitForFunction(() => startReady);
     await p.locator("#printedArchive .archive-open").first().click();
-    assert.match(
-      await p
-        .locator('#archiveViewBody [data-node="transfer-note"]')
-        .textContent(),
-      /معاملة نقل الملكية/,
-    );
-    assert.equal(
-      await p
-        .locator('#archiveViewBody [data-node="cash-title"]')
-        .evaluate((el) => el.style.fontSize),
-      "26px",
-    );
-    assert.equal(
-      await p
-        .locator(
-          '#archiveViewBody [data-page="6"],#archiveViewBody [data-page="3"]',
-        )
-        .count(),
-      0,
-    );
-    assert.match(
-      await p
-        .locator('#archiveViewBody [data-node="cash-extra-money-3"]')
-        .innerText(),
-      /2,000,000/,
-    );
+    await p.locator("#archiveViewBody iframe").waitFor();
+    assert.match(issued.transfer, /معاملة نقل الملكية/);
+    assert.equal(issued.titleSize, "26px");
+    assert.equal(issued.forbiddenPages, 0);
+    assert.match(issued.amount, /2,000,000/);
+    assert.equal(await p.evaluate(() => ArchiveOutput.file?.type), "application/pdf");
     assert.deepEqual(errors, []);
     console.log(
       "PASS: cash first page, immediate or deferred payment, 4 dates, archive, approved edits and print layout.",

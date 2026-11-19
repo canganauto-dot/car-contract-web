@@ -251,6 +251,28 @@ const Exchange = {
       paperLayout: 3,
     }))));
   },
+  fitFontLayout(page) {
+    for (const node of page.nodes) {
+      if (["exchange-meta", "exchange-address-buyerIdFrom"].includes(node.id))
+        node.fitSingleLine = true;
+      if (/^exchange-(old|new)-heading$/.test(node.id) && node.w === 28 && node.fontSize === 16)
+        node.fontSize = 15;
+    }
+  },
+  flowClauses(paper) {
+    // The stock lower block shares one column but some clauses now take two lines.
+    const clauses = [...paper.querySelectorAll('[data-node^="exchange-clause-"]')]
+      .filter(el => /^exchange-clause-(?:[4-9]|1[0-2])$/.test(el.dataset.node))
+      .sort((a, b) => parseFloat(a.style.top) - parseFloat(b.style.top));
+    const first = clauses[0];
+    if (!first || parseFloat(first.style.top) !== 186.46 ||
+        clauses.some(el => el.style.left !== first.style.left || el.style.width !== first.style.width)) return;
+    const block = document.createElement("div");
+    block.className = "exchange-clause-flow";
+    Object.assign(block.style, { left: first.style.left, top: first.style.top, width: first.style.width });
+    first.before(block);
+    block.append(...clauses);
+  },
   vehicleLayout(page) {
     if (page.stackedVehicleRows) return page;
     const nodes = new Map(page.nodes.map(node => [node.id, node]));

@@ -58,15 +58,8 @@ function interpolate(template) {
 }
 function saveDraft() {
   if (!d.number) return;
-  Services.saveCurrent(d);
   d.updatedAt = Date.now();
-  putDB("draft", clone(d))
-    .then(() => ($("saveStatus").textContent = "المسودة محفوظة"))
-    .catch(
-      () =>
-        ($("saveStatus").textContent =
-          "احفظ بيانات العقد JSON؛ التخزين المحلي غير متاح"),
-    );
+  Services.saveCurrent(d);
 }
 
 const dataDefs = {

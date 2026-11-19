@@ -63,6 +63,124 @@ fs.mkdirSync(output, { recursive: true });
         await page.evaluate(() => WebResources.styles().includes("@page")),
       );
     });
+    await test("archive transactions merge different records and reject stale edits", async () => {
+      const isolated = await browser.newContext();
+      try {
+        const a = await isolated.newPage(), b = await isolated.newPage();
+        await a.goto(web.url);
+        await a.waitForFunction(() => startReady);
+        const earlier = {
+          id: "printed:existing", kind: "printed", data: { recordId: "existing" },
+          signedFile: { dataUrl: "dummy signed scan" }, configKey: "old-template",
+        };
+        await a.evaluate(entry => putDB("contractArchive", {
+          version: 1, entries: [entry], configs: { "old-template": { marker: true } },
+        }), earlier);
+        await a.reload();
+        await b.goto(web.url);
+        await Promise.all([a.waitForFunction(() => startReady), b.waitForFunction(() => startReady)]);
+        const add = (tab, id) => tab.evaluate(id => Services.persistLibrary([
+          [id, undefined, { id, kind: "draft", data: { recordId: id } }],
+        ]), id);
+        await Promise.all([add(a, "draft:A"), add(b, "draft:B")]);
+        await a.evaluate(entry => Services.persistLibrary([
+          [entry.id, entry, { ...entry, signedFile: { dataUrl: "new signed scan" } }],
+        ]), earlier);
+        await assert.rejects(b.evaluate(entry => Services.persistLibrary([[entry.id, entry, undefined]]), earlier));
+        const archive = await b.evaluate(() => getDB("contractArchive"));
+        assert.deepEqual(archive.entries.map(entry => entry.id).sort(), ["draft:A", "draft:B", earlier.id]);
+        assert.equal(archive.entries.find(entry => entry.id === earlier.id).signedFile.dataUrl, "new signed scan");
+        assert.deepEqual(archive.configs, { "old-template": { marker: true } });
+      } finally {
+        await isolated.close();
+      }
+    });
+    await test("aborted archive saves roll back and leave print confirmation retryable", async () => {
+      const isolated = await browser.newContext();
+      try {
+        const tab = await isolated.newPage();
+        await tab.goto(web.url);
+        await tab.waitForFunction(() => startReady);
+        const result = await tab.evaluate(async () => {
+          const candidate = { data: { number: "RETRY-1", recordId: "retry" },
+            snapshot: { pdf: "data:application/pdf;base64,", config: {}, facePages: [] } };
+          Services.printCandidate = candidate;
+          const put = IDBObjectStore.prototype.put;
+          let rejected = false;
+          IDBObjectStore.prototype.put = function (value, key) {
+            const request = put.call(this, value, key);
+            if (key === "contractArchive") this.transaction.abort();
+            return request;
+          };
+          try {
+            await Services.confirmPrint();
+          } catch {
+            rejected = true;
+          } finally {
+            IDBObjectStore.prototype.put = put;
+          }
+          const afterAbort = {
+            rejected,
+            keptCandidate: Services.printCandidate === candidate,
+            savedEntry: (await getDB("contractArchive"))?.entries.some(e => e.id === "printed:retry") || false,
+            localEntry: Services.library.entries.some(e => e.id === "printed:retry"),
+            falseSuccess: $("saveStatus").textContent.includes("حُفظ العقد"),
+          };
+          await Services.confirmPrint();
+          return { afterAbort, retried: (await getDB("contractArchive")).entries.some(e => e.id === "printed:retry") };
+        });
+        assert.deepEqual(result, {
+          afterAbort: { rejected: true, keptCandidate: true, savedEntry: false, localEntry: false, falseSuccess: false },
+          retried: true,
+        });
+      } finally {
+        await isolated.close();
+      }
+    });
+    await test("draft data and the archive roll back together on write failure", async () => {
+      const isolated = await browser.newContext();
+      try {
+        const tab = await isolated.newPage();
+        await tab.goto(web.url);
+        await tab.waitForFunction(() => startReady);
+        const draftState = await tab.evaluate(async () => {
+          Services.pendingData = { ...fresh(), number: "DRAFT-1", recordId: "atomic-draft" };
+          const put = IDBObjectStore.prototype.put;
+          IDBObjectStore.prototype.put = function (value, key) {
+            if (key === "draft") throw new DOMException("Simulated disk quota", "QuotaExceededError");
+            return put.call(this, value, key);
+          };
+          let rejected = false;
+          try {
+            await Services.flush();
+          } catch {
+            rejected = true;
+          } finally {
+            IDBObjectStore.prototype.put = put;
+          }
+          const afterFailure = {
+            rejected,
+            pending: Services.pendingData?.number,
+            archive: (await getDB("contractArchive"))?.entries.length || 0,
+            draft: (await getDB("draft"))?.number || null,
+            falseSuccess: $("saveStatus").textContent === "المسودة محفوظة",
+          };
+          await Services.flush();
+          return {
+            afterFailure,
+            storedDraft: (await getDB("draft")).number,
+            archivedDraft: (await getDB("contractArchive")).entries[0].data.number,
+          };
+        });
+        assert.deepEqual(draftState, {
+          afterFailure: { rejected: true, pending: "DRAFT-1", archive: 0, draft: null, falseSuccess: false },
+          storedDraft: "DRAFT-1",
+          archivedDraft: "DRAFT-1",
+        });
+      } finally {
+        await isolated.close();
+      }
+    });
     await test("known test records are removed without deleting another archive", async () => {
       const isolated = await browser.newContext();
       try {
@@ -220,6 +338,7 @@ fs.mkdirSync(output, { recursive: true });
       assert.equal(contract.format, "contracts-data");
       assert.equal(contract.data.buyer, "مشتري تجريبي");
       await page.locator("#workNew").click();
+      await page.waitForFunction(() => !Workbench.switching);
       await page.locator("#contractJSON").setInputFiles({
         name: "dummy.json",
         mimeType: "application/json",
@@ -377,6 +496,97 @@ fs.mkdirSync(output, { recursive: true });
       }), "Refining a search should keep the controls of unchanged rows");
       await page.locator("#archiveSearch").fill("");
     });
+    await test("issued PDFs and settings survive template changes, reopening and reprinting", async () => {
+      const isolated = await browser.newContext();
+      try {
+        const tab = await isolated.newPage();
+        await tab.goto(web.url);
+        await tab.waitForFunction(() => startReady);
+        const issued = await tab.evaluate(async () => {
+          if ($("setupDialog").open) $("setupDialog").close();
+          await Services.createContract();
+          d.buyer = "نسخة إصدار تجريبية";
+          d.pages = [1];
+          $("printSides").value = "simplex";
+          Services.beforePrint();
+          const captured = Services.printCandidate;
+          cfg.companies[0].name = "اسم بعد بدء الطباعة";
+          await Services.confirmPrint();
+          const entry = (await getDB("contractArchive")).entries.find(e => e.kind === "printed");
+          return {
+            id: entry.id,
+            pdf: entry.snapshot.pdf,
+            name: entry.snapshot.config.companies[0].name,
+            capturedName: captured.config.companies[0].name,
+          };
+        });
+        assert.equal(issued.name, issued.capturedName);
+        assert.notEqual(issued.name, "اسم بعد بدء الطباعة");
+        await tab.reload();
+        await tab.waitForFunction(() => startReady);
+        const result = await tab.evaluate(async ({ id, pdf }) => {
+          const entry = Services.library.entries.find(e => e.id === id);
+          const asUrl = blob => new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = () => resolve(reader.result);
+            reader.onerror = () => reject(reader.error);
+            reader.readAsDataURL(blob);
+          });
+          cfg.companies[0].name = "اسم بعد إعادة الفتح";
+          $("printSides").value = "duplex";
+          const liveDesign = cfg.design;
+          cfg.design = { ...liveDesign, pages: [], documentLayouts: {} };
+          const originalPapers = ArchiveOutput.papers;
+          ArchiveOutput.papers = () => { throw Error("Historical output called live renderer"); };
+          try {
+            await ArchiveOutput.view(entry);
+            const reopened = (await asUrl(ArchiveOutput.file)) === pdf;
+            const exported = (await asUrl(await ArchiveOutput.build([entry], false))) === pdf;
+            ArchiveOutput.printFile = () => {};
+            await ArchiveOutput.printSheets([entry], true);
+            const printed = ArchiveOutput.printFrame.contentDocument.querySelectorAll(".signed-sheet").length;
+            const archiveJSON = JSON.parse(ContractFiles.pack(entry.data, entry));
+            const editHidden = $("viewEdit").hidden;
+            ArchiveOutput.clearViewer();
+            ArchiveOutput.papers = originalPapers;
+            const legacy = { id: "printed:legacy", kind: "printed", data: { number: "OLD-1" } };
+            await ArchiveOutput.view(legacy);
+            const missing = $("archiveViewBody").textContent.includes("غير محفوظة");
+            let blocked = false;
+            try {
+              await ArchiveOutput.build([legacy], false);
+            } catch {
+              blocked = true;
+            }
+            cfg.design = liveDesign;
+            const signedEntry = { ...entry, signedFile: { dataUrl: pdf } };
+            await Services.persistLibrary([[entry.id, entry, signedEntry]]);
+            d = normalizeData(clone(entry.data));
+            d.buyer = "نسخة إصدار تالية";
+            Services.home = false;
+            Services.beforePrint();
+            await Services.confirmPrint();
+            const archive = await getDB("contractArchive");
+            const revision = archive.entries.find(e => e.id.startsWith("revision:"));
+            const replacement = archive.entries.find(e => e.id === id);
+            return { reopened, exported, printed, sameSnapshot: archiveJSON.snapshot.pdf === pdf,
+              editHidden, missing, blocked,
+              revisionPreserved: revision?.snapshot.pdf === pdf && revision.signedFile.dataUrl === pdf,
+              replacementIssued: replacement.snapshot.pdf !== pdf && !replacement.signedFile,
+            };
+          } finally {
+            cfg.design = liveDesign;
+            ArchiveOutput.papers = originalPapers;
+          }
+        }, issued);
+        assert.deepEqual(result, {
+          reopened: true, exported: true, printed: 2, sameSnapshot: true, editHidden: true,
+          missing: true, blocked: true, revisionPreserved: true, replacementIssued: true,
+        });
+      } finally {
+        await isolated.close();
+      }
+    });
     await test("signed scans, private local attachment, and lazy PDF reader", async () => {
       const data = await page.evaluate(async () => {
         const entry = Services.library.entries.find(
@@ -390,10 +600,11 @@ fs.mkdirSync(output, { recursive: true });
         });
         Feedback.notice = async () => {};
         await ContractFiles.attach([file]);
-        const blob = await ArchiveOutput.build([entry], false);
+        const saved = (await getDB("contractArchive")).entries.find(item => item.id === entry.id);
+        const blob = await ArchiveOutput.build([saved], false);
         const reader = await ArchiveOutput.reader();
         return {
-          signed: !!Archive.signed(entry),
+          signed: !!Archive.signed(saved),
           bytes: blob.size,
           reader: !!reader.getDocument,
         };
@@ -429,6 +640,49 @@ fs.mkdirSync(output, { recursive: true });
           ),
         ),
       );
+    });
+    await test("imported formatting is sanitized in an inert template", async () => {
+      const result = await page.evaluate(() => {
+        const markup = '<script></script><svg><desc>foreign</desc></svg>' +
+          '<math><mtext>foreign</mtext></math><template><b>hidden</b></template>' +
+          '<iframe></iframe><object></object><img><a href="javascript:">نص رابط</a>' +
+          '<b onclick="" id="untrusted" style="color:#873638;background-image:none">العقد</b>' +
+          '<font face="Amiri"><i>عربي</i></font><br><table><tr><td colspan="2">بيانات</td></tr></table>';
+        const sanitized = sanitizeMarkup(markup, true);
+        const target = document.createElement("div");
+        target.innerHTML = safeMarkup(markup, true);
+        const old = ctx;
+        const formatted = document.createElement("div");
+        try {
+          ctx = { buyer: "<b>اسم</b>" };
+          renderMarkup(formatted, "<u>{{buyer}}</u>");
+          ctx = { buyer: "اسم آخر" };
+          const second = document.createElement("div");
+          renderMarkup(second, "<u>{{buyer}}</u>");
+          return {
+            inert: sanitized.content.firstChild.ownerDocument !== document,
+            unsafe: !!target.querySelector("script, svg, math, template, iframe, object, img, a, [onclick], [id], [href], [src]"),
+            text: target.textContent,
+            boldColor: target.querySelector("b").style.color,
+            background: target.querySelector("b").style.backgroundImage,
+            italic: target.querySelector("font i").textContent,
+            font: target.querySelector("font").style.fontFamily,
+            lineBreak: !!target.querySelector("br"),
+            colspan: target.querySelector("td").colSpan,
+            literal: formatted.querySelector("u").textContent,
+            nested: !!formatted.querySelector("b"),
+            cachedText: second.textContent,
+          };
+        } finally {
+          ctx = old;
+        }
+      });
+      assert.deepEqual(result, {
+        inert: true, unsafe: false, text: "نص رابطالعقدعربيبيانات",
+        boldColor: "rgb(135, 54, 56)", background: "",
+        italic: "عربي", font: "Amiri", lineBreak: true, colspan: 2,
+        literal: "<b>اسم</b>", nested: false, cachedText: "اسم آخر",
+      });
     });
     await test("editor undo, table merge/split, and rich-text sanitization", async () => {
       const result = await page.evaluate(async () => {

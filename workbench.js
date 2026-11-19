@@ -26,6 +26,8 @@ const Workbench = {
           await original(...args);
           this.paint();
           return true;
+        } catch (error) {
+          await Feedback.notice(error.message);
         } finally {
           this.switching = false;
           $("cards").inert = false;
@@ -108,6 +110,7 @@ const Workbench = {
       }
       tile.entry = entry;
       tile.active = active;
+      tile.actions.lastElementChild.hidden = Archive.issued(entry);
       tile.node.classList.toggle("active", active);
       const title = [data.standaloneBook ? data.bookTitle : ContractTemplates.find(data.templateId)?.name || "عقد",
         ContractFiles.customer(data) || "جديد", data.number, entry.note].filter(Boolean).join(" · ");
@@ -144,7 +147,13 @@ const Workbench = {
       if (!tile.active && !(await Services.openEntry(entry))) return;
       $("printAll").click();
     });
-    add("download", "تصدير JSON", () => ContractFiles.save(tile.active ? d : tile.entry.data));
+    add("download", "تصدير JSON", () => {
+      const entry = tile.entry;
+      if (historical())
+        return download(ContractFiles.name(entry.data, "json", Archive.config(entry)),
+          ContractFiles.pack(entry.data, entry), "application/json");
+      return ContractFiles.save(tile.active ? d : entry.data);
+    });
     add("trash", "حذف", () => Archive.remove(tile.entry));
     node.append(open, actions);
     return tile;
@@ -185,7 +194,7 @@ const Workbench = {
       dialog.querySelector(".letter-options").append(b);
     }
     const entries = Services.library.entries.filter(
-      (e) => e.kind === "draft" && e.data.standaloneBook,
+      (e) => e.kind === "draft" && !Archive.issued(e) && e.data.standaloneBook,
     );
     for (const entry of entries) {
       const b = document.createElement("button");

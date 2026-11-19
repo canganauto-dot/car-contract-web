@@ -43,12 +43,14 @@ const markupTextTags = new Set([
     "FONT",
 ]);
 const markupTableTags = new Set(["TABLE", "TBODY", "THEAD", "TFOOT", "TR", "TD", "TH", "COLGROUP", "COL"]);
+const discardedMarkupTags = new Set(["SCRIPT", "STYLE", "IFRAME", "OBJECT", "TEMPLATE", "NOSCRIPT"]);
 const preparedMarkup = new Map();
 function sanitizeMarkup(value, table) {
-  const root = document.createElement("div");
+  // Template contents are inert even while the unfiltered markup is being parsed.
+  const root = document.createElement("template");
   root.innerHTML = String(value || "");
-  for (const el of [...root.querySelectorAll("*")].reverse()) {
-    if (["SCRIPT", "STYLE", "IFRAME", "OBJECT"].includes(el.tagName)) {
+  for (const el of [...root.content.querySelectorAll("*")].reverse()) {
+    if (el.namespaceURI !== "http://www.w3.org/1999/xhtml" || discardedMarkupTags.has(el.tagName)) {
       el.remove();
       continue;
     }
@@ -107,15 +109,13 @@ function renderMarkup(target, value, table = false) {
       preparedMarkup.set(html, prepared);
     }
   }
-  const root = canCache ? prepared.cloneNode(true) : prepared;
+  const root = canCache ? prepared.content.cloneNode(true) : prepared.content;
   const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
   while (walker.nextNode()) {
     const node = walker.currentNode;
     if (node.data.includes("{{")) node.data = substitute(node.data);
   }
-  const fragment = document.createDocumentFragment();
-  while (root.firstChild) fragment.append(root.firstChild);
-  target.replaceChildren(fragment);
+  target.replaceChildren(root);
 }
 function templateOf(el, config = cfg) {
   return (
@@ -169,9 +169,11 @@ function tableTemplate(table) {
   copy
     .querySelectorAll("[data-edit]")
     .forEach(
-      (el) =>
-        (el.innerHTML =
-          cfg.edits[el.dataset.edit]?.rich || esc(templateOf(el))),
+      (el) => {
+        const rich = cfg.edits[el.dataset.edit]?.rich;
+        if (rich) el.innerHTML = safeMarkup(rich);
+        else el.textContent = templateOf(el);
+      },
     );
   return safeMarkup(copy.outerHTML, true);
 }
@@ -230,11 +232,11 @@ function migrateLegacy(config) {
       if (old) {
         if (old.style) el.setAttribute("style", old.style);
         if (old.html && el.matches("table")) {
-          const tmp = document.createElement("div");
+          const tmp = document.createElement("template");
           tmp.innerHTML = old.html;
-          tmp
+          tmp.content
             .querySelectorAll("[data-edit]")
-            .forEach((t) => (t.innerHTML = esc(templateOf(t, config))));
+            .forEach((t) => (t.textContent = templateOf(t, config)));
           el.innerHTML = safeMarkup(tmp.innerHTML, true);
         }
         if (old.src && el.matches("img")) el.src = safeImage(old.src);

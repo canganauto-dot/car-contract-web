@@ -54,8 +54,8 @@ const Archive = {
       const entry = ArchiveOutput.entry;
       if (entry)
         download(
-          ContractFiles.name(entry.data, "json"),
-          ContractFiles.pack(entry.data),
+          ContractFiles.name(entry.data, "json", Archive.config(entry)),
+          ContractFiles.pack(entry.data, entry),
           "application/json",
         );
     };
@@ -75,8 +75,12 @@ const Archive = {
       ? url
       : "";
   },
+  issued(entry) {
+    return entry.kind === "printed" || entry.id?.startsWith("revision:");
+  },
   config(entry) {
-    return Services.library.configs?.[entry.configKey] || entry.config || cfg;
+    return entry.snapshot?.config || Services.library.configs?.[entry.configKey] ||
+      entry.config || (this.issued(entry) ? null : cfg);
   },
   types: {
     installment: "أقساط",
@@ -161,7 +165,7 @@ const Archive = {
       if (id && !companies.has(id))
         companies.set(
           id,
-          this.config(e).companies?.find((c) => String(c.id) === id)?.name ||
+          this.config(e)?.companies?.find((c) => String(c.id) === id)?.name ||
             id,
         );
     }
@@ -337,7 +341,7 @@ const Archive = {
         row.classList.remove("is-picked");
       }
       setState(table.all, count, table.rows.length);
-      if (kind === "draft") selectedDrafts = count;
+      if (kind === "draft") selectedDrafts = [...this.selected].filter(id => table.nodes.has(id) && !id.startsWith("revision:")).length;
       selectedVisible += count;
     }
     setState($("allArchive"), selectedVisible, this.visible.length);
@@ -353,21 +357,24 @@ const Archive = {
   async remove(entry) {
     if (
       this.busy ||
-      entry.kind !== "draft" ||
+      entry.kind !== "draft" || this.issued(entry) ||
       !(await Feedback.ask("حذف العقد المعلّق " + entry.data.number + "؟"))
     )
       return;
-    await Services.flush();
-    const active = entry.id === "draft:" + d.recordId;
-    if (active) {
-      d = fresh();
-      await putDB("draft", clone(d));
+    try {
+      await Services.flush();
+      const active = entry.id === "draft:" + d.recordId;
+      const next = active ? fresh() : undefined;
+      const current = Services.library.entries.find(item => item.id === entry.id);
+      if (current) await Services.persistLibrary([[entry.id, current, undefined]], null);
+      if (active) {
+        d = next;
+        await Services.showHome();
+      }
+    } catch (error) {
+      await Feedback.notice(error.message);
+      return;
     }
-    Services.library.entries = Services.library.entries.filter(
-      (e) => e.id !== entry.id,
-    );
-    await Services.persistLibrary();
-    if (active) await Services.showHome();
     this.refresh();
   },
   handlePrintShortcut() {

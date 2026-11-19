@@ -12,9 +12,9 @@ const ContractFiles = {
           : data.externalBuyer || data.externalSeller
       : data.buyer;
   },
-  name(data, ext) {
+  name(data, ext, config = cfg) {
     const company =
-      cfg.companies.find(
+      config?.companies?.find(
         (c) =>
           c.id ===
           (data.externalBuyerCompany ||
@@ -36,7 +36,13 @@ const ContractFiles = {
       ext
     );
   },
-  pack(data) {
+  pack(data, entry) {
+    if (entry && Archive.issued(entry)) {
+      return JSON.stringify({
+        format: "contracts-data", version: 1, data,
+        ...(entry.snapshot ? { snapshot: entry.snapshot } : { archivedConfig: Archive.config(entry) }),
+      }, (key, value) => key === "signedFile" ? undefined : value);
+    }
     data = SmartTables.snapshot(data);
     const defaults = fresh(),
       values = {};
@@ -56,7 +62,7 @@ const ContractFiles = {
   },
   async save(data = d) {
     App.commitText();
-    await Services.flush();
+    await Services.flush().catch(() => {});
     download(this.name(data, "json"), this.pack(data), "application/json");
   },
   async load(file) {
@@ -204,7 +210,7 @@ const ContractFiles = {
       }
       if (!pdf.getPageCount()) return;
       const blob = new Blob([await pdf.save()], { type: "application/pdf" }),
-        name = this.name(entry.data, "pdf");
+        name = this.name(entry.data, "pdf", Archive.config(entry));
       let saved = false;
       if (this.folder && directoryAllowed) {
         const f = await this.folder.getFileHandle(name, { create: true }),
@@ -220,9 +226,9 @@ const ContractFiles = {
         r.onerror = () => rej(r.error);
         r.readAsDataURL(blob);
       });
-      entry.signedFile = { name, dataUrl, savedToDirectory: saved };
-      entry.updatedAt = Date.now();
-      await Services.persistLibrary();
+      await Services.persistLibrary([[entry.id, entry, {
+        ...entry, signedFile: { name, dataUrl, savedToDirectory: saved }, updatedAt: Date.now(),
+      }]]);
       $("signedDialog").close();
       Archive.refresh();
       await Feedback.notice(
