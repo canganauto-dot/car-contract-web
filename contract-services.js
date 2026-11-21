@@ -153,14 +153,8 @@ class ContractServices {
       r.secondCount +
       " من تاريخ " +
       dateLabel(r.secondDate);
-    result.scheduleIntro =
-      "عدد الأقساط شاملاً الأخير: " +
-      r.count +
-      "، تبدأ " +
-      dateLabel(d.firstDate) +
-      "، " +
-      (r.interval === 1 ? "شهرياً" : "كل " + r.interval + " أشهر") +
-      ".";
+    result.installmentFrequency=r.interval===1 ? "شهرية" : "كل "+r.interval+" أشهر";
+    result.scheduleIntro="تدفع اقساط "+result.installmentFrequency+" عددها ( "+(r.count || "")+" ) تبدأ بتاريخ: "+dateLabel(d.firstDate);
     result.intervalMonths = r.interval;
     result.phaseSecondDate = dateLabel(r.secondDate);
     const numeric = {
@@ -253,7 +247,7 @@ class ContractServices {
           condition: "phase",
           fontSize: 16,
           weight: "400",
-          nowrap: false,
+
         },
         {
           ...clone(wordsNode),
@@ -265,7 +259,7 @@ class ContractServices {
           condition: "phase",
           fontSize: 16,
           weight: "400",
-          nowrap: true,
+
           align: "right",
         },
       );
@@ -312,28 +306,28 @@ class ContractServices {
   decorateForm() {
     Workspace.arrangeFields();
     const phaseToggle = $("phaseEnabled").closest("label");
-    if (phaseToggle.parentElement !== $("paymentActions")) $("paymentActions").prepend(phaseToggle);
+    if (!FillLayout.origins.has(phaseToggle) && phaseToggle.parentElement !== $("paymentActions")) $("paymentActions").prepend(phaseToggle);
     phaseToggle.hidden = !["installment", "exchange"].includes(d.contractType);
     for (const id of ["phaseCount", "phasePayment", "phaseSecondCount"])
       if ($(id)) $(id).closest("label").hidden = !d.phaseEnabled;
     if ($("count")) $("count").closest("label").hidden = !!d.phaseEnabled;
     const payment = $("payment").closest("label");
-    const title = d.phaseEnabled ? "قسط المرحلة الثانية" : "قيمة القسط";
-    payment.querySelector("span").textContent = title;
+    const layout=cfg.design?.fillAppearance?.[ContractTemplates.scopeKey()] || {};
     const phasePayment = $("phasePayment"), phaseCount = $("phaseCount");
-    for (const [input, caption] of [[phasePayment,"قسط المرحلة الأولى"],[phaseCount,"عدد الأولى"],[$("phaseSecondCount"),"عدد الثانية"]]) {
-      input.closest("label").querySelector("span").textContent = caption;
-      input.setAttribute("aria-label",caption);
+    for(const [input,standard] of [[$("payment"),d.phaseEnabled ? "قسط المرحلة الثانية" : "قيمة القسط"],
+        [phasePayment,"قسط المرحلة الأولى"],[phaseCount,"عدد الأولى"],[$("phaseSecondCount"),"عدد الثانية"]]){
+      const caption=FillDesigner.caption(input.closest("label")), text=layout[input.id]?.title || standard;
+      if(caption.textContent!==text)caption.textContent=text;
+      input.setAttribute("aria-label",text);
     }
     const phaseHost = $("installmentInputs");
     if (phaseHost.dataset.phaseOrder !== String(!!d.phaseEnabled)) {
-      if (d.phaseEnabled) {
+      if (d.phaseEnabled && [payment,phasePayment.closest("label"),phaseCount.closest("label")].every(label => label.parentElement === phaseHost && !FillLayout.origins.has(label))) {
         phaseHost.insertBefore(phasePayment.closest("label"), payment);
         phaseHost.insertBefore(phaseCount.closest("label"), payment);
       }
       phaseHost.dataset.phaseOrder = String(!!d.phaseEnabled);
     }
-    $("payment").setAttribute("aria-label", title);
     this.photoPreview();
     Cash.decorate();
     External.decorate();
@@ -547,6 +541,9 @@ class ContractServices {
     scheduleConfig();
   }
   fingerprint(data) {
+    const tables = Object.values(data.tableData || {});
+    if (tables.some(rows => Array.isArray(rows) && rows.some(row => row?.priceLink)))
+      data = SmartTables.snapshot(data);
     const normalized = {
       ...data,
       ...cashTerms(data),
@@ -555,6 +552,15 @@ class ContractServices {
       contractType: data.contractType || "installment",
       updatedAt: 0,
     };
+    delete normalized.signedFile;
+    if (data.tableData) {
+      // Compare printable cells in their schema order. Catalog item IDs and
+      // object insertion order can differ after reopening the saved snapshot.
+      normalized.tableData = Object.keys(data.tableData).sort().map(key => {
+        const rows = Array.isArray(data.tableData[key]) ? data.tableData[key] : [];
+        return [key, rows.map(row => SmartTables.columns.map(([column]) => row?.[column] ?? null))];
+      });
+    }
     return JSON.stringify(
       Object.keys(normalized)
         .sort()
@@ -562,43 +568,30 @@ class ContractServices {
     );
   }
   saveCurrent(data) {
-    if (!data.number || !this.initialized || App.mode === "design") return;
+    if ((!data.number && !data.recordId) || !this.initialized || App.mode === "design") return;
     if (!data.recordId) data.recordId = "contract-" + crypto.randomUUID();
     this.pendingData = clone(data);
     clearTimeout(this.timer);
-    this.timer = setTimeout(() => this.flush().catch(() => {}), 450);
+    this.timer = setTimeout(() => this.flush(), 450);
   }
-  persistLibrary(changes, draft) {
-    const edits = changes.filter(([, previous, replacement]) => previous !== replacement);
-    const replacements = new Map(edits.map(([id, , replacement]) => [id, replacement]));
-    const additions = edits.filter(([, previous, entry]) => !previous && entry).map(([, , entry]) => entry);
-    const apply = entries => additions.concat(
-      entries.map(entry => replacements.has(entry.id) ? replacements.get(entry.id) : entry).filter(Boolean),
-    );
-    this.savingArchive = (this.savingArchive || 0) + 1;
-    const save = this.queue.then(async () => {
-      await updateArchive(stored => {
-        const archive = stored || { version: 1, entries: [], configs: {} };
-        const entries = archive.entries;
-        for (const [id, previous] of changes) {
-          if (JSON.stringify(entries.find(entry => entry.id === id)) !== JSON.stringify(previous))
-            throw Error("تغيّر العقد في نافذة أخرى؛ صدّر تعديلاتك وأعد فتح العقد.");
-        }
-        if (edits.length)
-          return { ...archive, entries: apply(entries), updatedAt: Date.now() };
-      }, draft ?? undefined, draft === null ? edits.map(([id]) => id) : []);
-      if (edits.length) this.library.entries = apply(this.library.entries);
-    }).catch(error => {
-      $("saveStatus").textContent = error.message;
-      throw error;
-    }).finally(() => { this.savingArchive--; });
-    // A failed operation rejects its caller, but does not block later operations.
-    this.queue = save.catch(() => {});
-    return save;
+  persistLibrary() {
+    this.library.updatedAt = Date.now();
+    // Entry documents are immutable after insertion. Copy the mutable entry
+    // wrappers and let IndexedDB serialize the snapshot once, without JSON.
+    const snapshot = {
+      ...this.library,
+      entries: this.library.entries.map(entry => ({ ...entry })),
+    };
+    this.queue = this.queue
+      .catch(() => {})
+      .then(() => putDB("contractArchive", snapshot))
+      .catch(() => {
+        $("saveStatus").textContent = "تعذر حفظ الأرشيف؛ احفظ نسخة البرنامج";
+      });
+    return this.queue;
   }
   async flush() {
     clearTimeout(this.timer);
-    await this.queue;
     if (this.pendingData) {
       const data = this.pendingData;
       this.pendingData = null;
@@ -606,38 +599,35 @@ class ContractServices {
         (e) => e.kind === "printed" && e.data.recordId === data.recordId,
       );
       const id = "draft:" + data.recordId;
-      const previous = this.library.entries.find(e => e.id === id);
+      const at = this.library.entries.findIndex(e => e.id === id);
       const fingerprint = this.fingerprint(data);
-      const replacement = printed && this.fingerprint(printed.data) === fingerprint
-        ? undefined
-        : previous && this.fingerprint(previous.data) === fingerprint
-          ? previous
-          : { id, kind: "draft", data, updatedAt: Date.now(), note: "" };
-      try {
-        await this.persistLibrary([[id, previous, replacement]], data);
-        if (!this.pendingData) $("saveStatus").textContent = "المسودة محفوظة";
-      } catch (error) {
-        this.pendingData ??= data;
-        throw error;
+      if (printed && this.fingerprint(printed.data) === fingerprint) {
+        if (at >= 0) {
+          this.library.entries.splice(at, 1);
+          await this.persistLibrary();
+        }
+      } else if (at < 0 || this.fingerprint(this.library.entries[at].data) !== fingerprint) {
+        const entry = { id, kind: "draft", data, updatedAt: Date.now(), note: "" };
+        if (at >= 0) this.library.entries[at] = entry;
+        else this.library.entries.unshift(entry);
+        await this.persistLibrary();
       }
     }
+    await this.queue;
     if (Workbench.ready) Workbench.paint();
   }
   async showHome() {
     if (App.mode === "design") App.leave();
     App.commitText();
     this.saveCurrent(d);
-    try {
-      await this.flush();
-    } catch (error) {
-      if (startReady) return Feedback.notice(error.message);
-    }
+    await this.flush();
     this.home = true;
     document.body.classList.add("home-mode");
     $("homeScreen").hidden = false;
     this.archivePanel();
   }
   async createContract() {
+    await BranchNumbers.migration;
     if (App.mode === "design") App.leave();
     this.saveCurrent(d);
     await this.flush();
@@ -645,7 +635,7 @@ class ContractServices {
     next.recordId = "contract-" + crypto.randomUUID();
     next.companyId = d?.companyId || cfg.companies[0].id;
     next.initialCompanyId = next.companyId;
-    next.number = await allocateNumber();
+    await BranchNumbers.begin(next);
     d = next;
     this.home = false;
     document.body.classList.remove("home-mode");
@@ -655,7 +645,6 @@ class ContractServices {
     buildInputs();
     render();
     saveDraft();
-    await this.flush();
     $("buyer").focus({ preventScroll: true });
   }
   async openEntry(entry) {
@@ -671,28 +660,14 @@ class ContractServices {
     buildInputs();
     render();
     saveDraft();
-    await this.flush();
   }
   archivePanel() {
     Archive.refresh();
   }
-  beforePrint(deferCapture = false) {
+  beforePrint() {
     if (this.home || !d.number) return;
     this.refreshPrintClock();
-    if (seed.offline) return;
-    this.printCandidate = { data: SmartTables.snapshot(d) };
-    if (!deferCapture) {
-      App.render();
-      const selected = [...$("pages").children].filter(p => Schedule.enabled(Number(p.dataset.page)));
-      this.capturePrint(PrintPlan.arrange(selected, d));
-    }
-  }
-  capturePrint(papers) {
-    const candidate = this.printCandidate;
-    if (!candidate) return;
-    candidate.papers = [...papers].map(paper => paper.cloneNode(true));
-    candidate.config = clone({ ...cfg, design: App.scene, printSides: PrintPlan.mode() });
-    candidate.styles = WebResources.styles();
+    if (!seed.offline) this.printCandidate = { data: SmartTables.snapshot(d) };
   }
   afterPrint() {
     if (seed.offline) { this.printCandidate = null; return; }
@@ -700,6 +675,8 @@ class ContractServices {
       $("printResultDialog").showModal();
   }
   refreshPrintClock() {
+    const printed = this.library.entries.find(e => e.kind === "printed" && e.data.recordId === d.recordId);
+    if (printed && this.fingerprint(printed.data) === this.fingerprint(d)) return;
     if (this.home || !this.stamp(d)) return;
     $("contractDate").value = d.contractDate;
     $("contractTime").value = d.contractTime;
@@ -719,34 +696,36 @@ class ContractServices {
     return true;
   }
   async confirmPrint() {
+    if (!this.printCandidate) return;
     const candidate = this.printCandidate;
-    if (!candidate) return;
+    this.printCandidate = null;
     await this.flush();
-    if (this.printCandidate !== candidate) return;
-    candidate.snapshot ??= await ArchiveOutput.snapshot(candidate);
-    if (this.printCandidate !== candidate) return;
     const key = candidate.data.recordId || "legacy-" + candidate.data.number;
-    const id = "printed:" + key;
-    const draftId = "draft:" + key;
-    const previous = this.library.entries.find(e => e.kind === "printed" && e.data.recordId === key);
-    const draft = this.library.entries.find(e => e.id === draftId);
-    const changes = [
-      [draftId, draft, undefined],
-      [id, previous?.id === id ? previous : undefined, {
-        id, kind: "printed", data: { ...candidate.data, recordId: key }, snapshot: candidate.snapshot,
-        updatedAt: Date.now(), note: "نسخة الطباعة الحالية",
-      }],
-    ];
-    if (previous) {
-      if (previous.id !== id) changes.push([previous.id, previous, undefined]);
-      const revisionId = "revision:" + crypto.randomUUID();
-      changes.push([revisionId, undefined, {
-        ...previous, id: revisionId, kind: "draft", updatedAt: Date.now(),
-        note: "نسخة قبل إعادة الطباعة",
-      }]);
+    candidate.data.recordId = key;
+    const previous = this.library.entries.find(
+      (e) => e.kind === "printed" && e.data.recordId === key,
+    );
+    this.library.entries = this.library.entries.filter(
+      (e) =>
+        !(e.kind === "printed" && e.data.recordId === key) &&
+        e.id !== "draft:" + key,
+    );
+    const same = previous && this.fingerprint(previous.data) === this.fingerprint(candidate.data);
+    let history = previous?.history || [];
+    if (previous && !same) {
+      const {history: older, ...snapshot} = previous;
+      history = [snapshot, ...history];
     }
-    await this.persistLibrary(changes);
-    if (this.printCandidate === candidate) this.printCandidate = null;
+    this.library.entries.unshift({
+      ...(same ? previous : {}),
+      history,
+      id: "printed:" + key,
+      kind: "printed",
+      data: candidate.data,
+      updatedAt: Date.now(),
+      note: "نسخة الطباعة الحالية",
+    });
+    await this.persistLibrary();
     $("printResultDialog").close();
     $("saveStatus").textContent = "حُفظ العقد ضمن العقود المطبوعة";
     this.archivePanel();
@@ -865,11 +844,26 @@ class ContractServices {
   async init() {
     this.ensureSchemas();
     Images.scan();
+    const stored = await getDB("contractArchive");
+    this.library = stored || this.library;
+    if (!Array.isArray(this.library.entries))
+      this.library = { version: 1, entries: [], configs: {}, updatedAt: 0 };
+    const printed = new Map(this.library.entries.filter(e => e.kind === "printed").map(e => [e.data.recordId, e]));
+    const retained = this.library.entries.filter(e => {
+      const parent = typeof e.id === "string" && e.id.startsWith("revision:") && printed.get(e.data.recordId);
+      if (!parent) return true;
+      (parent.history ||= []).push({...e, kind:"printed"});
+      return false;
+    });
+    if (retained.length !== this.library.entries.length) {
+      this.library.entries = retained;
+      await this.persistLibrary();
+    }
     this.initialized = true;
     if (d.number) {
       if (!d.recordId) d.recordId = "legacy-" + d.number;
       this.saveCurrent(d);
-      await this.flush().catch(() => {});
+      await this.flush();
     }
     let fdetails = $("formulaDetails");
     if (!fdetails) {
@@ -948,17 +942,7 @@ class ContractServices {
     };
     $("addCompanyField").onclick = () => this.addCompanyField();
     $("addFormula").onclick = () => this.saveFormula();
-    $("confirmPrinted").onclick = async () => {
-      const button = $("confirmPrinted");
-      button.disabled = true;
-      try {
-        await this.confirmPrint();
-      } catch (error) {
-        await Feedback.notice(error.message);
-      } finally {
-        button.disabled = false;
-      }
-    };
+    $("confirmPrinted").onclick = () => this.confirmPrint();
     $("cancelPrinted").onclick = () => {
       this.printCandidate = null;
       $("printResultDialog").close();
@@ -1025,10 +1009,7 @@ class ContractServices {
       },
       true,
     );
-    window.addEventListener("beforeunload", event => {
-      this.stopCamera();
-      if (this.pendingData || this.savingArchive) event.preventDefault();
-    });
+    window.addEventListener("beforeunload", () => this.stopCamera());
     Workspace.init();
     Images.init();
     this.decorateForm();

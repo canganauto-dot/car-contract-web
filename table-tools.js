@@ -12,13 +12,13 @@ const TableTools = {
       ["cellInk", "color"],
       ["cellSize", "fontSize"],
     ])
-      $(id).onchange = (e) =>
-        this.style(
-          prop,
-          prop === "fontSize"
-            ? Math.max(6, Math.min(96, Number(e.target.value) || 18)) + "px"
-            : e.target.value,
-        );
+      $(id).onchange = (e) => {
+        if (prop !== "fontSize") return this.style(prop, e.target.value);
+        const size = EditorSettings.number(e.target.value, EditorSettings.text.fontSize);
+        if (size === null) return this.refresh();
+        this.style(prop, size + "px");
+      };
+    EditorSettings.input($("cellSize"), EditorSettings.text.fontSize);
     for (const [id, kind] of [
       ["tableInsertColumn", "insertColumn"],
       ["tableDeleteColumn", "deleteColumn"],
@@ -31,6 +31,14 @@ const TableTools = {
     document
       .querySelectorAll(".table-editor-control")
       .forEach((n) => n.remove());
+  },
+  templateHTML(n, table) {
+    const original=sanitizeMarkup(n.html,true).querySelectorAll("td,th"), copy=table.cloneNode(true);
+    for(const cell of copy.querySelectorAll("td,th")){
+      const source=original[cell.dataset.cell];
+      if(source)cell.replaceChildren(...[...source.childNodes].map(child=>child.cloneNode(true)));
+    }
+    return safeMarkup(copy.outerHTML,true);
   },
   info() {
     const n = App.selected()[0];
@@ -75,6 +83,16 @@ const TableTools = {
       $("cellFill").value = BoxAppearance.parse(style.backgroundColor).hex;
       $("cellInk").value = BoxAppearance.parse(style.color).hex;
       $("cellSize").value = parseFloat(style.fontSize);
+    }
+    const dims = c && this.dimensions(info);
+    for (const [id, axis] of [["columnWidth", "column"], ["rowHeight", "row"]]) {
+      const field = $(id);
+      field.disabled = !c;
+      if (!c) { field.value = ""; continue; }
+      const indices = this.selectedAxes(info, axis);
+      const sizes = axis === "column" ? dims.widths : dims.heights;
+      EditorSettings.input(field, this.sizeRange(info, axis, indices, dims));
+      field.value = indices.every(i => roundMM(sizes[i]) === roundMM(sizes[indices[0]])) ? roundMM(sizes[indices[0]]) : "";
     }
     const pos = c && positions.get(c);
     for (const id of [
@@ -188,7 +206,7 @@ const TableTools = {
       e.preventDefault();
       e.stopPropagation();
       const delta = ["ArrowRight", "ArrowDown"].includes(e.key) ? 1 : -1;
-      this.resize(axis, index, Math.max(3, size + delta));
+      this.resize(axis, index, size + delta);
     };
     b.onpointerdown = (e) => {
       if (e.button !== 0) return;
@@ -206,14 +224,7 @@ const TableTools = {
           (((axis === "column" ? ev.clientX : ev.clientY) - start) /
             info.unit) *
           (axis === "column" && rtl ? -1 : 1);
-        const limit =
-          (axis === "column" ? 210 - info.n.x : 297 - info.n.y) -
-          (axis === "column" ? current.widths : current.heights).reduce(
-            (s, v) => s + v,
-            0,
-          ) +
-          size;
-        value = Math.max(3, Math.min(size + delta, limit));
+        value = EditorSettings.number(size + delta, this.sizeRange(info, axis, [index], current));
         this.previewResize(info, axis, index, value, current);
       };
       const finish = (ev) => {
@@ -241,17 +252,18 @@ const TableTools = {
       keys = config ? SmartTables.keys(config) : [];
     return {
       widths: Array.from({ length: count }, (_, x) => {
-        if (config?.explicitWidths)
-          return keys[x] === "serial"
-            ? config.serialWidth
-            : config.widths[keys[x]];
+        if (config?.explicitWidths) {
+          const stored=keys[x]==="serial" ? config.serialWidth || 8 : config.widths?.[keys[x]];
+          if(Number.isFinite(stored) && stored>0)return stored;
+        }
         const c = cols[x];
         if (c?.style.width.endsWith("mm")) return parseFloat(c.style.width);
-        if (c?.getBoundingClientRect().width)
+        if (unit>0 && c?.getBoundingClientRect().width)
           return c.getBoundingClientRect().width / unit;
         const cell =
           grid.map((r) => r[x]).find((c) => c?.colSpan === 1) || grid[0][x];
-        return cell.getBoundingClientRect().width / cell.colSpan / unit;
+        return unit>0 && cell?.getBoundingClientRect().width
+          ? cell.getBoundingClientRect().width / cell.colSpan / unit : n.w/count;
       }),
       heights: [...table.rows].map(
         (r, i) =>
@@ -283,24 +295,30 @@ const TableTools = {
     info.element.style.width = widths.reduce((s, v) => s + v, 0) + "mm";
     info.element.style.height = heights.reduce((s, v) => s + v, 0) + "mm";
   },
+  sizeRange(info, axis, indices, dims) {
+    const columns = axis === "column";
+    const sizes = columns ? dims.widths : dims.heights;
+    const extent = columns ? EditorSettings.paper.w - info.n.x : EditorSettings.paper.h - info.n.y;
+    const occupied = sizes.reduce((sum, size, i) => sum + (indices.includes(i) ? 0 : size), 0);
+    const max = Math.max(0, (extent - occupied) / indices.length);
+    return {min: Math.min(3, max), max, step: "any"};
+  },
+  selectedAxes(info, axis) {
+    return [...new Set(App.cells.map(i => info.positions.get(info.cells[i]))
+      .filter(Boolean).map(p => axis === "column" ? p.x : p.y))];
+  },
   resize(axis, index, value, dims) {
     const info = this.info();
     if (!info) return;
     dims ||= this.dimensions(info);
-    const widths = [...dims.widths],
-      heights = [...dims.heights];
-    (axis === "column" ? widths : heights)[index] = Math.max(
-      3,
-      Number(value) || 3,
-    );
-    const w = widths.reduce((s, v) => s + v, 0),
-      h = heights.reduce((s, v) => s + v, 0);
-    if (w + info.n.x > 210.1 || h + info.n.y > 297.1) {
-      Feedback.notice(
-        "المقاس يتجاوز حدود الورقة. صغّر المقاس أو انقل الجدول أولاً.",
-      );
-      return;
-    }
+    const widths = [...dims.widths], heights = [...dims.heights];
+    const sizes = axis === "column" ? widths : heights;
+    const indices = Array.isArray(index) ? index : [index];
+    if (!indices.length || indices.some(i => !Number.isInteger(i) || i < 0 || i >= sizes.length)) return;
+    const next = EditorSettings.number(value, this.sizeRange(info, axis, indices, dims));
+    if (next === null || indices.every(i => sizes[i] === next)) return this.refresh();
+    for (const i of indices) sizes[i] = next;
+    const w = widths.reduce((sum, size) => sum + size, 0), h = heights.reduce((sum, size) => sum + size, 0);
     App.checkpoint();
     this.setDimensions(info.table, widths, heights);
     if (axis === "column") info.n.w = roundMM(w);
@@ -316,7 +334,7 @@ const TableTools = {
         });
         c.explicitWidths = true;
       } else c.rowHeights = heights.map(roundMM);
-    } else info.n.html = safeMarkup(info.table.outerHTML, true);
+    } else info.n.html = this.templateHTML(info.n,info.table);
     this.save();
   },
   select(axis, index) {
@@ -352,7 +370,7 @@ const TableTools = {
         (c.cellStyles[key] ||= {})[prop] = value;
       }
     }
-    if (!info.n.liveTable) info.n.html = safeMarkup(info.table.outerHTML, true);
+    if (!info.n.liveTable) info.n.html = this.templateHTML(info.n,info.table);
     this.save();
   },
   async confirm(message) {
@@ -505,7 +523,7 @@ const TableTools = {
     this.setDimensions(table, dims.widths, dims.heights);
     n.w = roundMM(dims.widths.reduce((s, v) => s + v, 0));
     n.h = roundMM(dims.heights.reduce((s, v) => s + v, 0));
-    n.html = safeMarkup(table.outerHTML, true);
+    n.html = this.templateHTML(n,table);
     // Keep price/quantity column mappings aligned so existing totals remain live.
     if (n.tableSetup && axis === "column") {
       const c = n.tableSetup,
@@ -643,7 +661,7 @@ const TableTools = {
           ((prop === "fontSize" && /^\d+(\.\d+)?px$/.test(value)) ||
             (prop !== "fontSize" && /^#[\da-f]{6}$/i.test(value)))
         )
-          cell.style[prop] = value;
+          cell.style[prop] = prop === "fontSize" ? EditorSettings.inlineFontSize(value) : value;
       }
     }
     [...table.rows].forEach((row, i) => {

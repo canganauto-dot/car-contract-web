@@ -4,6 +4,7 @@ const Archive = {
   metrics: new WeakMap(),
   tables: new Map(),
   paths: {
+    staff: "M15.5 7a3.5 3.5 0 1 1-7 0 3.5 3.5 0 0 1 7 0M4 21v-2a8 7 0 0 1 16 0v2",
     camera:"M3 7h4l2-3h6l2 3h4v13H3z M16 13a4 4 0 1 1-8 0 4 4 0 0 1 8 0",
     shutter:"M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0 M18 12a6 6 0 1 1-12 0 6 6 0 0 1 12 0",
     upload:"M12 16V3m-5 5 5-5 5 5M4 16v5h16v-5",
@@ -54,8 +55,8 @@ const Archive = {
       const entry = ArchiveOutput.entry;
       if (entry)
         download(
-          ContractFiles.name(entry.data, "json", Archive.config(entry)),
-          ContractFiles.pack(entry.data, entry),
+          ContractFiles.name(entry.data, "json"),
+          ContractFiles.pack(entry.data),
           "application/json",
         );
     };
@@ -75,12 +76,8 @@ const Archive = {
       ? url
       : "";
   },
-  issued(entry) {
-    return entry.kind === "printed" || entry.id?.startsWith("revision:");
-  },
   config(entry) {
-    return entry.snapshot?.config || Services.library.configs?.[entry.configKey] ||
-      entry.config || (this.issued(entry) ? null : cfg);
+    return entry.snapshot?.config || Services.library.configs?.[entry.configKey] || entry.config || cfg;
   },
   types: {
     installment: "أقساط",
@@ -165,7 +162,7 @@ const Archive = {
       if (id && !companies.has(id))
         companies.set(
           id,
-          this.config(e)?.companies?.find((c) => String(c.id) === id)?.name ||
+          this.config(e).companies?.find((c) => String(c.id) === id)?.name ||
             id,
         );
     }
@@ -341,7 +338,7 @@ const Archive = {
         row.classList.remove("is-picked");
       }
       setState(table.all, count, table.rows.length);
-      if (kind === "draft") selectedDrafts = [...this.selected].filter(id => table.nodes.has(id) && !id.startsWith("revision:")).length;
+      if (kind === "draft") selectedDrafts = count;
       selectedVisible += count;
     }
     setState($("allArchive"), selectedVisible, this.visible.length);
@@ -357,24 +354,21 @@ const Archive = {
   async remove(entry) {
     if (
       this.busy ||
-      entry.kind !== "draft" || this.issued(entry) ||
+      entry.kind !== "draft" ||
       !(await Feedback.ask("حذف العقد المعلّق " + entry.data.number + "؟"))
     )
       return;
-    try {
-      await Services.flush();
-      const active = entry.id === "draft:" + d.recordId;
-      const next = active ? fresh() : undefined;
-      const current = Services.library.entries.find(item => item.id === entry.id);
-      if (current) await Services.persistLibrary([[entry.id, current, undefined]], null);
-      if (active) {
-        d = next;
-        await Services.showHome();
-      }
-    } catch (error) {
-      await Feedback.notice(error.message);
-      return;
+    await Services.flush();
+    const active = entry.id === "draft:" + d.recordId;
+    if (active) {
+      d = fresh();
+      await putDB("draft", clone(d));
     }
+    Services.library.entries = Services.library.entries.filter(
+      (e) => e.id !== entry.id,
+    );
+    await Services.persistLibrary();
+    if (active) await Services.showHome();
     this.refresh();
   },
   handlePrintShortcut() {

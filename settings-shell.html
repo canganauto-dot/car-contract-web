@@ -31,7 +31,9 @@
       id="tab-design"
       role="tab"
     >
-      التصميم والحسابات</button
+      قوالب المستندات</button
+    ><button aria-controls="fillSettings" data-settings-tab="fill" id="tab-fill" role="tab">
+      الملء والحسابات</button
     ><button
       aria-controls="storageSettings"
       data-settings-tab="storage"
@@ -52,14 +54,6 @@
       <summary>الحاسبة والمنظم والوكيل</summary>
       <div class="section">
         <div class="grid" data-build="" id="fixedInputs"></div>
-        <details>
-          <summary>الخانات الأساسية للملء</summary>
-          <p>اختر الخانات التي تُحدّد بالأحمر حتى تكتمل قبل طباعة العقد.</p>
-          <div id="requiredChoices" data-build></div>
-          <button id="resetRequired" type="button">
-            استعادة الخانات الافتراضية
-          </button>
-        </details>
         <p class="mini">
           المنظم والفرع والوكيل محفوظون ولا يشملهم التصفير. الرقم يُحجز مرة عند
           إنشاء عقد جديد؛ إعادة الطباعة لا تزيده.
@@ -123,10 +117,21 @@
         <legend>قوالب العقود والكتب</legend>
         <div class="row-buttons" id="templateActions"></div>
       </fieldset>
+    </section>
+    <section aria-labelledby="tab-fill" data-settings-panel="fill" id="fillSettings" role="tabpanel">
       <fieldset class="preference-group">
         <legend>واجهة الملء والمتغيرات</legend>
         <div class="row-buttons" id="fieldActions"></div>
       </fieldset>
+        <details>
+          <summary>الخانات الأساسية للملء</summary>
+          <p>اختر الخانات التي تُحدّد بالأحمر حتى تكتمل قبل طباعة العقد.</p>
+          <div id="requiredChoices" data-build></div>
+          <button id="resetRequired" type="button">
+            استعادة الخانات الافتراضية
+          </button>
+        </details>
+
     </section>
     <details
       aria-labelledby="tab-storage"

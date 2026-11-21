@@ -396,10 +396,7 @@ body.home-mode {
   border-bottom: 1px solid var(--line, #dce2e6);
 }
 .home-heading .contracts-mark {
-  font-family:
-    Segoe UI,
-    Arial,
-    sans-serif !important;
+  font-family: "Alyamama", serif !important;
   font-size: 22px !important;
   font-weight: 600;
   font-style: normal;

@@ -47,6 +47,7 @@
 <dialog id="archiveViewer">
   <header><strong id="viewTitle"></strong><div class="archive-view-actions">
     <select id="archivePrintSides" aria-label="طريقة الطباعة" title="اختر نفس وضع الوجهين من إعدادات الطابعة"><option value="simplex">وجه واحد</option><option value="duplex">وجهان</option></select>
+    <select id="archiveVersion" aria-label="نسخة المستند" hidden></select>
     <button id="viewEdit">متابعة التعديل</button>
     <button id="viewCopy" title="حفظ بيانات العقد JSON" aria-label="حفظ بيانات العقد JSON">JSON</button>
     <button id="viewSave" title="تنزيل PDF" aria-label="تنزيل PDF"><i data-archive-icon="download"></i></button>
@@ -214,3 +215,4 @@
 <input id="contractJSON" type="file" accept=".json,application/json" hidden>
 <dialog id="signedDialog"><header><strong>رفع النسخة الموقعة</strong><button id="signedClose">إغلاق</button></header><div class="row-buttons"><button id="signedFolder">مجلد حفظ السكان</button><button id="signedDevice">تحميل من الجهاز</button><button id="signedCamera">فتح الكاميرا</button></div><p id="signedStatus"></p><input id="signedInput" type="file" accept="application/pdf,image/jpeg,image/png" multiple hidden><video id="signedVideo" autoplay playsinline muted></video><button id="signedCapture" hidden>التقاط صفحة</button><div id="signedShots"></div><button id="signedFinish" disabled>حفظ صفحات السكان</button></dialog>
 <dialog id="printLayoutDialog"><header><strong>ترتيب أوراق الطباعة على وجهين</strong><button id="printLayoutClose">إغلاق</button></header><p>انقل الأوراق والظهور الفارغة، ثم احفظ الترتيب واعتمد التصميم.</p><div id="printLayoutRows"></div><div class="row-buttons"><button id="printLayoutSave">حفظ الترتيب</button><button id="printLayoutReset">الترتيب التلقائي</button></div></dialog>
+

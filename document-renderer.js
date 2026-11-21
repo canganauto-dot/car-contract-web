@@ -1,6 +1,6 @@
 /* Editor schema 6. One scene, one pointer state machine, one renderer.
    All geometry is stored in millimetres. Legacy settings are read only by migration. */
-const CONTRACT_FONT = "Amiri";
+const CONTRACT_FONT = "Alyamama";
 const MM = 96 / 25.4,
   PAGE_NAMES = [
     "العقد",
@@ -28,95 +28,6 @@ const SHAPES = {
   line: ["خط", "M3 50H97"],
 };
 const roundMM = (n) => Math.round(n * 100) / 100;
-const markupTextTags = new Set([
-    "B",
-    "STRONG",
-    "I",
-    "EM",
-    "U",
-    "S",
-    "STRIKE",
-    "SPAN",
-    "BR",
-    "DIV",
-    "P",
-    "FONT",
-]);
-const markupTableTags = new Set(["TABLE", "TBODY", "THEAD", "TFOOT", "TR", "TD", "TH", "COLGROUP", "COL"]);
-const discardedMarkupTags = new Set(["SCRIPT", "STYLE", "IFRAME", "OBJECT", "TEMPLATE", "NOSCRIPT"]);
-const preparedMarkup = new Map();
-function sanitizeMarkup(value, table) {
-  // Template contents are inert even while the unfiltered markup is being parsed.
-  const root = document.createElement("template");
-  root.innerHTML = String(value || "");
-  for (const el of [...root.content.querySelectorAll("*")].reverse()) {
-    if (el.namespaceURI !== "http://www.w3.org/1999/xhtml" || discardedMarkupTags.has(el.tagName)) {
-      el.remove();
-      continue;
-    }
-    if (!markupTextTags.has(el.tagName) && !(table && markupTableTags.has(el.tagName))) {
-      el.replaceWith(...el.childNodes);
-      continue;
-    }
-    const s = el.style,
-      styles = {
-        fontFamily: s.fontFamily,
-        fontSize: s.fontSize,
-        fontWeight: s.fontWeight,
-        fontStyle: s.fontStyle,
-        textDecoration: s.textDecoration,
-        textDecorationColor: s.textDecorationColor,
-        color: s.color,
-        backgroundColor: s.backgroundColor,
-        textAlign: s.textAlign,
-        width: s.width,
-        height: s.height,
-      };
-    if (el.tagName === "FONT") {
-      styles.color = el.getAttribute("color") || styles.color;
-      styles.fontFamily = el.getAttribute("face") || styles.fontFamily;
-    }
-    const spans = {
-      rowspan: el.getAttribute("rowspan"),
-      colspan: el.getAttribute("colspan"),
-    };
-    for (const a of [...el.attributes]) el.removeAttribute(a.name);
-    for (const [k, v] of Object.entries(styles)) if (v) el.style[k] = v;
-    for (const [k, v] of Object.entries(spans))
-      if (v && ["TD", "TH"].includes(el.tagName))
-        el.setAttribute(k, Math.max(1, Math.min(100, Number(v) || 1)));
-  }
-  return root;
-}
-function safeMarkup(value, table = false) {
-  return sanitizeMarkup(value, table).innerHTML;
-}
-function renderMarkup(target, value, table = false) {
-  const html = String(value || "");
-  const substitute = text => text.replace(/\{\{(\w+)\}\}/g, (_, key) => String(ctx[key] ?? ""));
-  if (!/[<&\0]/.test(html)) {
-    target.textContent = substitute(html);
-    return;
-  }
-
-  // Cache only sanitized template nodes. Resolved buyer and payment data never enter the cache.
-  const canCache = !table && html.length <= 12000;
-  let prepared = canCache && preparedMarkup.get(html);
-  if (!prepared) {
-    prepared = sanitizeMarkup(html, table);
-    if (canCache) {
-      if (preparedMarkup.size >= 96) preparedMarkup.delete(preparedMarkup.keys().next().value);
-      preparedMarkup.set(html, prepared);
-    }
-  }
-  const root = canCache ? prepared.content.cloneNode(true) : prepared.content;
-  const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
-  while (walker.nextNode()) {
-    const node = walker.currentNode;
-    if (node.data.includes("{{")) node.data = substitute(node.data);
-  }
-  target.replaceChildren(root);
-}
 function templateOf(el, config = cfg) {
   return (
     config.edits?.[el.dataset.edit]?.text ??
@@ -144,7 +55,7 @@ function shapeMarkup(n) {
       '" stroke="' +
       esc(n.stroke || "#287865") +
       '" stroke-width="' +
-      (Number(n.strokeWidth) || 0) +
+      EditorSettings.display("strokeWidth", n.strokeWidth) +
       '" stroke-dasharray="' +
       (n.dash === "dashed" ? "6 4" : n.dash === "dotted" ? "2 3" : "") +
       '" vector-effect="non-scaling-stroke"/></svg>'
@@ -158,7 +69,7 @@ function shapeMarkup(n) {
     '" stroke="' +
     esc(n.stroke || "#287865") +
     '" stroke-width="' +
-    (Number(n.strokeWidth) || 0) +
+    EditorSettings.display("strokeWidth", n.strokeWidth) +
     '" stroke-dasharray="' +
     (n.dash === "dashed" ? "6 4" : n.dash === "dotted" ? "2 3" : "") +
     '" vector-effect="non-scaling-stroke" stroke-linejoin="round"/></svg>'
@@ -169,11 +80,9 @@ function tableTemplate(table) {
   copy
     .querySelectorAll("[data-edit]")
     .forEach(
-      (el) => {
-        const rich = cfg.edits[el.dataset.edit]?.rich;
-        if (rich) el.innerHTML = safeMarkup(rich);
-        else el.textContent = templateOf(el);
-      },
+      (el) =>
+        (el.innerHTML =
+          cfg.edits[el.dataset.edit]?.rich || esc(templateOf(el))),
     );
   return safeMarkup(copy.outerHTML, true);
 }
@@ -232,11 +141,11 @@ function migrateLegacy(config) {
       if (old) {
         if (old.style) el.setAttribute("style", old.style);
         if (old.html && el.matches("table")) {
-          const tmp = document.createElement("template");
+          const tmp = document.createElement("div");
           tmp.innerHTML = old.html;
-          tmp.content
+          tmp
             .querySelectorAll("[data-edit]")
-            .forEach((t) => (t.textContent = templateOf(t, config)));
+            .forEach((t) => (t.innerHTML = esc(templateOf(t, config))));
           el.innerHTML = safeMarkup(tmp.innerHTML, true);
         }
         if (old.src && el.matches("img")) el.src = safeImage(old.src);
@@ -275,8 +184,8 @@ function migrateLegacy(config) {
         z: nodes.length,
         opacity: 1,
         condition: el.closest("[data-condition]")?.dataset.condition || "",
-        nowrap: cs.whiteSpace === "nowrap",
-        fontFamily: "Amiri",
+
+        fontFamily: CONTRACT_FONT,
         fontSize: parseFloat(cs.fontSize),
         lineHeight:
           (parseFloat(cs.lineHeight) || parseFloat(cs.fontSize) * 1.4) /
@@ -435,7 +344,7 @@ function migrateLegacy(config) {
         fit: "contain",
         caption: o.caption || "",
         fontSize: o.captionSize || 18,
-        fontFamily: "Amiri",
+        fontFamily: CONTRACT_FONT,
         color: "#163f4b",
         lineHeight: 1.2,
         lockAspect: o.type === "image",

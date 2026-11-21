@@ -14,13 +14,9 @@ const ArchiveOutput = {
       tableParents: new Map(SmartTables.parents),
     };
     try {
-      const issued = Archive.issued(entry);
-      if (entry.snapshot) throw Error("استخدم نسخة الإصدار المحفوظة.");
-      const config = Archive.config(entry);
-      if (issued && !config?.design) throw Error("لا توجد نسخة أصلية محفوظة لهذا العقد.");
-      cfg = clone(config);
+      cfg = Archive.config(entry);
       d = normalizeData(entry.data);
-      if (printing && !issued && !entry.configKey)
+      if (printing && entry.kind === "draft" && !entry.configKey)
         Services.stamp(d);
       // Before cash templates existed, “cash” was an archive tag on the
       // installment form. Reprints must use the form captured at that time.
@@ -39,13 +35,13 @@ const ArchiveOutput = {
           !Object.hasOwn(entry.data, transferKey)) {
         d[transferKey] = !!scene.transferLetter && !d.skipTransferLetter;
       }
-      const savedDesign = issued || entry.configKey || entry.config?.design;
-      if (!savedDesign) Services.upgradeScene(scene);
+      if (!entry.configKey && !entry.config?.design)
+        Services.upgradeScene(scene);
       const { papers } = App.documentPages(
         scene,
         false,
         (id) => (face ? id === (d.standaloneBook ? Number(d.standaloneBook) : 1) : Schedule.enabled(id)),
-        !!savedDesign,
+        !!(entry.configKey || entry.config?.design),
       );
       if (!papers.childElementCount)
         throw Error("لم تُحدّد صفحات للعقد " + d.number);
@@ -55,7 +51,7 @@ const ArchiveOutput = {
             papers.children,
             d,
             face,
-            issued ? cfg.printSides || mode : mode,
+            mode,
             scene,
           ),
         );
@@ -70,6 +66,7 @@ const ArchiveOutput = {
     }
   },
   clearViewer() {
+    $("archiveVersion").hidden=true;
     $("archiveViewBody").replaceChildren();
     if (this.url) URL.revokeObjectURL(this.url);
     this.url = "";
@@ -81,8 +78,7 @@ const ArchiveOutput = {
   },
   show(title, entry) {
     this.clearViewer();
-    $("archivePrintSides").disabled = !!entry && Archive.issued(entry);
-    $("archivePrintSides").value = Archive.config(entry || {})?.printSides || PrintPlan.mode();
+    $("archivePrintSides").value = PrintPlan.mode();
     $("archivePrintSides").onchange = (e) => {
       $("printSides").value = e.target.value;
       cfg.printSides = e.target.value;
@@ -92,25 +88,22 @@ const ArchiveOutput = {
     this.entry = entry;
     this.rows = entry ? [entry] : [];
     $("viewTitle").textContent = title;
-    $("viewEdit").hidden = !entry || Archive.issued(entry) || !!Archive.signed(entry);
-    $("viewCopy").hidden = !entry;
+    $("viewEdit").hidden = !entry || !!Archive.signed(entry);
+    $("viewCopy").hidden = $("viewEdit").hidden;
     $("viewEdit").textContent =
       entry?.kind === "draft" ? "إكمال العقد" : "فتح للتعديل";
     if (!$("archiveViewer").open) $("archiveViewer").showModal();
   },
-  async view(entry) {
+  async view(entry, parent=entry) {
     const signed = Archive.signed(entry);
     const title =
       (entry.data.externalSeller || entry.data.buyer || "عقد") +
       " · " +
       entry.data.number;
-    if (signed || entry.snapshot) {
+    if (signed || entry.snapshot?.pdf) {
       const file = await this.build([entry], false);
       this.show(title + (signed ? " · النسخة الموقّعة" : ""), entry);
       this.displayPDF(file);
-    } else if (Archive.issued(entry) && !Archive.config(entry)?.design) {
-      this.show(title, entry);
-      $("archiveViewBody").textContent = "النسخة الأصلية لهذا العقد غير محفوظة؛ يمكنك تصدير بيانات العقد فقط.";
     } else {
       const pages = this.papers(entry, false);
       this.show(title, entry);
@@ -121,17 +114,25 @@ const ArchiveOutput = {
       );
       for (const paper of $("archiveViewBody").children) paper.style.zoom = fit;
     }
+    if(parent.history?.length){
+      const versions=[parent,...parent.history];
+      const select=$("archiveVersion");
+      select.replaceChildren(...versions.map((v,i)=>new Option(i ? "نسخة سابقة · "+new Date(v.updatedAt).toLocaleString("ar-IQ") : "النسخة الحالية",i)));
+      select.value=String(versions.indexOf(entry));select.hidden=false;
+      select.onchange=()=>this.view(versions[Number(select.value)],parent);
+      if(entry!==parent){$("viewEdit").hidden=true;$("viewCopy").hidden=true;}
+    }
   },
-  async raster(paper, styles = WebResources.styles()) {
+  async raster(paper) {
     await WebResources.embedImages(paper);
-    // The browser shapes Arabic text and draws the same styled nodes as preview.
+    // Compose the preview's shaped text images, page artwork and tables onto A4.
     const w = 210 * MM,
       h = 297 * MM,
       scale = 2.4;
     const root = document.createElement("div");
     const style = document.createElement("style");
     style.textContent =
-      styles +
+      WebResources.styles() +
       ".paper{margin:0!important;box-shadow:none!important;zoom:1!important;display:block!important}.blank-image{visibility:hidden}";
     root.append(style, paper);
     const xhtml = new XMLSerializer().serializeToString(root);
@@ -160,31 +161,6 @@ const ArchiveOutput = {
     if (!blob) throw Error("تعذّر تجهيز صفحة PDF.");
     return blob.arrayBuffer();
   },
-  async appendPapers(pdf, papers, styles) {
-    for (const paper of Array.from(papers)) {
-      const page = pdf.addPage(PDFLib.PageSizes.A4);
-      if (paper.dataset.blank) continue;
-      const image = await pdf.embedJpg(await this.raster(paper, styles));
-      page.drawImage(image, { x: 0, y: 0, width: page.getWidth(), height: page.getHeight() });
-    }
-  },
-  async snapshot(candidate) {
-    const { papers, config, styles, data } = candidate;
-    if (!papers?.length || !config) throw Error("تعذر التقاط نسخة الإصدار؛ أعد طباعة العقد.");
-    await WebResources.pdf();
-    const pdf = await PDFLib.PDFDocument.create();
-    const faceId = data.standaloneBook || "1";
-    const facePages = papers.flatMap((paper, index) => paper.dataset.page === faceId ? [index] : []);
-    await this.appendPapers(pdf, papers.map(paper => paper.cloneNode(true)), styles);
-    const blob = new Blob([await pdf.save()], { type: "application/pdf" });
-    const url = await new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = () => resolve(reader.result);
-      reader.onerror = () => reject(reader.error);
-      reader.readAsDataURL(blob);
-    });
-    return { config, pdf: url, facePages };
-  },
   async appendSigned(pdf, url, face, facePages = [0]) {
     if (face && !facePages.length) throw Error("لم يُحفظ وجه هذا العقد ضمن نسخة الإصدار.");
     if (url.startsWith("data:application/pdf")) {
@@ -212,6 +188,7 @@ const ArchiveOutput = {
     }
   },
   async build(rows, face) {
+    await this.verifyDrafts(rows);
     const mode = PrintPlan.mode();
     if (rows.length === 1 && !face) {
       const url = Archive.signed(rows[0]) || rows[0].snapshot?.pdf || "";
@@ -228,9 +205,21 @@ const ArchiveOutput = {
           pdf.addPage(PDFLib.PageSizes.A4);
         const signed = Archive.signed(entry);
         if (signed) await this.appendSigned(pdf, signed, face);
-        else if (entry.snapshot)
-          await this.appendSigned(pdf, entry.snapshot.pdf, face, entry.snapshot.facePages);
-        else await this.appendPapers(pdf, this.papers(entry, face, true, mode).children);
+        else if (entry.snapshot?.pdf) await this.appendSigned(pdf, entry.snapshot.pdf, face, entry.snapshot.facePages);
+        else {
+          const papers = Array.from(this.papers(entry, face, true, mode).children);
+          for (const paper of papers) {
+            const page = pdf.addPage(PDFLib.PageSizes.A4);
+            if (paper.dataset.blank) continue;
+            const image = await pdf.embedJpg(await this.raster(paper));
+            page.drawImage(image, {
+              x: 0,
+              y: 0,
+              width: page.getWidth(),
+              height: page.getHeight(),
+            });
+          }
+        }
       } catch (error) {
         throw Error("العقد " + entry.data.number + " · " + error.message);
       }
@@ -303,7 +292,7 @@ const ArchiveOutput = {
       useSystemFonts: true,
     }).promise;
     try {
-      const pages = face ? facePages : Array.from({ length: pdf.numPages }, (_, i) => i);
+      const pages = face ? facePages : Array.from({length:pdf.numPages}, (_, i) => i);
       for (const index of pages) {
         const page = await pdf.getPage(index + 1);
         const base = page.getViewport({ scale: 1 });
@@ -327,6 +316,7 @@ const ArchiveOutput = {
     }
   },
   async printSheets(rows, face) {
+    await this.verifyDrafts(rows);
     const mode = PrintPlan.mode();
     const frame = document.createElement("iframe");
     frame.title = $("viewTitle").textContent;
@@ -347,8 +337,7 @@ const ArchiveOutput = {
       }
       const signed = Archive.signed(entry);
       if (signed) await this.signedSheets(doc, signed, face);
-      else if (entry.snapshot)
-        await this.signedSheets(doc, entry.snapshot.pdf, face, entry.snapshot.facePages);
+      else if (entry.snapshot?.pdf) await this.signedSheets(doc, entry.snapshot.pdf, face, entry.snapshot.facePages);
       else doc.body.append(this.papers(entry, face, true, mode));
     }
     await Promise.all([...doc.images].map((img) => img.decode()));
@@ -362,6 +351,12 @@ const ArchiveOutput = {
     if (this.printFrame) {
       this.printFrame.contentWindow.focus();
       this.printFrame.contentWindow.print();
+    }
+  },
+  async verifyDrafts(rows) {
+    for(const entry of rows)if(entry.kind==="draft" && !Archive.signed(entry)){
+      entry.data.recordId ||= "contract-"+crypto.randomUUID();
+      await BranchNumbers.verify(entry.data);
     }
   },
   downloadFile() {

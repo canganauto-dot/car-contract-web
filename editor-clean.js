@@ -1,5 +1,6 @@
-class ContractEditor {
+class ContractEditor extends DocumentSceneRenderer {
   constructor() {
+    super();
     this.mode = "fill";
     this.approved = null;
     this.draft = null;
@@ -59,7 +60,9 @@ class ContractEditor {
     return [...this.selection].map((id) => this.node(id)).filter(Boolean);
   }
   element(id) {
-    return $("pages").querySelector('[data-node="' + CSS.escape(id) + '"]');
+    const selector = '[data-node="' + CSS.escape(id) + '"]';
+    return $("pages").querySelector('.paper[data-page="' + this.page + '"] ' + selector) ||
+      $("pages").querySelector(selector);
   }
   current() {
     if (!this.scene) return;
@@ -67,11 +70,11 @@ class ContractEditor {
     if (ref) return ContractTemplates.resolve(this.scene, ref);
     if (CompanySheets.ids.includes(this.page))
       return this.scene.companySheets?.find((p) => p.id === this.page);
+    if (this.page === 0) return this.scene.transferLetter;
     if (External.active())
       return this.scene.externalPages?.find((p) => p.id === this.page);
     if (this.page === 1 && d.contractType === "exchange")
       return this.scene.exchangeTemplate;
-    if (this.page === 0) return this.scene.transferLetter;
     if (this.page === 1 && d.contractType === "cash")
       return this.scene.cashTemplate;
     return (
@@ -99,7 +102,7 @@ class ContractEditor {
     this.draft = payload;
     this.draftQueue = this.draftQueue
       .catch(() => {})
-      .then(() => putDB("designDraft", payload))
+      .then(() => putDB("designDraft:" + payload.scope, payload))
       .then(() => ($("saveStatus").textContent = "مسودة التصميم محفوظة"))
       .catch(
         () => ($("saveStatus").textContent = "تعذر حفظ المسودة؛ احفظ نسخة"),
@@ -118,8 +121,13 @@ class ContractEditor {
     }
     this.commitText();
     this.approved = ContractTemplates.scoped(cfg.design || migrateLegacy(cfg));
-    const stored = this.draft || (await getDB("designDraft"));
-    if (stored?.version === 6 && stored.scope === ContractTemplates.scopeKey() && (!stored.baseRevision || stored.baseRevision === cfg.sharedRevision)) {
+    const scope = ContractTemplates.scopeKey();
+    await this.draftQueue;
+    const stored = this.draft?.scope === scope ? this.draft : await getDB("designDraft:" + scope);
+    const stale=stored?.baseRevision && stored.baseRevision!==cfg.sharedRevision;
+    const useDraft=stored?.version===6 && stored.scope===scope && (!stale ||
+      await Feedback.ask("عدّل مستخدم آخر التصميم بعد حفظ مسودتك. تريد تفتح مسودتك للمراجعة؟ اعتمادها يستبدل تصميم هذا النموذج على الهوست."));
+    if (useDraft) {
       this.scene = clone(stored.scene);
       if (stored.printPages)
         d.pages = [
@@ -139,7 +147,7 @@ class ContractEditor {
     $("settingsDrawer").hidden = true;
     $("shade").hidden = true;
     this.render();
-    $("saveStatus").textContent = "تعديلاتك مسودة حتى الاعتماد";
+    $("saveStatus").textContent = useDraft && stored.recovered ? "استُرجع تعديلك المحلي. اضغط اعتماد لنشره لكل المستخدمين." : "تعديلاتك مسودة حتى الاعتماد";
   }
   leave() {
     this.commitText();
@@ -157,31 +165,45 @@ class ContractEditor {
     this.render();
   }
   async approve() {
+    if(this.approving || this.mode!=="design")return;
+    this.approving=true;
+    const controls=[...document.querySelectorAll("#toolbar,#workbench,.workspace,#editorPanel")].filter(el=>!el.inert);
+    this.commitText();
+    for(const el of controls)el.inert=true;
+    try {await this.publishDesign();}
+    finally {for(const el of controls)el.inert=false;this.approving=false;}
+  }
+  async publishDesign() {
     this.commitText();
     if (this.gesture) this.cancelGesture();
+    this.persist();
+    await this.draftQueue;
+    try {SharedDefaults.requirePublisher();}
+    catch(error){await Feedback.notice(error.message);return;}
     await putDB("beforeApprovalBackup", {
       config: clone(cfg),
       time: Date.now(),
     });
     const scene = clone(this.scene);
     const originalDesign=cfg.design;
-    const layout={};
+    const originalExtraPages = cfg.extraPages;
+    const layout={approvedLayout:true};
     for(const key of ContractTemplates.layoutKeys)if(scene[key]!==undefined)layout[key]=clone(scene[key]);
     cfg.design={...originalDesign,documentLayouts:{...originalDesign.documentLayouts,[ContractTemplates.scopeKey()]:layout}};
     cfg.extraPages = scene.pages
       .filter((p) => p.id > 8)
       .map((p) => ({ id: p.id, name: p.name }));
     try {
-      await saveConfig();
+      await saveConfig(ContractTemplates.scopeKey());
     } catch (error) {
       cfg.design = originalDesign;
-      cfg.extraPages = this.approved.pages.filter(p => p.id > 8).map(p => ({id:p.id, name:p.name}));
+      cfg.extraPages = originalExtraPages;
       await Feedback.notice(error.message);
       return;
     }
     this.approved = scene;
     await this.draftQueue;
-    await putDB("designDraft", null);
+    await putDB("designDraft:" + ContractTemplates.scopeKey(), null).catch(()=>{});
     this.draft = null;
     this.mode = "fill";
     editMode = false;
@@ -192,7 +214,7 @@ class ContractEditor {
     document.body.classList.remove("design-mode");
     $("editorPanel").hidden = true;
     this.render();
-    $("saveStatus").textContent = SharedDefaults.enabled ? "تم اعتماد التصميم في المشروع" : "تم اعتماد التصميم محلياً";
+    $("saveStatus").textContent = "تم اعتماد التصميم على الهوست لكل المستخدمين";
   }
 
   undo(redo = false) {
@@ -232,7 +254,7 @@ class ContractEditor {
     $("pages").replaceChildren(papers);
     this.displayPages = displayPages;
     if (!this.displayPages.some((p) => p.id === this.page))
-      this.page = this.displayPages[0]?.id || 1;
+      this.page = this.displayPages[0]?.id ?? 1;
     this.updatePages();
     this.drawSelection();
     this.inspector();
@@ -240,326 +262,15 @@ class ContractEditor {
     TransferLetter.decorate(d, balance);
     Workspace.markMissing(balance);
     Workspace.paymentRows();
-    $("contractNumber").value = d.number;
+    if(document.activeElement!==$("contractNumber"))$("contractNumber").value=d.numberUnconfirmed?d.numberRequest:d.number;
+    $("contractNumber").placeholder=d.recordId && !d.number?"بانتظار الحجز":"تلقائي";
+    $("contractNumber").toggleAttribute("readonly",!d.recordId || this.mode==="design");
+    if(!d.numberUnconfirmed)$("contractNumber").removeAttribute("aria-invalid");
     $("validation").textContent = d.standaloneBook ? "" : [...balance.errors, ...Services.formulaErrors].join(
       "\n",
     );
     $("canvas").scrollTop = scroll;
     if (startReady && this.mode === "fill") saveDraft();
-  }
-  documentPages(scene, design, include = () => true, archived = false, balance = calculate(d)) {
-    if(scene.documentLayouts)scene=ContractTemplates.scoped(scene);
-    ctx = context(balance);
-    const cash = d.contractType === "cash";
-    PaperLayout.companyLines(co()).forEach(
-      (line, i) => (ctx["headerCompany" + i] = line),
-    );
-    if (External.active()) External.context(ctx);
-    if (d.contractType === "exchange") Exchange.context(ctx, balance);
-    if (cash)
-      Cash.context(ctx, balance, archived && !scene.cashTemplate?.fixedLayout);
-    d.extras.forEach((x, i) => {
-      ctx["extraLabel" + i] = x.label;
-      ctx["extraMoney" + i] = money(amount(x.amount));
-      ctx["extraWords" + i] = words(amount(x.amount));
-      ctx["extraDate" + i] = dateLabel(x.date);
-    });
-    splitBills(balance.outstanding ?? balance.remaining).forEach((v, i) => {
-      ctx["bill" + i] = money(v);
-      ctx["billWords" + i] = words(v);
-    });
-    const papers = document.createDocumentFragment();
-    let displayPages = External.active()
-      ? External.pages(scene)
-      : [
-          ...scene.pages
-            .filter(
-              (p) =>
-                (!cash || ![3, 6].includes(p.id)) &&
-                (design || !d.noWarranty || ![2, 5].includes(p.id)),
-            )
-            .map((p) =>
-              p.id === 1 &&
-              d.contractType === "exchange" &&
-              (!archived || scene.exchangeTemplate)
-                ? Exchange.template(scene, archived)
-                : cash && p.id === 1
-                  ? archived && scene.cashTemplate
-                    ? scene.cashTemplate
-                    : Cash.template(scene)
-                  : p,
-            ),
-          ...Schedule.pages(scene, design, archived),
-          ...(!archived || scene.companySheets
-            ? CompanySheets.pages(scene)
-            : []),
-          ...((TransferLetter.applies(d) || (design && TransferLetter.paymentContract(d))) &&
-              (!archived || scene.transferLetter || TransferLetter.paymentContract(d) || d.standaloneBook)
-            ? [archived && scene.transferLetter ? scene.transferLetter : TransferLetter.template(scene)]
-            : []),
-        ];
-    if (External.active() && TransferLetter.applies(d))
-      displayPages.push(archived && scene.transferLetter ? scene.transferLetter : TransferLetter.template(scene));
-    displayPages = ContractTemplates.pages(scene, displayPages, design);
-    const paymentTransfer = TransferLetter.paymentContract(d);
-    if (paymentTransfer && TransferLetter.applies(d) && !displayPages.some(p=>p.id===0))
-      displayPages.push(scene.transferLetter || TransferLetter.template(scene));
-    if (!External.active() && ContractTemplates.find(d.templateId, scene)?.pages.some(r=>r.source==="external")) {
-      const extra = {};
-      External.context(extra);
-      for (const [key, value] of Object.entries(extra)) if (key.startsWith("external")) ctx[key] = value;
-    }
-    displayPages = Letters.pages(scene, displayPages);
-    if (!design) displayPages = displayPages.filter(p =>
-      !Schedule.requiresGuarantor(p.id,d) &&
-      (p.id !== 0 || !paymentTransfer || TransferLetter.applies(d)),
-    );
-    Workbench.pages(displayPages, scene);
-    displayPages = SmartTables.expand(displayPages, design);
-    const baseCtx = ctx;
-    for (const page of displayPages) {
-      if (!archived) EditorEnhancements.upgradePage(page);
-      if (!archived && page.id >= 0) PaperLayout.apply(page);
-      if (!archived && page.id === 1 && !d.standaloneBook) {
-        if (External.active()) External.fitFontLayout(page);
-        if (d.contractType === "exchange") Exchange.fitFontLayout(page);
-      }
-      if (!include(page.tableParent ?? page.id)) continue;
-      ctx = baseCtx;
-      if (page.id < 0) ctx = { ...baseCtx, ...Schedule.values(page) };
-      if (page.id === 0) ctx = {
-        ...baseCtx,
-        ...(External.active() ? {buyer:baseCtx.externalBuyer} : {}),
-        cashTransferNote: TransferLetter.note(d, balance, baseCtx.cashTransferNote),
-      };
-      const paper = document.createElement("article");
-      paper.className = "paper scene-page";
-      paper.dataset.page = page.id;
-      if (page.id < 0) paper.classList.add("schedule-page");
-      for (const original of [...page.nodes].sort(
-        (a, b) => (a.z || 0) - (b.z || 0),
-      )) {
-        const n = original;
-        if (
-          !design &&
-          d.noWarranty &&
-          (n.id === "warranty" ||
-            (/\{\{warrantyText\}\}/.test(n.html || "") &&
-              (n.html || "").trim() === "{{warrantyText}}"))
-        )
-          continue;
-        if (
-          (n.condition === "phase" && !(d.phaseEnabled && amount(d.phaseCount)>0 && amount(d.phasePayment)>0)) ||
-          (n.condition === "standard" && d.phaseEnabled && amount(d.phaseCount)>0 && amount(d.phasePayment)>0)
-        )
-          continue;
-        if (n.condition === "cargo" && (!["exchange","installment"].includes(d.contractType) || d.standaloneBook || page.id !== 1)) continue;
-        const show =
-          !n.condition ||
-          ["phase", "standard"].includes(n.condition) ||
-          (n.condition === "cargo" ? cargoClauseApplies(d) : n.condition.startsWith("cash-due-")
-            ? archived && !scene.cashTemplate?.fixedLayout
-              ? !!balance.cashRows?.[Number(n.condition.slice(9))]
-              : balance.cashRows?.some(
-                  (row, i) => (row.slot ?? i) === Number(n.condition.slice(9)),
-                )
-            : n.condition === "transfer-note"
-              ? !!ctx.cashTransferNote?.trim()
-              : n.condition === "agent"
-                ? cfg.fixed.hasAgent
-                : amount(d.extras[Number(n.condition.split("-")[1])]?.amount) >
-                  0);
-        if (show || design) {
-          if (!design && n.hideEmpty && n.type === "image" && !Images.source(n))
-            continue;
-          if (
-            d.standaloneBook &&
-            d.bookNoCompany &&
-            n.type === "image" &&
-            ["company", "companySlot"].includes(n.binding)
-          )
-            continue;
-          const element = this.renderNode(n);
-          const ordinal =
-            n.clauseNumber ||
-            (!archived && page.id === 1 && /^البند (\d+)$/.exec(n.name)?.[1]);
-          if (ordinal)
-            element.dataset.clauseNumber =
-              n.clauseDash ||
-              (page.id === 1 && d.contractType === "installment")
-                ? "-"
-                : Number(ordinal).toLocaleString("ar-IQ") + ".";
-          if (!show) element.style.opacity = ".3";
-          paper.append(element);
-        }
-      }
-      if (page.id === 1 && !design && !archived && d.contractType === "exchange" && !d.standaloneBook) {
-        Exchange.flowClauses(paper);
-      }
-      papers.append(paper);
-    }
-    ctx = baseCtx;
-    return { papers, displayPages };
-  }
-  renderNode(n) {
-    n = SmartTables.model(n);
-    const el = document.createElement("div");
-    el.className = "scene-node";
-    el.dataset.node = n.id;
-    el.dataset.type = n.type;
-    if (n.vehicleCell) el.classList.add("vehicle-cell");
-    if (n.liveTable || n.tableSetup) {
-      el.classList.add("smart-node");
-      if ((n.liveTable || n.tableSetup).style === "cards")
-        el.classList.add("smart-card-node");
-    }
-    this.nodeStyle(el, n);
-    if (n.headerCut && !n.firstFormHeader)
-      el.style.clipPath = "inset(" + n.headerCut + "mm 0 0)";
-    if (n.fontStyle) el.style.fontStyle = n.fontStyle;
-    if (n.textDecoration && n.textDecoration !== "underline")
-      el.style.textDecoration = n.textDecoration;
-    if (
-      n.type === "text" &&
-      n.textDecoration === "underline" &&
-      n.underlineEnabled !== false
-    ) {
-      el.classList.add("field-underlined");
-      el.style.setProperty(
-        "--field-underline",
-        n.decorationColor || n.color || "#172c35",
-      );
-      el.style.setProperty(
-        "--field-underline-width",
-        (n.underlineWidth || 1) + "px",
-      );
-    }
-    if (n.decorationColor) el.style.textDecorationColor = n.decorationColor;
-    if (n.type === "text") {
-      const content = document.createElement("div");
-      content.className = "node-content";
-      if (n.verticalAlign) {
-        el.style.display = "flex";
-        el.style.flexDirection = "column";
-        el.style.justifyContent = {
-          top: "flex-start",
-          middle: "center",
-          bottom: "flex-end",
-        }[n.verticalAlign];
-        content.style.height = "auto";
-        content.style.width = "100%";
-        content.style.whiteSpace = "pre-wrap";
-      }
-      if (n.balanced) content.style.textWrapStyle = "balance";
-      if (n.tokenRich) {
-        const value = String(ctx[n.tokenRich.token] ?? "");
-        let at = 0;
-        n.tokenRich.runs.forEach((r, i) => {
-          const span = document.createElement("span"),
-            end =
-              i === n.tokenRich.runs.length - 1 ? value.length : at + r.length;
-          span.textContent = value.slice(at, end);
-          Object.assign(span.style, r.style);
-          content.append(span);
-          at = end;
-        });
-      } else renderMarkup(content, n.html);
-      if (n.fitLetterNote && !n.manualFontSize) TransferLetter.fitNote(content, n);
-
-      const shortText = content.textContent.trim();
-      if (shortText && (n.fitSingleLine || shortText.split(/\s+/u).length <= 2) && !content.querySelector("br,table")) {
-        content.classList.add("short-text-line");
-        const measure = this.textMeasure ||= document.createElement("canvas").getContext("2d");
-        measure.font = [el.style.fontStyle || "normal", el.style.fontWeight || "400", el.style.fontSize, '"Amiri"'].join(" ");
-        const width = measure.measureText(shortText.replace(/\s+/gu, " ")).width;
-        const available = n.w * MM - 2 * (parseFloat(el.style.borderWidth) || 0);
-        if (available > 0 && width > available) {
-          content.style.fontSize = (parseFloat(el.style.fontSize) * available / width * 0.98) + "px";
-        }
-      }
-      el.append(content);
-    } else if (n.type === "image") {
-      const src = Images.source(n);
-      if (src) {
-        const img = document.createElement("img");
-        let stock;
-        if (n.firstFormHeader && n.cropHeight) {
-          this.stockHeaders ||= ContractAssets.headers;
-          const asset = this.stockHeaders[co().id];
-          if (asset && src.length === asset.length && src.endsWith(asset.tail))
-            stock = asset.image;
-        }
-        img.src = safeImage(stock || src);
-        img.alt = n.name;
-        img.draggable = false;
-        img.style.objectFit = n.fit || "contain";
-        if (!stock && (n.cropRatio || n.cropHeight))
-          img.style.height = (n.cropRatio || n.cropHeight / n.h) * 100 + "%";
-        el.append(img);
-      } else {
-        const blank = document.createElement("div");
-        blank.className = "blank-image";
-        blank.textContent = n.name + " · لم تُضف صورة";
-        el.append(blank);
-      }
-    } else if (n.type === "shape") {
-      el.innerHTML = shapeMarkup(n);
-      const text = document.createElement("div");
-      text.className = "shape-text";
-      renderMarkup(text, n.html || esc(n.caption || ""));
-
-      el.append(text);
-    } else if (n.type === "table") {
-      renderMarkup(el, n.html, true);
-      const table = el.querySelector("table");
-      if (table) {
-        table.dir =
-          n.liveTable?.direction ||
-          n.tableSetup?.direction ||
-          n.direction ||
-          "rtl";
-        TableTools.decorate(n, table);
-      }
-      if (n.letterGrid) el.classList.add("letter-grid");
-      if (n.directory) el.classList.add("letter-directory");
-      el.style.setProperty("--table-border", n.stroke || "#aebdc7");
-      el.querySelectorAll("td,th").forEach(
-        (c, i) => (c.dataset.cell = String(i)),
-      );
-    }
-    return el;
-  }
-  nodeStyle(el, n) {
-    if (n.cropHeight && !n.cropRatio) n.cropRatio = n.cropHeight / n.h;
-    Object.assign(el.style, {
-      left: n.x + "mm",
-      top: n.y + "mm",
-      width: n.w + "mm",
-      height: n.h + "mm",
-      zIndex: String(n.z || 0),
-      opacity: String(n.type === "text" ? 1 : (n.opacity ?? 1)),
-      fontFamily: "Amiri",
-      fontSize: (n.fontSize || 17) + "px",
-      lineHeight: String(n.lineHeight || 1.2),
-      fontWeight: n.weight || "400",
-      color: n.color || "#172c35",
-      textDecorationColor: n.decorationColor || n.color || "#172c35",
-      textAlign: n.align || "right",
-      direction: n.direction === "ltr" ? "ltr" : "rtl",
-      background:
-        n.type === "shape" || n.fillEnabled === false
-          ? "transparent"
-          : n.fill || "transparent",
-      border:
-        n.type === "shape" || n.strokeEnabled === false
-          ? "none"
-          : (n.strokeWidth || 0) +
-            "px " +
-            (n.dash || "solid") +
-            " " +
-            (n.stroke || "transparent"),
-      borderRadius: (n.radius || 0) + "mm",
-    });
   }
   zoomScale() {
     const value = $("zoom").value;
@@ -822,13 +533,24 @@ class ContractEditor {
     );
     if (!single && textNode) {
       $("textPanel").hidden = false;
-      $("fontFamily").value = "Amiri";
-      $("fontSize").value = textNode.fontSize || 18;
+      $("fontFamily").value = CONTRACT_FONT;
+      const sameTextValue = key => {
+        const values = nodes.filter(item => item.type !== "image").map(item => EditorSettings.display(key, item[key]));
+        return values.every(value => value === values[0]) ? values[0] : "";
+      };
+      $("fontSize").value = sameTextValue("fontSize");
       $("fontColor").value = this.hex(textNode.color || "#172c35");
-      $("lineHeight").value = textNode.lineHeight || 1.2;
+      $("lineHeight").value = sameTextValue("lineHeight");
       $("variableLabel").disabled = true;
     }
     $("insertVariable").disabled = !single;
+    const overflowing = nodes.some(item => {
+      if (!["text", "shape"].includes(item.type)) return false;
+      const box = this.element(item.id), body = box?.querySelector(".node-content");
+      return body && body.offsetHeight > body.parentElement.clientHeight + 1;
+    });
+    $("textOverflowHint").hidden = !overflowing;
+    $("fitTextHeight").hidden = !single || n?.type !== "text" || !!n.lockAspect;
     if (!n) return;
     for (const button of document.querySelectorAll("[data-format]")) {
       const pair = {
@@ -843,13 +565,17 @@ class ContractEditor {
       );
     }
     const bounds = this.bounds();
+    const geometry = EditorSettings.geometry(bounds, nodes);
     $("nodeName").value = single ? n.name : "مجموعة عناصر";
     $("nodeName").disabled = !single;
     for (const input of document.querySelectorAll("[data-prop]")) {
       const key = input.dataset.prop;
-      let value = ["x", "y", "w", "h"].includes(key) ? bounds[key] : n[key];
-      if (key === "underlineWidth") value = n.underlineWidth ?? 1;
-      if (key === "strokeWidth") value = n.strokeWidth ?? 0;
+      const rule = geometry[key] || EditorSettings.text[key];
+      if (rule) EditorSettings.input(input, rule);
+      let value = geometry[key] ? roundMM(bounds[key]) : rule ? EditorSettings.display(key, n[key]) : n[key];
+      if (!geometry[key] && input.type === "number" &&
+          nodes.some(item => EditorSettings.display(key, item[key]) !== value)) value = "";
+      if (value == null && input.tagName === "SELECT") value = input.options[0]?.value;
       if (input.type === "color") value = this.hex(value || "#ffffff");
       if (value != null)
         input.value = typeof value === "number" ? roundMM(value) : value;
@@ -872,10 +598,10 @@ class ContractEditor {
     $("aspectLock").checked = single ? !!n.lockAspect : false;
     $("noFill").checked = !n.fill || n.fill === "transparent";
     if (single) {
-      $("fontFamily").value = "Amiri";
-      $("fontSize").value = n.fontSize || 18;
+      $("fontFamily").value = CONTRACT_FONT;
+      $("fontSize").value = EditorSettings.display("fontSize", n.fontSize);
       $("fontColor").value = this.hex(n.color || "#172c35");
-      $("lineHeight").value = n.lineHeight || 1.2;
+      $("lineHeight").value = EditorSettings.display("lineHeight", n.lineHeight);
       $("textAlign").value = n.align || "right";
       if (n.type === "image") Images.options();
       document
@@ -935,25 +661,22 @@ class ContractEditor {
     this.commitText();
     const nodes = this.selected();
     if (!nodes.length) return;
+    const isGeometry = ["x", "y", "w", "h"].includes(key);
+    const bounds = isGeometry ? this.bounds(nodes) : null;
+    const rule = isGeometry ? EditorSettings.geometry(bounds, nodes)[key] : EditorSettings.text[key];
+    if (rule) {
+      value = EditorSettings.number(value, rule);
+      if (value === null || (isGeometry && value === bounds[key])) return this.inspector();
+    }
     this.checkpoint();
-    if (["x", "y", "w", "h"].includes(key)) {
-      const bounds = this.bounds(nodes);
+    if (isGeometry) {
       const b = {
           ...bounds,
-          [key]: Math.max(
-            key === "w" || key === "h" ? 1 : 0,
-            Number(value) || 0,
-          ),
+          [key]: value,
         },
         lock = nodes.length === 1 && nodes[0].lockAspect;
       if (lock && key === "w") b.h = (b.w * bounds.h) / bounds.w;
       if (lock && key === "h") b.w = (b.h * bounds.w) / bounds.h;
-      if (b.x + b.w > 210 || b.y + b.h > 297) {
-        this.history.pop();
-        $("saveStatus").textContent = "المقاس يتجاوز حدود الصفحة";
-        this.inspector();
-        return;
-      }
       for (const n of nodes) {
         n.x = roundMM(b.x + ((n.x - bounds.x) * b.w) / bounds.w);
         n.y = roundMM(b.y + ((n.y - bounds.y) * b.h) / bounds.h);
@@ -978,10 +701,9 @@ class ContractEditor {
         )
           continue;
         n[key] = value;
-        if (related) Object.assign(n, related);
-        if (key === "fontSize") n.manualFontSize = true;
-        if (n.tokenRich && ["fontSize", "fontFamily", "color"].includes(key))
-          for (const r of n.tokenRich.runs) if (r.style) delete r.style[key];
+        if (related) Object.assign(n, typeof related === "function" ? related(n) : related);
+        if (Array.isArray(n.tokenRich?.runs) && ["fontSize", "fontFamily", "color"].includes(key))
+          for (const r of n.tokenRich.runs) if (r?.style) delete r.style[key];
         if (
           ["weight", "fontStyle", "textDecoration", "decorationColor"].includes(
             key,
@@ -1209,27 +931,18 @@ class ContractEditor {
         b.x += correction;
       }
     } else {
-      if (h.includes("e")) b.w = Math.max(2, b.w + dx);
-      if (h.includes("s")) b.h = Math.max(2, b.h + dy);
-      if (h.includes("w")) {
-        b.w = Math.max(2, b.w - dx);
-        b.x = g.bounds.x + g.bounds.w - b.w;
+      const lock = e.shiftKey || (g.nodes.length === 1 && g.nodes[0].lockAspect);
+      const limits = EditorSettings.geometry(g.bounds, g.nodes, h, lock);
+      const horizontal = /[ew]/.test(h), vertical = /[ns]/.test(h);
+      if (horizontal) b.w = EditorSettings.number(b.w + (h.includes("w") ? -dx : dx), limits.w);
+      if (vertical) b.h = EditorSettings.number(b.h + (h.includes("n") ? -dy : dy), limits.h);
+      if (lock) {
+        const byWidth = horizontal && (!vertical || Math.abs(dx / g.bounds.w) >= Math.abs(dy / g.bounds.h));
+        if (byWidth) b.h = b.w * g.bounds.h / g.bounds.w;
+        else b.w = b.h * g.bounds.w / g.bounds.h;
       }
-      if (h.includes("n")) {
-        b.h = Math.max(2, b.h - dy);
-        b.y = g.bounds.y + g.bounds.h - b.h;
-      }
-      if (
-        h.length === 2 &&
-        (e.shiftKey || (g.nodes.length === 1 && g.nodes[0].lockAspect))
-      ) {
-        const factor = Math.max(b.w / g.bounds.w, b.h / g.bounds.h);
-        b.w = g.bounds.w * factor;
-        b.h = g.bounds.h * factor;
-        if (h.includes("w")) b.x = g.bounds.x + g.bounds.w - b.w;
-        if (h.includes("n")) b.y = g.bounds.y + g.bounds.h - b.h;
-      }
-      if (b.x < 0 || b.y < 0 || b.x + b.w > 210 || b.y + b.h > 297) return;
+      if (h.includes("w")) b.x = g.bounds.x + g.bounds.w - b.w;
+      if (h.includes("n")) b.y = g.bounds.y + g.bounds.h - b.h;
     }
     for (const old of g.nodes) {
       const n = this.node(old.id);
@@ -1293,8 +1006,8 @@ class ContractEditor {
       if (!raw || !content) return;
       content.innerHTML = raw.innerHTML;
     } else if (node.type === "text" || node.type === "shape") {
-      content = wrapper.querySelector(".node-content,.shape-text");
-      content.innerHTML = safeMarkup(node.html);
+      content = wrapper.querySelector(".node-content");
+      content.innerHTML = safeMarkup(node.html || (node.tokenRich?.token ? "{{" + node.tokenRich.token + "}}" : esc(node.caption || "")));
     } else return;
     this.editing = {
       id,
@@ -1321,11 +1034,10 @@ class ContractEditor {
     this.editing = null;
     this.range = null;
     edit.element.removeAttribute("contenteditable");
-    if (!cancel && node && (html !== safeMarkup(edit.initial) || edit.manualFontSize)) {
+    if (!cancel && node && html !== edit.initial) {
       this.checkpoint();
       if (node.type === "text" || node.type === "shape") {
         node.html = html;
-        if (edit.manualFontSize) node.manualFontSize = true;
         delete node.tokenRich;
         delete node.caption;
       } else {
@@ -1338,18 +1050,22 @@ class ContractEditor {
     }
     this.render();
   }
+  applyTypingSize() {
+    const edit = this.editing;
+    if (!edit?.typingSize) return;
+    for (const el of edit.element.querySelectorAll('font[size="7"]')) {
+      el.removeAttribute("size");
+      el.style.fontSize = edit.typingSize + "px";
+    }
+  }
   format(command, value) {
-    if (command === "underline") {
-      this.commitText();
+    if (!this.editing && command === "underline") {
       const nodes = this.selected().filter((n) => n.type !== "image");
       if (!nodes.length) return;
       const enabled = !nodes.every(
         (n) => n.textDecoration === "underline" && n.underlineEnabled !== false,
       );
-      this.property("textDecoration", enabled ? "underline" : "none");
-      for (const n of this.selected()) n.underlineEnabled = enabled;
-      this.render();
-      this.persist();
+      this.property("textDecoration", enabled ? "underline" : "none", { underlineEnabled: enabled });
       return;
     }
     if (!this.editing && this.selection.size > 0) {
@@ -1387,14 +1103,8 @@ class ContractEditor {
     if (command === "size") {
       document.execCommand("styleWithCSS", false, false);
       document.execCommand("fontSize", false, "7");
-      for (const el of content.querySelectorAll('font[size="7"]')) {
-        el.removeAttribute("size");
-        el.style.fontSize = value + "px";
-      }
-      if (this.editing.cellIndex == null) {
-        content.style.removeProperty("font-size");
-        this.editing.manualFontSize = true;
-      }
+      this.editing.typingSize = value;
+      this.applyTypingSize();
     } else {
       document.execCommand("styleWithCSS", false, true);
       document.execCommand(command, false, value);
@@ -1426,7 +1136,7 @@ class ContractEditor {
       z,
       opacity: 1,
       fontSize: 20,
-      fontFamily: "Amiri",
+      fontFamily: CONTRACT_FONT,
       lineHeight: 1.2,
       color: "#213b47",
       align: "right",
@@ -1590,6 +1300,12 @@ class ContractEditor {
     this.commitText();
     const n = this.selected()[0];
     if (n?.type !== "table") return;
+    if (kind === "rowHeight" || kind === "columnWidth") {
+      const axis = kind === "rowHeight" ? "row" : "column";
+      const info = TableTools.info();
+      if (info) TableTools.resize(axis, TableTools.selectedAxes(info, axis), value);
+      return;
+    }
     if (n.liveTable) return SmartTables.wizard(n);
     const tmp = document.createElement("div");
     tmp.innerHTML = safeMarkup(n.html, true);
@@ -1598,7 +1314,7 @@ class ContractEditor {
       chosen = this.cells.map((i) => cells[i]).filter(Boolean),
       { grid, positions } = this.tableGrid(table);
     if (
-      ["merge", "split", "rowHeight", "columnWidth"].includes(kind) &&
+      ["merge", "split"].includes(kind) &&
       !chosen.length
     ) {
       $("saveStatus").textContent = "فعّل تحرير الخلايا وحدد الخلايا أولاً";
@@ -1665,38 +1381,6 @@ class ContractEditor {
         n.w + n.w / Math.max(...grid.map((r) => r.length)),
       );
       for (const row of table.rows) row.insertCell().innerHTML = "<br>";
-    } else if (kind === "rowHeight") {
-      const avg = n.h / table.rows.length;
-      for (const c of chosen)
-        table.rows[positions.get(c).y].style.height =
-          Math.max(2, Number(value) || 2) + "mm";
-      n.h = Math.max(
-        n.h,
-        [...table.rows].reduce(
-          (sum, r) => sum + (parseFloat(r.style.height) || avg),
-          0,
-        ),
-      );
-    } else if (kind === "columnWidth") {
-      const count = Math.max(...grid.map((r) => r.length)),
-        old = table.querySelector("colgroup"),
-        group = document.createElement("colgroup");
-      for (let x = 0; x < count; x++) {
-        const col = document.createElement("col");
-        col.style.width = old?.children[x]?.style.width || n.w / count + "mm";
-        if (chosen.some((c) => positions.get(c).x === x))
-          col.style.width = Math.max(2, Number(value) || 2) + "mm";
-        group.append(col);
-      }
-      old?.remove();
-      table.prepend(group);
-      n.w = Math.max(
-        n.w,
-        [...group.children].reduce(
-          (sum, c) => sum + parseFloat(c.style.width),
-          0,
-        ),
-      );
     }
     if (n.x + n.w > 210 || n.y + n.h > 297) {
       this.scene = this.history.pop();
@@ -1710,7 +1394,7 @@ class ContractEditor {
     this.persist();
   }
   keyDown(e) {
-    if (this.mode !== "design") return;
+    if (this.mode !== "design" || this.approving) return;
     if (e.key === "Escape") {
       if (this.gesture) this.cancelGesture();
       else if (this.editing) this.commitText(true);
@@ -1776,23 +1460,28 @@ class ContractEditor {
     }
   }
   async init() {
-    this.draft = await getDB("designDraft");
-    if (
-      this.draft?.scene?.version === 6 &&
-      !(this.draft.scene.billLayoutVersion >= 2)
-    ) {
-      arrangeBillPages(this.draft.scene);
-      if (db)
-        await putDB("designDraft", this.draft).catch(() => {
-          $("saveStatus").textContent = "تعذر حفظ مسودة التصميم محلياً";
-        });
+    const legacy = await getDB("designDraft");
+    if (legacy && db) {
+      const scope = legacy.scope || "contract:installment";
+      const key = "designDraft:" + scope;
+      try {
+        const saved = await getDB(key);
+        if (!saved || legacy.updatedAt > saved.updatedAt) {
+          if (legacy.scene?.version === 6 && !(legacy.scene.billLayoutVersion >= 2)) arrangeBillPages(legacy.scene);
+          await putDB(key, { ...legacy, scope });
+        }
+        await putDB("designDraft", null);
+      } catch {
+        $("saveStatus").textContent = "تعذر نقل مسودة التصميم إلى مكانها الجديد";
+        this.draft = { ...legacy, scope };
+      }
     }
     const settingsButton = document.createElement("button");
     settingsButton.id = "openDesign";
     settingsButton.className = "primary";
     settingsButton.textContent = "تعديل تصميم العقد";
     if (!$("openDesign"))
-      $("settingsDrawer").querySelector("header").after(settingsButton);
+      $("templateActions").prepend(settingsButton);
     $("openDesign").onclick = () => this.enter();
     $("settingsShortcut").onclick = () => $("openSettings").click();
     $("printShortcut").onclick = () => $("printAll").click();
@@ -1855,6 +1544,7 @@ class ContractEditor {
       signal,
     });
     document.addEventListener("keydown", (e) => this.keyDown(e), { signal });
+    $("pages").addEventListener("input", () => this.applyTypingSize(), {signal});
     $("pages").addEventListener(
       "dblclick",
       (e) => {
@@ -1876,14 +1566,14 @@ class ContractEditor {
       () => {
         if (!this.editing) return;
         const sel = getSelection();
-        if (sel.rangeCount && this.editing.element.contains(sel.anchorNode)) {
+        if (sel.rangeCount && this.editing.element.contains(sel.getRangeAt(0).commonAncestorContainer)) {
           this.range = sel.getRangeAt(0).cloneRange();
           const el =
               sel.anchorNode.nodeType === 1
                 ? sel.anchorNode
                 : sel.anchorNode.parentElement,
             cs = getComputedStyle(el);
-          $("fontSize").value = Math.round(parseFloat(cs.fontSize));
+          $("fontSize").value = roundMM(parseFloat(cs.fontSize));
           $("fontColor").value = this.hex(cs.color);
           for (const b of document.querySelectorAll("[data-format]")) {
             b.classList.toggle(
@@ -1921,9 +1611,7 @@ class ContractEditor {
           (input.onchange = () =>
             this.property(
               input.dataset.prop,
-              ["number", "range"].includes(input.type)
-                ? Number(input.value)
-                : input.value,
+              input.value,
             )),
       );
     const opacityInput = document.querySelector('[data-prop="opacity"]');
@@ -1941,6 +1629,16 @@ class ContractEditor {
         Math.round(value * 100) + "% عتامة",
       );
     };
+    $("fitTextHeight").onclick = () => {
+      this.commitText();
+      const n = this.selected()[0];
+      if (n?.type !== "text" || n.lockAspect) return;
+      const el = this.element(n.id), content = el?.querySelector(".node-content");
+      if (!content) return;
+      const cs = getComputedStyle(el);
+      const border = (parseFloat(cs.borderTopWidth) || 0) + (parseFloat(cs.borderBottomWidth) || 0);
+      this.property("h", Math.ceil((content.offsetHeight + border + 1) * 100 / MM) / 100);
+    };
     $("nodeName").onchange = () => this.property("name", $("nodeName").value);
     $("aspectLock").onchange = () =>
       this.property("lockAspect", $("aspectLock").checked);
@@ -1955,32 +1653,18 @@ class ContractEditor {
         ? this.format("fontName", $("fontFamily").value)
         : this.property("fontFamily", $("fontFamily").value);
     const sizeInput = $("fontSize");
-    sizeInput.oninput = () => {
-      if (this.editing || !sizeInput.value || !sizeInput.validity.valid) return;
-      for (const node of this.selected()) {
-        if (node.type === "image") continue;
-        const el = this.element(node.id);
-        el?.style.setProperty("--preview-font-size", sizeInput.value + "px");
-        el?.classList.add("preview-font-size");
-      }
-    };
-    sizeInput.onblur = () => {
-      for (const el of $("pages").querySelectorAll(".preview-font-size")) {
-        el.classList.remove("preview-font-size");
-        el.style.removeProperty("--preview-font-size");
-      }
-    };
+    EditorSettings.input(sizeInput, EditorSettings.text.fontSize);
+    EditorSettings.input($("lineHeight"), EditorSettings.text.lineHeight);
     sizeInput.onchange = () => {
-      const size = Math.max(6, Math.min(96, sizeInput.valueAsNumber || 18));
+      const size = EditorSettings.number(sizeInput.value, EditorSettings.text.fontSize);
+      if (size === null) return this.inspector();
       sizeInput.value = size;
       if (this.editing) {
         const allText = document.createRange();
         allText.selectNodeContents(this.editing.element);
-        const partial = this.range && !this.range.collapsed &&
-          this.range.toString() !== allText.toString();
+        const partial = this.range && (this.range.collapsed ||
+          this.range.toString() !== allText.toString());
         if (this.editing.cellIndex != null || partial) {
-          if (this.editing.cellIndex != null && this.range?.collapsed)
-            this.range = allText;
           this.format("size", size);
           return;
         }
@@ -2016,7 +1700,7 @@ class ContractEditor {
     $("lineHeight").onchange = () =>
       this.property(
         "lineHeight",
-        Math.max(0.8, Math.min(3, Number($("lineHeight").value) || 1.2)),
+        $("lineHeight").value,
       );
     $("variableLabel").onchange = () => {
       const token = this.selected()[0]?.html?.match(/\{\{(\w+)\}\}/)?.[1];
@@ -2091,9 +1775,12 @@ class ContractEditor {
     window.addEventListener(
       "beforeprint",
       () => {
+        if(!BranchNumbers.readyToPrint(d)){
+          document.body.classList.add("number-print-blocked");return;
+        }
         if (document.activeElement?.closest("#fillPanel, #toolbar")) document.activeElement.blur();
         this.commitText();
-        Services.beforePrint(true);
+        Services.beforePrint();
         this.printing = true;
         this.render();
         PrintPlan.prepare();
@@ -2101,13 +1788,17 @@ class ContractEditor {
           p.style.display = "block";
           p.style.zoom = "1";
         });
-        Services.capturePrint($("pages").children);
       },
       { signal },
     );
     window.addEventListener(
       "afterprint",
       () => {
+        BranchNumbers.printing=null;
+        if(document.body.classList.contains("number-print-blocked")){
+          document.body.classList.remove("number-print-blocked");
+          $("saveStatus").textContent="استخدم زر الطباعة لتأكيد عدد الفرع.";return;
+        }
         this.printing = false;
         this.render();
         applyPageVisibility();

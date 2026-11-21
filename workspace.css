@@ -599,10 +599,6 @@ html[data-starting] #toolbar {
 .scene-node.letter-directory td:last-child {
   direction: ltr;
 }
-.scene-node.vehicle-cell .node-content {
-  display: grid;
-  align-content: center;
-}
 #feedbackDialog {
   width: min(420px, 92vw);
   border-radius: 14px;
@@ -633,3 +629,4 @@ html[data-starting] #toolbar {
   background: #298dd028;
   z-index: 10000;
 }
+

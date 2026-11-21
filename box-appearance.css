@@ -35,7 +35,8 @@
 .box-color-button.mixed i {
   background: repeating-linear-gradient(
     45deg,
-    #fff 0 4px,
+    #fff 0 3px,
+    #d1d8df 3px 4px,
     #8c9aa9 4px 8px
   ) !important;
 }
@@ -52,10 +53,7 @@
   box-shadow: 0 12px 36px #12283b45;
   background: #fff;
   color: #203448;
-  font:
-    13px Tahoma,
-    Arial,
-    sans-serif;
+  font: 13px "Alyamama", sans-serif;
   direction: rtl;
 }
 #boxColorPalette[hidden],
@@ -118,7 +116,7 @@
 #boxColorPalette .palette-none {
   width: 100%;
   margin-top: 10px;
-  background: repeating-linear-gradient(45deg, #f2f4f6 0 5px, #fff 5px 10px);
+  background: repeating-linear-gradient(45deg, #f2f4f6 0 4px, #e5e9ee 4px 5px, #fff 5px 10px);
 }
 .palette-custom {
   display: grid;
@@ -153,7 +151,7 @@
   accent-color: #234863;
 }
 .palette-preview {
-  background: repeating-conic-gradient(#e5e9ee 0 25%, white 0 50%) 0/12px 12px;
+  background: repeating-conic-gradient(#e5e9ee 0 24%, #eef1f5 24% 25%, white 25% 50%) 0/12px 12px;
   border: 1px solid #b6c4cf;
   border-radius: 4px;
 }

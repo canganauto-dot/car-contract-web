@@ -456,7 +456,7 @@ const BoxAppearance = {
       el.style.borderBottom = "3px solid " + value;
     }
     // Preview on DOM copies only: one history checkpoint on Apply, none on Cancel.
-    if (!this.range || this.key !== "color")
+    if (!this.range || this.range.collapsed || !["color", "decorationColor"].includes(this.key))
       for (const item of this.previewNodes || []) {
         const target = App.element(item.id);
         if (!target) continue;
@@ -484,7 +484,7 @@ const BoxAppearance = {
     const value = this.rgba(this.hex, this.alpha),
       key = this.key,
       range = this.range;
-    if (App.editing && range && !range.collapsed && key === "color") {
+    if (App.editing && range && !range.collapsed && ["color", "decorationColor"].includes(key)) {
       const selection = getSelection();
       selection.removeAllRanges();
       selection.addRange(range);
@@ -504,26 +504,12 @@ const BoxAppearance = {
       }
     } else {
       App.selection = new Set(this.ids);
-      App.property(key, value);
-      for (const n of App.selected()) {
-        if (key === "fill" || key === "stroke") n[key + "Enabled"] = true;
-        if (key === "decorationColor") {
-          n.underlineEnabled = true;
-          n.textDecoration = "underline";
-        }
-      }
-      App.render();
-      App.persist();
-      // A chosen outline should be visible even for a new, borderless text box.
-      if (
-        key === "stroke" &&
-        this.alpha > 0 &&
-        App.selected().some((n) => !n.strokeWidth)
-      ) {
-        for (const n of App.selected()) if (!n.strokeWidth) n.strokeWidth = 1;
-        App.render();
-        App.persist();
-      }
+      App.property(key, value, n => {
+        if (key === "stroke") return {strokeEnabled: true, strokeWidth: n.strokeWidth || 1};
+        if (key === "fill") return {fillEnabled: true};
+        if (key === "decorationColor") return {underlineEnabled: true, textDecoration: "underline"};
+        return {};
+      });
     }
     this.recent = [
       this.hex,

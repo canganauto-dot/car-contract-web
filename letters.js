@@ -11,24 +11,6 @@ const Letters = {
     add("importArchive", "استيراد JSON للأرشيف", () => {
       $("contractJSON").click();
     });
-    ContractFiles.load = async (file) => {
-      try {
-        if (file.size > 15000000) throw Error("ملف كبير جداً");
-        const value = JSON.parse(await file.text());
-        if (
-          value.format !== "contracts-data" ||
-          !value.data ||
-          Array.isArray(value.data) ||
-          typeof value.data !== "object"
-        )
-          throw Error("اختر ملف بيانات عقد JSON");
-        await Services.openEntry({ data: normalizeData(value.data) });
-        Services.saveCurrent(d);
-        await Services.flush();
-      } catch (e) {
-        await Feedback.notice(e.message);
-      }
-    };
   },
   choose() {
     const dialog = document.createElement("dialog");
@@ -87,7 +69,7 @@ const Letters = {
         w: 170,
         h,
         fontSize: size,
-        fontFamily: "Amiri",
+        fontFamily: CONTRACT_FONT,
         align: "center",
         color: "#203e55",
         lineHeight: 1.3,

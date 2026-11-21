@@ -8,11 +8,6 @@
     var(--field-underline, currentColor);
   pointer-events: none;
 }
-.scene-node.field-underlined .node-content,
-.scene-node.field-underlined .node-content * {
-  text-decoration-line: none !important;
-}
-
 /* UI islands explicitly exclude the document canvas. No rem/root-font or zoom changes. */
 @media screen {
   :root {
@@ -58,7 +53,7 @@
       a,
       div
     ):not(.paper, .paper *) {
-    font-family: var(--app-ui-font-family, "Amiri", serif) !important;
+    font-family: var(--app-ui-font-family, "Alyamama", serif) !important;
     font-weight: 400 !important;
   }
   .app-ui {
@@ -296,7 +291,7 @@
     background: var(--ui-surface);
   }
   #fillPanel {
-    --app-ui-font-family: "Amiri", Tahoma, "Segoe UI", Arial, sans-serif;
+    --app-ui-font-family: "Alyamama", Tahoma, "Segoe UI", Arial, sans-serif;
     --fill-field-bg: #f8fafc;
     --fill-field-ink: #111;
     overflow: auto;
@@ -372,11 +367,6 @@
     max-height: none;
     overflow: visible;
     padding: 6px;
-  }
-  #bookFields > label {
-    grid-template-columns: minmax(90px, 30%) minmax(0, 1fr);
-    gap: var(--ui-gap);
-    font-size: 1em;
   }
   #bookFields :is(input, select, textarea) {
     color: var(--fill-field-ink);
@@ -721,9 +711,6 @@
     #cards .grid > label {
       grid-column: span 12 !important;
     }
-    #bookFields > label {
-      grid-template-columns: 1fr;
-    }
   }
   @media (prefers-reduced-motion: reduce) {
     .app-ui *,
@@ -742,7 +729,7 @@
 }
 .paper .scene-node,
 .paper .scene-node * {
-  font-family: "Amiri", serif !important;
+  font-family: "Alyamama", serif !important;
 }
 @media screen {
   .app-ui {
@@ -828,30 +815,7 @@
   #cards :is(#carInputs,#oldVehicleInputs) > label[data-field] {
     grid-column: var(--entry-span) !important;
   }
-  #cards :is(.extra-card, .cash-payment-row) > label,
-  #cards label[data-field]:not(.check),
-  #cards #cashFields .grid > label:has(span) {
-    display: grid;
-    grid-template-columns: min(6.5em, 40%) minmax(0, 1fr);
-    align-items: center;
-  }
-  #cards label.short-field:not(.check) {
-    grid-template-columns: auto minmax(0, 1fr);
-  }
-  #cards label[data-field]:not(.check) > :is(input, select, textarea),
-  #cards #cashFields .grid input:not([type=checkbox]) {
-    width: 100%;
-    box-sizing: border-box;
-  }
-  @container (max-width: 570px) {
-    #cards :is(.extra-card, .cash-payment-row) > label,
-    #cards label[data-field]:not(.check),
-    #cards #cashFields .grid > label:has(span) {
-      grid-template-columns: minmax(0, 1fr);
-      gap: 1px;
-      align-self: end;
-    }
-  }
+
 }
 @media screen {
   #toolbar .bar-group,
@@ -971,13 +935,6 @@
   @media (hover:none) {
     #workbench .work-actions {opacity:1; pointer-events:auto;position:static;transform:none;justify-content:flex-end}
   }
-  #fillPanel {--label-width:6.4em;--label-gap:6px}
-  #fillPanel #cards label[data-field]:not(.check), #fillPanel #cards :is(.extra-card,.cash-payment-row,#transferNoteField,#cashFields) label:has(>span),
-  #fillPanel .external-party-fields label {
-    display:grid; grid-template-columns:minmax(0,var(--label-width)) minmax(0,1fr); align-items:center; gap:var(--label-gap);
-  }
-  #fillPanel #cards label.short-field:not(.check) {grid-template-columns:2.7em minmax(0,1fr)}
-  #fillPanel #transferNoteField input,#fillPanel .external-party-fields input {width:100%;box-sizing:border-box}
   .entry-date {position:relative;display:block;min-width:0;width:100%;direction:ltr}
   #toolbar .entry-date {width:10em}
   #fillPanel #cards .entry-date > .date-text,#fillPanel #bookFields .entry-date > .date-text,#toolbar .entry-date > .date-text {
@@ -985,11 +942,6 @@
   }
   #toolbar .entry-date input[type=date], #fillPanel .entry-date input[type=date] {
     position:absolute;inset:auto 0 0 auto;opacity:0;pointer-events:none;width:1px!important;min-width:0;height:1px;min-height:0;padding:0;border:0
-  }
-  @container (max-width:570px) {
-    #fillPanel #cards label[data-field]:not(.check), #fillPanel #cards :is(.extra-card,.cash-payment-row,#transferNoteField,#cashFields) label:has(>span),#fillPanel .external-party-fields label {
-      grid-template-columns:minmax(0,1fr); gap:2px;
-    }
   }
   .template-dialog {width:min(440px,92vw);max-height:86vh;overflow:auto;color:var(--ui-ink);background:var(--ui-surface);border:1px solid var(--ui-border);border-radius:10px}
   .template-dialog form,.template-dialog label {display:grid;gap:6px}
@@ -1059,7 +1011,6 @@
 }
 @media screen {
   #cards:not(.exchange-form) #extraEditors .extra-title-field {display:none}
-  #bookFields > label:has(#bookCompany) {display:grid;grid-template-columns:auto minmax(10em,1fr);align-items:center;gap:6px}
   #bookFields #bookCompany {width:100%;min-width:0}
   @container (max-width:410px) {
     #cards.exchange-form .extra-title-field {grid-column:1/-1}
@@ -1067,67 +1018,6 @@
 }
 /* Unified compact entry fields, shared by contract and standalone book forms. */
 @media screen {
-  #fillPanel #cards label.entry-field,
-  #fillPanel #bookFields label.entry-field {
-    display:flex!important;
-    flex-direction:column;
-    align-items:stretch;
-    justify-content:flex-start;
-    gap:0;
-    min-width:0;
-    margin:0;
-    padding:0;
-    border:1px solid var(--ui-border,#94a4b4);
-    border-radius:6px;
-    background:var(--ui-subtle,#e7edf2);
-    overflow:hidden;
-    box-sizing:border-box;
-  }
-  #fillPanel :is(#cards,#bookFields) label.entry-field > .entry-caption {
-    display:block;
-    flex:none;
-    margin:0;
-    padding:1px 5px;
-    min-height:0;
-    font-size:11px;
-    font-weight:400;
-    line-height:15px;
-    text-align:center;
-    color:var(--ui-ink,#293c4b);
-    white-space:normal;
-    overflow-wrap:anywhere;
-  }
-  #fillPanel :is(#cards,#bookFields) label.entry-field > :is(input,select,textarea),
-  #fillPanel :is(#cards,#bookFields) label.entry-field .entry-date > .date-text {
-    box-sizing:border-box;
-    width:100%;
-    min-width:0;
-    max-width:100%;
-    border:0;
-    border-radius:0;
-    margin:0;
-    padding:3px 6px;
-    min-height:29px;
-    height:auto;
-    line-height:1.35;
-    background:var(--fill-field-bg)!important;
-    color:var(--fill-field-ink)!important;
-  }
-  #fillPanel :is(#cards,#bookFields) label.entry-field > .entry-date {
-    flex:1;
-    min-width:0;
-    margin:0;
-    padding:0;
-    background:var(--fill-field-bg);
-  }
-  #fillPanel :is(#cards,#bookFields) label.entry-field .entry-date > .date-text {padding-inline:5px}
-  #fillPanel label.entry-field:focus-within {
-    border-color:var(--ui-accent,#2877ae);
-    box-shadow:0 0 0 1px var(--ui-accent,#2877ae);
-  }
-  #fillPanel label.entry-field:has(.missing-value) {border-color:#c74750}
-  #fillPanel #cards label.entry-field[hidden],
-  #fillPanel #bookFields label.entry-field[hidden] {display:none!important}
   #fillPanel #cards .grid {gap:5px}
   #fillPanel #cards #paymentInputs > label[data-field] {--entry-span:span 6!important}
   #fillPanel #cards #installmentInputs > label[data-field] {--entry-span:span 6!important}
@@ -1135,7 +1025,7 @@
   #fillPanel #cards #cashFields .grid > label.entry-field {grid-column:span 1!important}
   #fillPanel #cards :is(.extra-card,.cash-payment-row) {gap:5px;align-items:stretch}
   #fillPanel #cards #extraEditors .extra-title-field {display:none!important}
-  #fillPanel #cards.exchange-form #extraEditors .extra-title-field {display:flex!important}
+  #fillPanel #cards.exchange-form #extraEditors .extra-title-field {display:grid!important}
   #fillPanel #bookFields {
     display:grid;
     grid-template-columns:repeat(2,minmax(0,1fr));
@@ -1167,47 +1057,6 @@
 /* A single continuous path outlines the raised title and input body. */
 @media screen {
   #fillPanel {--entry-focus:var(--ui-accent);--entry-focus-ink:var(--ui-accent-ink)}
-  #fillPanel #cards label.entry-field,
-  #fillPanel #bookFields label.entry-field {
-    --entry-edge:var(--ui-entry-tab);
-    position:relative;
-    border:0;
-    border-radius:0;
-    background:transparent;
-    overflow:visible;
-    padding:0 2px 2px;
-    box-shadow:none;
-    isolation:isolate;
-  }
-  #fillPanel label.entry-field::before {content:none}
-  #fillPanel label.entry-field > svg.entry-frame {
-    position:absolute;inset:0;width:100%;height:100%;z-index:-1;pointer-events:none;overflow:visible;
-  }
-  #fillPanel .entry-frame path {
-    fill:var(--fill-field-bg);stroke:var(--entry-edge);stroke-width:0.75;vector-effect:non-scaling-stroke;
-  }
-  #fillPanel :is(#cards,#bookFields) label.entry-field > .entry-caption {
-    align-self:flex-start;position:relative;box-sizing:border-box;
-    max-width:calc(100% - 14px);margin:0 0 0 0;padding:1px 9px 0;
-    min-height:18px;line-height:17px;font-size:16px;font-weight:400;
-    border:0;border-radius:0;background:transparent;color:var(--ui-ink);text-align:center;
-  }
-  #fillPanel :is(#cards,#bookFields) label.entry-field > :is(input,select,textarea),
-  #fillPanel :is(#cards,#bookFields) label.entry-field .entry-date > .date-text {
-    border:0;border-radius:5px;text-align:center;text-align-last:center;
-    outline:none!important;box-shadow:none!important;min-height:29px;
-    padding-block:2px;
-  }
-  #fillPanel :is(#cards,#bookFields) label.entry-field > .entry-date {border-radius:5px}
-  #fillPanel #cards label.entry-field:has(.missing-value),
-  #fillPanel #bookFields label.entry-field:has(.missing-value) {--entry-edge:#c74750}
-  #fillPanel #cards label.entry-field:focus-within,
-  #fillPanel #bookFields label.entry-field:focus-within {
-    --entry-edge:var(--entry-focus);box-shadow:none;outline:none;
-  }
-  #fillPanel :is(#cards,#bookFields) label.entry-field:focus-within > .entry-caption {
-    color:var(--entry-focus-ink);
-  }
   #fillPanel #cards .card-heading {align-items:center}
   #fillPanel #cards .card-heading .vehicle-company {align-self:center;flex:0 1 13em}
   #fillPanel #cards .card-heading label.entry-field > #companySelect {
@@ -1234,50 +1083,39 @@
 
 @media screen {
   #fillPanel :is(input, select, textarea) {font-weight:700!important}
-  #fillPanel .entry-frame .entry-tab-fill {fill:var(--entry-edge);stroke:none}
-  #fillPanel :is(#cards,#bookFields) label.entry-field > .entry-caption {font-weight:400!important}
-  #fillPanel :is(#cards,#bookFields) label.entry-field:has(.missing-value):not(:focus-within) > .entry-caption {color:#fff}
-  #fillPanel :is(#cards,#bookFields) label.entry-field > :is(input,select,textarea),
-  #fillPanel :is(#cards,#bookFields) label.entry-field .entry-date > .date-text {line-height:1.15}
-  #toolbar, #workbench, #homeScreen, #settingsDrawer, dialog {font-family:"Amiri",serif;font-size:17px}
+  #toolbar, #workbench, #homeScreen, #settingsDrawer, dialog {font-family:"Alyamama",serif;font-size:17px}
   #toolbar :is(button,input,select), #workbench :is(button,input,select) {font-family:inherit!important;font-size:17px}
 }
 
 @media screen {
-  #fillPanel :is(#cards,#bookFields) label.entry-field > .entry-caption {
-    width:var(--entry-title-width,auto);
-    flex-shrink:0;
-  }
-}
-@media screen {
-  #fillPanel #cards > .card {
+  #fillPanel :is(#cards,#bookFields) > .card {
     position:relative;padding:5px 34px 5px 5px;min-height:48px;
   }
-  #fillPanel #cards > .card > .card-heading {
+  #fillPanel :is(#cards,#bookFields) > .card > .card-heading {
     position:absolute;inset:0 0 0 auto;width:var(--heading-width);margin:0;padding:4px 0;
     display:flex;flex-direction:column;justify-content:center;align-items:center;
     border-inline-end:1px solid var(--ui-border);cursor:pointer;gap:3px;
   }
-  #fillPanel #cards > .card > .card-heading h2 {
+  #fillPanel :is(#cards,#bookFields) > .card > .card-heading h2 {
     writing-mode:vertical-rl;transform:rotate(180deg);margin:0;
     font-size:15px;line-height:18px;font-weight:400;white-space:nowrap;
   }
-  #fillPanel #cards > .card > .card-heading::before {
+  #fillPanel :is(#cards,#bookFields) > .card > .card-heading::before {
     content:"";width:0;height:0;border-inline:4px solid transparent;
     border-bottom:5px solid currentColor;flex:none;
   }
-  #fillPanel #cards > .ui-collapsed > .card-heading::before {transform:rotate(180deg)}
-  #fillPanel #cards > .card > .section-body {
+  #fillPanel :is(#cards,#bookFields) > .ui-collapsed > .card-heading::before {transform:rotate(180deg)}
+  #fillPanel :is(#cards,#bookFields) > .card > .section-body {
     display:grid!important;grid-template-rows:minmax(0,1fr);min-height:0;opacity:1;
     transition:grid-template-rows .22s ease,opacity .18s ease;
   }
-  #fillPanel #cards > .ui-collapsed > .section-body {
+  #fillPanel :is(#cards,#bookFields) > .ui-collapsed > .section-body {
     grid-template-rows:minmax(0,0fr);overflow:hidden;opacity:0;pointer-events:none;
   }
-  #fillPanel #cards .section-inner {min-height:0;overflow:hidden}
-  #fillPanel #cards .section-inner > .grid {margin-block:3px}
-  #fillPanel #cards > .ui-collapsed {min-height:48px}
-  #fillPanel #cards > .ui-collapsed > .card-heading h2 {font-size:12px;line-height:14px;max-height:34px;white-space:normal}
+  #fillPanel :is(#cards,#bookFields) .section-inner {min-height:0;overflow:hidden}
+  #fillPanel :is(#cards,#bookFields) .section-inner > .grid {margin-block:3px}
+  #fillPanel :is(#cards,#bookFields) > .ui-collapsed {min-height:48px}
+  #fillPanel :is(#cards,#bookFields) > .ui-collapsed > .card-heading h2 {font-size:12px;line-height:14px;max-height:34px;white-space:normal}
   #fillPanel #cards :is(#carInputs,#oldVehicleInputs) > label:has(#plate,#oldPlate),
   #fillPanel #cards :is(#carInputs,#oldVehicleInputs) > label:has(#vin) {--entry-span:span 9!important}
   #fillPanel #cards :is(#carInputs,#oldVehicleInputs) > label:has(#mileage,#oldMileage),
@@ -1294,23 +1132,18 @@
   #toolbar #fillPrint svg {width:18px;height:18px}
 }
 @media screen {
-  #fillPanel #cards label.entry-field > :is(input,select,textarea),
-  #fillPanel #bookFields label.entry-field > :is(input,select,textarea),
-  #fillPanel #cards #companySelect {
-    flex:0 0 auto;
-  }
   #fillPanel #cards label.entry-field:has(> #companySelect) {
     align-self:stretch;
     width:100%;
   }
 }
 @media screen {
-  #fillPanel #cards > .card:has(> .card-heading) {
+  #fillPanel :is(#cards,#bookFields) > .card:has(> .card-heading) {
     --heading-width:28px;
-    background-image:linear-gradient(to left,var(--section-border) var(--heading-width),transparent var(--heading-width));
+    background-image:linear-gradient(to left,var(--section-border),color-mix(in srgb,var(--section-border) 90%,white) var(--heading-width),transparent var(--heading-width));
   }
-  #fillPanel #cards > .card > .card-heading {background:transparent;color:var(--ui-ink)}
-  #fillPanel #cards > .card > .card-heading h2 {color:inherit}
+  #fillPanel :is(#cards,#bookFields) > .card > .card-heading {background:transparent;color:var(--ui-ink)}
+  #fillPanel :is(#cards,#bookFields) > .card > .card-heading h2 {color:inherit}
   #fillPanel :is(#buyerInputs,#guarantorInputs) label.entry-field > .entry-caption {
     white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
   }
@@ -1377,12 +1210,10 @@
   .fill-layout-panel button,.fill-layout-panel select,.fill-layout-panel input {box-sizing:border-box;min-width:0;max-width:100%}
 }
 @media screen {
-  #fillPanel #cards #buyerInputs > label:has(#buyer) {grid-column:span 5!important}
+  #fillPanel #cards #buyerInputs > label:has(#buyer) {grid-column:span var(--buyer-name-span,5)!important}
   #fillPanel #buyerInputs > #customerPhotoTools {display:grid;align-self:end;justify-items:center;grid-column:span 1;margin:0;padding:0;min-width:0}
   #fillPanel #buyerInputs #customerCapture {width:32px;height:32px;min-height:0;display:grid;place-items:center;padding:3px}
   .fill-layout-panel > strong {cursor:move;touch-action:none;user-select:none}
-}
-@media screen {
 }
 @media screen {
   #fillPanel label.payment-with-remove {position:relative}
@@ -1492,4 +1323,5 @@
   #cards > .card[data-card-drop="after"] {box-shadow:0 3px var(--ui-focus)}
 }
 
-body, input, textarea, select, button, dialog { font-family: "Amiri", serif; }
+
+body, body :where(button, input, select, textarea, dialog) { font-family: "Alyamama", serif; }

@@ -23,7 +23,7 @@ const UnifiedDirectory = {
         w,
         h,
         fontSize: size,
-        fontFamily: "Amiri",
+        fontFamily: CONTRACT_FONT,
         lineHeight: 1,
         align: "center",
         color: "#203e55",

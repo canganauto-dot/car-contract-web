@@ -1,37 +1,124 @@
-# Car Contract Management
+# Car contract web application
 
-Arabic workspace for filling, previewing, printing, and archiving vehicle contracts and standalone letters. It can also export a self-contained HTML copy for offline use.
-
-## Run locally
-
-Build the application with Python 3 from the repository root:
-
-```sh
-python rebuild.py --out dist
-python serve_contracts.py --port 8088
-```
-
-Open `http://127.0.0.1:8088/`. On Windows, use `py -3` in place of `python` if needed. The local development server only listens on loopback and supports approving shared template defaults in that checkout.
-
-## Host the web build
-
-GitHub Actions publishes the Python build from `main` to [GitHub Pages](https://canganauto-dot.github.io/car-contract-web/). Set **Settings → Pages → Source** to **GitHub Actions**.
-
-For other static hosts, serve the contents of `dist` over HTTPS and include the hidden `.web-build.json` manifest so users can download the offline edition. On static hosting, documents and edits are saved in the current browser. The local development server is for use on the workstation. A shared archive and cross-user template approval require a separately secured backend.
-
-## Verify
-
-```sh
-python rebuild.py --out dist
-python -m unittest discover -s tests
-```
-
-For the full browser regression suite, use Windows with Microsoft Edge and Python 3:
+Run these commands from this repository's `development` directory in PowerShell.
 
 ```powershell
 npm ci --ignore-scripts
 py -3 rebuild.py --out dist
-node tests/run.cjs
+py -3 -B serve_contracts.py --port 8088 --preview-port 8091
 ```
 
-Preserve the clean seed in `initial-data.json`. Browser records, signed scans, workstation identity, exports, and backups belong outside the source repository.
+Open http://127.0.0.1:8088 for the project or http://127.0.0.1:8091 for example first pages. Both addresses use one template server.
+The application needs HTTP/HTTPS. Its camera and filesystem features require a secure context (localhost is supported).
+
+## Build
+
+`rebuild.py --out dist` is the single supported build command. The output argument is required and must identify a separate directory below `development`.
+
+The builder reads source files and public configuration only. It never reads old HTML, browser records, exports, or backups. A generated manifest identifies files the builder owns. It refuses to overwrite an unrelated directory or file and removes only obsolete files from its previous manifest.
+
+The download button packages the current templates, form, print renderer and embedded Alyamama font into one offline HTML file. The export is built from the current web build when requested.
+
+## Staff settings
+
+Open **الإعدادات → المستخدمون والصلاحيات** in the online edition. The default build uses an in-memory demonstration with separate company memberships, role previews, branch assignments and suspension. Reloading resets that demonstration. The offline edition has no staff portal.
+
+For a future authenticated deployment, set `CONTRACT_STAFF_API=1` when building and implement the following same-origin HTTP service under `api/staff/`. This build option connects only the staff console. The existing browser-local archive, template tools and signed attachments still require their own authenticated backend integration before the application can serve as a shared, access-controlled archive.
+
+| Method and path | Expected result |
+| --- | --- |
+| GET session | 401 when signed out, otherwise JSON with name, active, csrf and companies. Return only the active memberships and branch scopes of the authenticated identity. |
+| POST login / POST logout | Start or invalidate a server-side session. Login accepts email and password. Respond with JSON or 204. |
+| GET companies/{companyId}/members | Array of memberships for an authorized company administrator. |
+| POST companies/{companyId}/members | Create or invite a membership through the server. Accept name, email, role, active, branchIds and branchRoles. |
+| PATCH companies/{companyId}/members/{memberId} | Update that membership. Compare the If-Match version transactionally and return 412 for a stale update. |
+
+A session company has id, name, role, memberId, branches (id/name), branchIds and optional branchRoles keyed by branch ID. Membership rows have id, name, email, role, active, branchIds, branchRoles and version. The display role is administrator, branch_manager or employee. A branch manager can be an employee in another assigned branch. An administrator sees all branches only inside companies where that identity is an active administrator.
+
+The adapter uses same-origin session cookies and sends a CSRF token on authenticated changes. Implement origin and CSRF checks, secure HttpOnly session cookies, validated branch ownership, company-scoped suspension, protection of the last administrator and trusted audit logging in the service. Return 401 for expired sessions and 403 for unauthorized operations. Protect archive queries and document downloads at the server. UI capabilities only control presentation.
+
+## Sources
+
+- `editor-shell.html`, `editor-panel.html`, `form-shell.html`, `settings-shell.html`, `menu-shell.html`, `features.html` contain the interface fragments.
+- `app-state.js` contains shared state, date helpers, IndexedDB primitives, image validation, and company/vehicle lookup.
+- `contract-core.js` contains form definitions, normalization, numbering, local settings backups, and event binding.
+- `legacy-templates.js` and `document-renderer.js` preserve compatibility with older saved designs.
+- `document-scene.js` renders the A4 pages used by preview, editing, archives and printing. `document-text.js` sanitizes rich text and resolves document variables.
+- `editor-clean.js` owns selection, gestures, editing and per-template draft history. `editor-settings.js` defines numeric ranges for typography, page geometry and fill controls. `app.js` starts the application.
+- `document-ink.js` uses bundled CanvasKit and the embedded Alyamama font for Arabic shaping, bidirectional text, line breaks and text images. Preview, archived output, print and offline HTML reuse the same artwork. The editable source text stays available in the editor. Page geometry uses hundredths of a millimetre. First-page test examples live in `templates/first-page-examples.json`.
+- `cash-contract.js`, `exchange-contract.js`, `external-contract.js`, `transfer-letter.js`, `payment-schedule.js`, `bill-layout.js`, and `paper-layout.js` contain document-specific behavior.
+- `archive.js`, `contract-services.js`, `contract-files.js`, and `archive-output.js` manage local archives, contract JSON, signed scans, printing, and PDF output.
+- `letters.js`, `workbench.js`, and `smart-tables.js` preserve letters, multiple open contracts, editable tables, and price catalogs. The legacy `standaloneBook` data field identifies a letter and remains compatible with saved JSON.
+- `fill-layout.js` applies saved dimensions and positions within each contract or book. `fill-designer.js` manages captions, notes and keyboard traversal. `fill-fields.css` defines the shared field for web and offline.
+- CSS remains separated by feature in source stylesheets. The build combines them in the named `documentStyles` element so preview, print frames, and PDF rasterization use identical rules.
+- Named deferred scripts preserve the existing shared interfaces and execution order, recorded explicitly in `rebuild.py`.
+
+## Assets and public seed
+
+`initial-data.json` contains only approved public configuration. It has no contract data, archive, design draft, or PIN. The three confirmed test records and their attachments have been removed. `archive-cleanup.js` also removes those known record IDs from existing browser storage while retaining unrelated entries and referenced template snapshots.
+
+Images are deduplicated by SHA-256 in `assets/media`. JSON and template sources reference their stable paths. Custom images imported by users can still use validated image data URLs. Browser-held images, contracts, and signed scans never become build inputs.
+
+`web-resources.js` loads pdf-lib on demand. PDF.js and its worker load only when a signed PDF needs rendering. All vendor files are local, with their licenses retained. Externalized images are embedded temporarily during PDF creation so the SVG/canvas renderer preserves them and Arabic text.
+
+The source image files are authoritative. Optional historical asset-generation scripts are not part of the application build.
+
+## Local data and design approval
+
+The web application retains the existing IndexedDB database name so existing browser records remain accessible on the same origin. The editor keeps design drafts in that browser. Approval sends the active template to the shared host with its base revision. The host saves the previous configuration in `work/default-backups`, persists the approved layout in `initial-data.json` and rebuilds the distributable. Both ports share the same store and lock. Unapproved sample first pages on the preview port are available for editing. An intentionally empty approved page stays empty on both ports.
+
+Clients use conditional revision requests every five seconds while visible and when returning to the application. Applying a new revision waits for the current field edit, design session or open dialog to finish. A conflicting approval leaves the newer host version and the editor’s local draft available for review. Earlier browser-only approvals with local backup history are retained in the browser settings backups. Compatible versions are also recovered as per-template design drafts.
+
+Run one local host process for both ports. Downloaded offline HTML contains the template snapshot at download time. The development server binds to loopback.
+
+### Sharing designs on GitHub Pages
+
+For local editing, approve a design on the development host. The approval rebuilds `dist`. Publishing the contents of that directory distributes the approved templates. A visible, idle browser checks the build identifier in `assets/template-sync.json` every five seconds and verifies the downloaded templates against it. An interrupted deployment keeps the previous usable layout until the files match. On an unconfigured static site the editor saves a draft and explains how to publish it.
+
+To allow approvals directly on the hosted site, run `template_service.py` on a persistent host behind HTTPS. Give it a dedicated random approval key of at least 32 random bytes. Distribute the key to authorized layout editors. Set its SHA-256 hex digest as `CONTRACT_TEMPLATE_TOKEN_SHA256` in the service environment. Configure the exact origin of the website and a persistent SQLite path outside the published directory. For example, on the service host:
+
+```powershell
+py -3 -B template_service.py --origin https://example.github.io --store D:\private\templates.sqlite --port 8092
+```
+
+The HTTPS reverse proxy should forward `/templates` to that loopback port, including OPTIONS, GET, PUT and their authorization/precondition headers. Each authenticated approval writes a new version in one transaction. The public read endpoint serves approved template layouts. Scope the service to this website and keep customer information out of template text.
+
+Set the public API URL in the build environment before preparing the site:
+
+```powershell
+$env:CONTRACT_TEMPLATE_API = 'https://templates.example.org/templates'
+py -3 -B rebuild.py --out dist
+```
+
+The build includes only the public endpoint. The editor asks for the approval key at publish time. Filled records, workstation identity and credentials are excluded from the publication request. Readers can open the current design without the key. If a later static deployment includes a changed base layout for the same template, that layout takes precedence over remote approvals based on the earlier layout. Back up the service database to retain its version history.
+
+The toolbar exports contract JSON. The menu exports settings/design JSON. Existing JSON import, signed PDF/image uploads, camera capture, archive search, Excel export, and local settings backup/restore remain available. Customer records and signed attachments remain in their originating browser.
+
+### Branch numbering
+
+Both local ports use `private/numbers.sqlite`. On a shared site, point all users at the same service and forward POST and OPTIONS requests for the sibling `/numbers` endpoint. Set `CONTRACT_BRANCH_KEY_HASHES` on the service to a JSON object mapping each branch name to its dedicated staff key's SHA-256 hex digest. Give that branch's staff the corresponding random key. The editor approval key is separate. Keep the persistent database and key configuration outside the static site and Git.
+
+Opening a draft immediately reserves the next branch serial in a SQLite write transaction. Workstation prefixes are display labels. Editing the number checks the whole branch and clearing it requests the next available serial. A pre-print check protects the issued number even if the document is subsequently renumbered. Use the print button or Ctrl+P for an online document. Browser-menu printing without a preflight displays an instruction sheet. During initial rollout, open existing workstation archives to register older numbers and choose a starting serial above the highest historical number before issuing new contracts.
+
+Offline documents use a separate branch series with the suffix `-F`. The JSON export identifies its origin. Import preserves an available number and reserves the next offline serial on a collision. Reimporting the same document uses its existing reservation. Official online numbering requires the service. An unconnected static site can still hold pending drafts.
+
+Never place customer information or credentials in public configuration or static assets. Development screenshots and test files belong in `work`, which is excluded from the build.
+
+## Regression verification
+
+The builder copies the pinned CanvasKit runtime from the installed npm dependencies. The browser runs it locally, including in an exported offline file. The main regression runner requires Edge and Python 3. The parity check also uses Playwright Firefox.
+
+```powershell
+py -3 rebuild.py --out dist
+node tests/run.cjs
+npx playwright install firefox
+node tests/browser-paper.cjs
+node tests/performance.cjs dist work/after.json
+npm audit
+```
+
+The supported runner checks build ownership, seed cleanliness, asset integrity, startup, selective test-data cleanup, calculations, JSON round trips, all four contract types, Arabic/A4 PDF output, printing, signed scans, letters, editing/undo, tables, print ordering, cash terms, external parties, exchanges, schedule pagination, camera capture, and company image settings. Tests use isolated browser contexts and dummy records. Generated evidence goes into `work`.
+
+`tests/shared-templates.cjs` runs approvals against a temporary copy of the two-port host. `tests/pages-templates.cjs` simulates a static repository site with a real publishing service on a separate origin and verifies updates across independent browser sessions, service restart, stale revisions and unconfigured hosting.
+
+The performance script records five fresh browser contexts using a loopback HTTP server, including app readiness, resource bytes, and retained JavaScript heap after garbage collection. This measures JavaScript heap rather than total browser process memory. Locally generated results are excluded from Git.

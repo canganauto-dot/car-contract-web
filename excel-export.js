@@ -69,12 +69,12 @@ const ExcelExport = {
         "الحالة",
       ],
       ...entries.map((e) => [
-        e.data.standaloneBook ? e.data.bookTitle : ContractTemplates.find(e.data.templateId, Archive.config(e)?.design)?.name || e.data.contractType,
+        e.data.standaloneBook ? e.data.bookTitle : ContractTemplates.find(e.data.templateId, Archive.config(e).design)?.name || e.data.contractType,
         e.data.buyer,
         e.data.number,
         e.data.contractDate,
-        Archive.config(e)?.companies?.find((c) => c.id === e.data.companyId)?.name || "",
-        amount(e.data.total),
+        cfg.companies.find((c) => c.id === e.data.companyId)?.name || "",
+        Number(e.data.total) || 0,
         calculate(e.data).remaining,
         e.signedFile || e.data.signedFile ? "نعم" : "لا",
         e.kind === "printed" ? "مطبوع" : "معلق",
@@ -107,9 +107,9 @@ const ExcelExport = {
                   String.fromCharCode(65 + j) +
                   (i + 1) +
                   '" ' +
-                  (Number.isFinite(value)
+                  (typeof value === "number"
                     ? 't="n"><v>' + value + "</v>"
-                    : 't="inlineStr"><is><t>' + xml(typeof value === "number" ? "" : value) + "</t></is>") +
+                    : 't="inlineStr"><is><t>' + xml(value) + "</t></is>") +
                   "</c>",
               )
               .join("") +

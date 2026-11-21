@@ -12,9 +12,9 @@ const ContractFiles = {
           : data.externalBuyer || data.externalSeller
       : data.buyer;
   },
-  name(data, ext, config = cfg) {
+  name(data, ext) {
     const company =
-      config?.companies?.find(
+      cfg.companies.find(
         (c) =>
           c.id ===
           (data.externalBuyerCompany ||
@@ -36,13 +36,7 @@ const ContractFiles = {
       ext
     );
   },
-  pack(data, entry) {
-    if (entry && Archive.issued(entry)) {
-      return JSON.stringify({
-        format: "contracts-data", version: 1, data,
-        ...(entry.snapshot ? { snapshot: entry.snapshot } : { archivedConfig: Archive.config(entry) }),
-      }, (key, value) => key === "signedFile" ? undefined : value);
-    }
+  pack(data) {
     data = SmartTables.snapshot(data);
     const defaults = fresh(),
       values = {};
@@ -56,26 +50,36 @@ const ContractFiles = {
         values[k] = v;
     return JSON.stringify({
       format: "contracts-data",
+      origin: seed.offline || data.offlineNumber ? "offline" : "online",
       version: 1,
       data: values,
     });
   },
   async save(data = d) {
     App.commitText();
-    await Services.flush().catch(() => {});
+    await Services.flush();
     download(this.name(data, "json"), this.pack(data), "application/json");
   },
   async load(file) {
     try {
       if (file.size > 15000000) throw Error("حجم الملف أكبر من الحد المسموح");
-      const value = JSON.parse(await file.text());
+      const text=await file.text(), value = JSON.parse(text);
       if (
         value.format !== "contracts-data" ||
         !value.data ||
+        Array.isArray(value.data) ||
         typeof value.data !== "object"
       )
         throw Error("اختر ملف بيانات عقد JSON");
-      await Services.openEntry({ data: normalizeData(value.data) });
+      const data=normalizeData(value.data);
+      if(!data.recordId)data.recordId="import-"+await PagesTemplates.hash(new TextEncoder().encode(text));
+      const offline=value.origin==="offline" || (!value.origin && !data.offlineNumber && !seed.offline &&
+        await Feedback.ask("هل أُنشئ ملف JSON القديم بنسخة الأوفلاين؟ يُضاف -F إلى عدد مستندات الأوفلاين."));
+      await BranchNumbers.imported(data,offline);
+      if(await Services.openEntry({data})){
+        Services.saveCurrent(d);
+        await Services.flush();
+      }
     } catch (e) {
       await Feedback.notice(e.message);
     }
@@ -210,7 +214,7 @@ const ContractFiles = {
       }
       if (!pdf.getPageCount()) return;
       const blob = new Blob([await pdf.save()], { type: "application/pdf" }),
-        name = this.name(entry.data, "pdf", Archive.config(entry));
+        name = this.name(entry.data, "pdf");
       let saved = false;
       if (this.folder && directoryAllowed) {
         const f = await this.folder.getFileHandle(name, { create: true }),
@@ -226,9 +230,9 @@ const ContractFiles = {
         r.onerror = () => rej(r.error);
         r.readAsDataURL(blob);
       });
-      await Services.persistLibrary([[entry.id, entry, {
-        ...entry, signedFile: { name, dataUrl, savedToDirectory: saved }, updatedAt: Date.now(),
-      }]]);
+      entry.signedFile = { name, dataUrl, savedToDirectory: saved };
+      entry.updatedAt = Date.now();
+      await Services.persistLibrary();
       $("signedDialog").close();
       Archive.refresh();
       await Feedback.notice(

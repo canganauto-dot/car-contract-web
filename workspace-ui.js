@@ -373,7 +373,7 @@ class WorkspaceUI {
     $("notes").rows = 1;
   }
   tab(name) {
-    if (name === "device") this.requiredSettings();
+    if (name === "fill") this.requiredSettings();
     const tabs = [...document.querySelectorAll("[data-settings-tab]")];
     if (!tabs.some((b) => b.dataset.settingsTab === name)) name = "device";
     for (const button of tabs) {
@@ -386,6 +386,7 @@ class WorkspaceUI {
       panel.open = true;
     }
     this.activeTab = name;
+    if (name === "staff") StaffConsole.refresh();
     $("settingsContent").scrollTop = 0;
   }
   open(name = this.activeTab || "device") {
@@ -404,9 +405,8 @@ class WorkspaceUI {
     newTemplate.textContent = "إضافة قالب عقد من عقد موجود";
     newTemplate.onclick = () => ContractTemplates.open();
     $("templateActions").append(newTemplate);
-    $("designSettings").append($("formulaDetails"));
-    $("formulaDetails").open = true;
-    $("vehicleSettings").prepend($("vehicleImageSettings"));
+    $("fillSettings").append($("formulaDetails"));
+    $("vehicleSettings").append($("vehicleImageSettings"));
     for (const button of document.querySelectorAll("[data-settings-tab]"))
       button.onclick = () => this.tab(button.dataset.settingsTab);
     $("settingsTabs").onkeydown = (e) => {

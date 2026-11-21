@@ -59,7 +59,7 @@ const PaperLayout = {
           y: y + (compact ? 1.4 : 3) + i * (compact ? 4.3 : 6.4),
           w: 65,
           h: compact ? 4.6 : 6.7,
-          fontFamily: "Amiri",
+          fontFamily: CONTRACT_FONT,
           fontSize: compact ? 15 : 21,
           weight: "700",
           lineHeight: 1,
@@ -70,6 +70,7 @@ const PaperLayout = {
     ];
   },
   apply(p) {
+    if (p.id === 1 && p.nodes && !p.paymentRowLayout) this.alignPaymentRows(p);
     if (!p.nodes || p.paperLayout === 3) return;
     this.previous(p);
     for (const n of p.nodes) {
@@ -94,6 +95,30 @@ const PaperLayout = {
     }
     if (p.id === 1) this.alignFace(p);
     p.paperLayout = 3;
+  },
+  alignPaymentRows(page) {
+    const nodes = new Map(page.nodes.map(n => [n.id, n]));
+    for (const prefix of ["extra-", "cash-extra-"]) {
+      for (let i = 0; i < 4; i++) {
+        const row = ["date", "words", "money", "label"].map(key => nodes.get(prefix + key + "-" + i));
+        if (row.some(n => !n)) continue;
+        const [date, words, money, label] = row;
+        // Only migrate the shipped four-column layout. Preserve custom arrangements.
+        const oldMoneyY = prefix === "extra-" ? [167.04,155.6,161.1,172.2] : [166.6,172.9,179.3,185.6];
+        if (Math.abs(money.y - oldMoneyY[i]) > 0.2 ||
+            Math.abs(date.y - label.y) > 1 || Math.abs(words.y - label.y) > 1.5 ||
+            !row.every((n,j) => !j || n.x > row[j-1].x)) continue;
+        const height = prefix === "extra-" ? 4.8 : 5.6;
+        const y = roundMM(label.y + label.h / 2 - height / 2);
+        row.forEach((n,j) => {
+          n.y = y;
+          n.h = height;
+          n.verticalAlign = "middle";
+          if (j < 3) n.w = roundMM(Math.min(n.w, row[j+1].x - n.x - 0.55));
+        });
+      }
+    }
+    page.paymentRowLayout = 1;
   },
   alignFace(p) {
     const prefix = p.nodes.some((n) => n.id === "cash-title") ? "cash-" : "";
@@ -130,7 +155,7 @@ const PaperLayout = {
         name: "عنوان بنود العقد",
         html: "بنود العقد",
         z: 11,
-        fontFamily: "Amiri",
+        fontFamily: CONTRACT_FONT,
         fontSize: 20,
         weight: "700",
         lineHeight: 1,
@@ -138,37 +163,12 @@ const PaperLayout = {
       p.nodes.push(title);
     }
     Object.assign(title, { x: 12, y: 45, w: 86, h: 6.5, align: "center" });
-    const ruler = document.createElement("article");
-    ruler.className = "paper";
-    ruler.style.cssText =
-      "position:fixed;left:-400vw;top:0;visibility:hidden;display:block;zoom:1";
-    document.body.append(ruler);
-    try {
-      const sizes = clauses.map((n) => n.fontSize || 15);
-      const bottom =
-        (p.nodes.find((n) => n.id === prefix + "warranty")?.y || 228) - 3;
-      let y;
-      for (let pass = 0; pass < 8; pass++) {
-        y = 53;
-        ruler.replaceChildren();
-        for (const [i, n] of clauses.entries()) {
-          Object.assign(n, {
-            x: 12,
-            w: 86,
-            y,
-            fontSize: n.manualFontSize ? sizes[i] : sizes[i] * (1 - pass * 0.035),
-          });
-          const el = App.renderNode(n),
-            content = el.firstElementChild;
-          content.style.height = "auto";
-          ruler.append(el);
-          n.h = roundMM(content.getBoundingClientRect().height / MM);
-          y += n.h + 0.75;
-        }
-        if (y <= bottom) break;
-      }
-    } finally {
-      ruler.remove();
+    let nextY = title.y + title.h + 1.5;
+    for (const clause of clauses) {
+      clause.x = 12;
+      clause.w = 86;
+      clause.y = roundMM(Math.max(clause.y, nextY));
+      nextY = clause.y + clause.h + 0.75;
     }
   },
   previous(p) {
@@ -291,7 +291,7 @@ const PaperLayout = {
         x: 8,
         w: 107,
         align: "right",
-        nowrap: true,
+
         html: "العدد: \u2066{{number}}\u2069    التاريخ: \u2066{{date}}\u2069    الساعة: \u2066{{contractTime}}\u2069",
       });
     if (cash) {

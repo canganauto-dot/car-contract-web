@@ -17,6 +17,7 @@
       }
       #startupThread svg { position:absolute; top:50%; left:0; transform:translateY(-50%); width:100%; height:38px; overflow:hidden }
       #startupThread button { position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); pointer-events:auto }
+      #startupThread p { position:absolute; inset:45% 10% auto; text-align:center; color:#efefef }
       html[data-revealing] body { animation:startup-reveal .45s ease-out both }
       html[data-revealing] body > #startupThread { animation:startup-cover .45s ease-out both }
       @keyframes startup-cover { to { opacity:0 } }
@@ -52,7 +53,7 @@
         </button>
       </nav>
       <div class="fill-tools">
-        <label>العقد<input id="contractNumber" readonly /></label
+        <label>العدد<input id="contractNumber" type="text" dir="ltr" maxlength="50" placeholder="تلقائي" autocomplete="off" /></label
         ><label>التاريخ<input id="contractDate" type="date" /></label>
         <label
           >الساعة<input

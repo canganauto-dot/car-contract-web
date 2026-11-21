@@ -1,4 +1,13 @@
 const Exchange = {
+  numberClauses(page) {
+    const clauses=page.nodes.filter(n=>n.type==="text" && (n.clauseNumber || n.id==="exchange-payment-title" || /^exchange-clause-\d+$/.test(n.id)));
+    clauses.sort((a,b)=>a.y-b.y || b.x-a.x);
+    clauses.forEach((n,index)=>{
+      n.clauseNumber=index+1;
+      if(/^البند\s+[\d٠-٩]+$/.test(n.name))n.name="البند "+n.clauseNumber;
+      if(n.id==="exchange-payment-title")n.html=n.html.replace(/^\s*[\d٠-٩]+[.．]\s*/,"");
+    });
+  },
   template(scene, archived = false) {
     if (scene.exchangeTemplate) {
       const page = this.paymentLayout(scene.exchangeTemplate);
@@ -17,7 +26,7 @@ const Exchange = {
         w,
         h,
         z: 10,
-        fontFamily: "Amiri",
+        fontFamily: CONTRACT_FONT,
         fontSize: 17,
         lineHeight: 1.05,
         color: ink,
@@ -250,28 +259,6 @@ const Exchange = {
       nodes,
       paperLayout: 3,
     }))));
-  },
-  fitFontLayout(page) {
-    for (const node of page.nodes) {
-      if (["exchange-meta", "exchange-address-buyerIdFrom"].includes(node.id))
-        node.fitSingleLine = true;
-      if (/^exchange-(old|new)-heading$/.test(node.id) && node.w === 28 && node.fontSize === 16)
-        node.fontSize = 15;
-    }
-  },
-  flowClauses(paper) {
-    // The stock lower block shares one column but some clauses now take two lines.
-    const clauses = [...paper.querySelectorAll('[data-node^="exchange-clause-"]')]
-      .filter(el => /^exchange-clause-(?:[4-9]|1[0-2])$/.test(el.dataset.node))
-      .sort((a, b) => parseFloat(a.style.top) - parseFloat(b.style.top));
-    const first = clauses[0];
-    if (!first || parseFloat(first.style.top) !== 186.46 ||
-        clauses.some(el => el.style.left !== first.style.left || el.style.width !== first.style.width)) return;
-    const block = document.createElement("div");
-    block.className = "exchange-clause-flow";
-    Object.assign(block.style, { left: first.style.left, top: first.style.top, width: first.style.width });
-    first.before(block);
-    block.append(...clauses);
   },
   vehicleLayout(page) {
     if (page.stackedVehicleRows) return page;

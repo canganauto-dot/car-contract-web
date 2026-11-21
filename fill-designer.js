@@ -26,6 +26,9 @@ const FillDesigner = {
     if(!caption || !svg || !label.offsetWidth || !label.offsetHeight)return;
     const w=label.offsetWidth, h=label.offsetHeight;
     const top=caption.offsetHeight, tab=Math.min(w-2,caption.offsetWidth+10);
+    const dimensions=[w,h,top,tab].join(",");
+    if(svg.dataset.dimensions===dimensions)return;
+    svg.dataset.dimensions=dimensions;
     const rise=Math.max(1,w-tab), join=Math.max(8,rise-12);
     svg.setAttribute("viewBox","0 0 "+w+" "+h);
     svg.firstElementChild.setAttribute("d",
@@ -50,7 +53,8 @@ const FillDesigner = {
       tab.classList.add("entry-tab-fill");svg.append(outline,tab);label.prepend(svg);
     }
     this.frameObserver ||= new ResizeObserver(entries=>{
-      for(const {target} of entries)this.drawFrame(target.closest("label"));
+      for(const label of new Set(entries.map(({target}) => target.closest("label"))))
+        if(label?.isConnected)this.drawFrame(label);
     });
     (this.observedLabels ||= new Set()).add(label);
     this.frameObserver.observe(label);
@@ -65,6 +69,7 @@ const FillDesigner = {
   },
   toggleSection(card) {
     const collapsed=card.classList.toggle("ui-collapsed");
+    FillLayout.invalidate();
     if(card.id==="guarantorCard" && ["exchange","installment"].includes(d.contractType)){
       const state=this.guarantorSections.get(d) || {};
       state[d.contractType]=collapsed;
@@ -72,7 +77,7 @@ const FillDesigner = {
     }
   },
   sectionLayout(){
-    for(const card of document.querySelectorAll("#cards > .card")){
+    for(const card of this.root().querySelectorAll(":scope > .card")){
       if(card.querySelector(":scope > .section-body"))continue;
       const heading=card.querySelector(":scope > .card-heading");
       if(!heading)continue;
@@ -102,31 +107,36 @@ const FillDesigner = {
       camera.dataset.fillIndependent="true";
     }
     if(buyer && camera && camera.parentElement===$("buyerCard"))buyer.after(camera);
-    const notes=$("notes");
+  },
+  sizeNotes(root) {
+    const notes=root.querySelector("#notes");
+    if(!notes || !notes.offsetWidth)return;
     const last=this.notesMeasurement;
-    const width=notes?.clientWidth, fontSize=UIPreferences.value?.fontSize;
-    if(notes && (last?.element !== notes || last.value !== notes.value || last.width !== width || last.fontSize !== fontSize)){
-      notes.rows=1;notes.style.height="auto";
+    const width=notes.clientWidth, fontSize=getComputedStyle(notes).fontSize;
+    if(last?.element !== notes || last.value !== notes.value || last.width !== width || last.fontSize !== fontSize){
+      notes.rows=1;notes.style.height="0px";
       notes.style.height=Math.max(29,notes.scrollHeight)+"px";
       this.notesMeasurement={element:notes,value:notes.value,width,fontSize};
     }
   },
-  apply() {
-    if(!d || Services.home || !this.root())return;
-    const root=this.root();
-    // Removed form elements are released by ResizeObserver when no longer observed.
-    for(const label of this.observedLabels||[]){
-      if(!label.isConnected){this.frameObserver.unobserve(label);const cap=this.caption(label);if(cap)this.frameObserver.unobserve(cap);this.observedLabels.delete(label);}
-    }
+  prepare(root) {
+    this.sectionLayout();
     for(const label of root.querySelectorAll("label")) {
       const control=label.querySelector("input:not([type=checkbox]):not([type=radio]):not([type=file]),select,textarea");
       if(!control || label.querySelector("input[type=checkbox],input[type=radio]")) continue;
       const caption=this.caption(label);
       if(caption) {label.classList.add("entry-field");caption.classList.add("entry-caption");}
     }
-    this.sectionLayout();
-
-    FillLayout.apply(root);
+  },
+  apply(force=true) {
+    if(!d || Services.home || !this.root())return;
+    const root=this.root();
+    if(!FillLayout.apply(root,force)){this.sizeNotes(root);return;}
+    for(const label of this.observedLabels||[]){
+      if(!label.isConnected){this.frameObserver.unobserve(label);const cap=this.caption(label);if(cap)this.frameObserver.unobserve(cap);this.observedLabels.delete(label);}
+    }
+    EntryDates.sync(root);
+    this.sizeNotes(root);
     this.sizeTitles(root);
     for(const label of root.querySelectorAll("label.entry-field"))this.frame(label);
   },
@@ -138,7 +148,7 @@ const FillDesigner = {
           control.closest("[hidden],[inert]")) continue;
       const rect = control.getBoundingClientRect();
       if (!rect.width || !rect.height || getComputedStyle(control).visibility !== "visible") continue;
-      const group = control.closest("#cards > .card") || root;
+      const group = control.closest("#cards > .card,#bookFields > .card") || root;
       if (!groups.has(group)) groups.set(group, []);
       groups.get(group).push({control, rect});
     }
@@ -192,6 +202,9 @@ const FillDesigner = {
   },
   init(){
     FillLayout.init();
+    $("fillPanel").addEventListener("input", event => {
+      if(event.target.id==="notes") this.sizeNotes(this.root());
+    });
     $("fillPanel").addEventListener("keydown", event => this.tabBetweenFields(event));
     for(const [id,icon] of [["customerCapture","camera"],["takeCustomerPhoto","shutter"],["cameraUploadFallback","upload"],["customerPhotoRemove","trash"]])
       $(id).innerHTML=Archive.icon(icon);

@@ -227,7 +227,7 @@ const Cash = {
       type: "text",
       fontSize: 15,
       lineHeight: 14 / 15,
-      fontFamily: "Amiri",
+      fontFamily: CONTRACT_FONT,
       align: "justify",
       z: 10,
     };
@@ -267,38 +267,27 @@ const Cash = {
     );
     // Only the cash legal text has a different length. Measure it once using
     // representative date fields so that filling a contract never moves it.
-    const ruler = document.createElement("div");
-    ruler.className = "paper scene-page";
-    ruler.style.cssText =
-      "position:fixed;left:-300vw;top:0;visibility:hidden;display:block;zoom:1";
-    document.body.append(ruler);
     let y = base.y;
-    try {
-      parts.forEach((html, i) => {
-        const n = {
-          ...clone(base),
-          id: "cash-clause-" + (i + 1),
-          name: "البند " + (i + 1),
-          clauseNumber: i + 1,
-          clauseDash: true,
-          html,
-          y,
-        };
-        const el = App.renderNode(n);
-        const content = el.firstElementChild;
-        content.innerHTML = safeMarkup(html)
-          .replace(/\{\{day\}\}/g, "الثلاثاء")
-          .replace(/\{\{date\}\}/g, "28/12/2026")
-          .replace(/\{\{contractTime\}\}/g, "14:55");
-        content.style.height = "auto";
-        ruler.append(el);
-        n.h = roundMM(content.getBoundingClientRect().height / MM);
-        nodes.push(n);
-        y = roundMM(y + n.h + 0.53);
-      });
-    } finally {
-      ruler.remove();
-    }
+    parts.forEach((html, i) => {
+      const n = {
+        ...clone(base),
+        id: "cash-clause-" + (i + 1),
+        name: "البند " + (i + 1),
+        clauseNumber: i + 1,
+        clauseDash: true,
+        html,
+        y,
+      };
+      const content = documentTextContent(n,{day:"الثلاثاء",date:"28/12/2026",contractTime:"14:55"});
+      arabicPaperDates(content);
+      const size = EditorSettings.display("fontSize",n.fontSize);
+      const lineHeight = EditorSettings.display("lineHeight",n.lineHeight);
+      const runs = DocumentInk.runs(content,{size,weight:n.weight || "400",color:n.color || "#172c35"});
+      const height = runs.length ? DocumentInk.raster(runs,roundMM(n.w)*MM,lineHeight,n.align,true).height : size*lineHeight;
+      n.h = roundMM(height/MM);
+      nodes.push(n);
+      y = roundMM(y + n.h + 0.53);
+    });
   },
   odometer:
     '<b style="color:#873638">عداد المسافات:</b> يقر البائع بأن قراءة عداد المسافات المذكورة صحيحة وأنها تعكس الكيلومترات المقطوعة فعلياً، ويؤكد عدم التلاعب بها خلال فترة حيازته للمركبة.',

@@ -3,7 +3,7 @@ function context(r = calculate(d)) {
     f = cfg.fixed;
   const result = {
     ...d,
-    ...(d.bookValues || {}),
+    ...FieldStudio.inputValues(),
     ...f,
     company: d.bookNoCompany
       ? ""
@@ -25,6 +25,7 @@ function context(r = calculate(d)) {
     guarantorIdDate: dateLabel(d.guarantorIdDate),
     agent: f.hasAgent ? f.agent : "",
     number: d.number,
+    branch: d.numberBranch || f.branch,
     total: money(r.total),
     totalWords: words(r.total),
     deposit: money(r.deposit),
@@ -47,7 +48,9 @@ function context(r = calculate(d)) {
         d.warrantyYears +
         " سنوات من تاريخ تصنيع المركبة، ويُلغى في حالات سوء الاستخدام أو التعديلات غير المصرح بها أو الصيانة خارج ورش الشركة، ولا يشمل أضرار الوقود الرديء أو الحوادث.",
   };
-  return FieldStudio.values(Services.enrichContext(result,r));
+  const values=FieldStudio.values(Services.enrichContext(result,r));
+  values.number=d.number;
+  return values;
 }
 let ctx = {};
 function interpolate(template) {
@@ -57,9 +60,16 @@ function interpolate(template) {
   );
 }
 function saveDraft() {
-  if (!d.number) return;
-  d.updatedAt = Date.now();
+  if (!d.number && !d.recordId) return;
   Services.saveCurrent(d);
+  d.updatedAt = Date.now();
+  putDB("draft", clone(d))
+    .then(() => ($("saveStatus").textContent = "المسودة محفوظة"))
+    .catch(
+      () =>
+        ($("saveStatus").textContent =
+          "احفظ بيانات العقد JSON؛ التخزين المحلي غير متاح"),
+    );
 }
 
 const dataDefs = {
@@ -126,7 +136,7 @@ const fixedDefs = [
   ["organizer", "المنظم"],
   ["branch", "الفرع"],
   ["prefix", "حرف / رمز الحاسبة"],
-  ["nextNumber", "العدد التالي", "number"],
+  ["nextNumber", "بداية تسلسل الفرع الجديد", "number"],
   ["hasAgent", "إظهار بيانات الوكيل", "checkbox", true],
   ["agent", "اسم الوكيل", "text", true],
   ["agencyNo", "رقم الوكالة"],
@@ -202,6 +212,7 @@ function buildInputs() {
   const focused = document.activeElement;
   if (focused?.matches("input,select,textarea") && focused.closest("#fillPanel")) focused.blur();
   FillLayout.restorePositions();
+  delete $("installmentInputs").dataset.phaseOrder;
   $("paymentActions").querySelector("label:has(#phaseEnabled)")?.remove();
   if($("customerPhotoTools")) {delete $("customerPhotoTools").dataset.fillIndependent;$("buyerCard").append($("customerPhotoTools"));}
   const companyField=$("companySelect")?.closest("label");
@@ -402,6 +413,7 @@ function normalizeConfig(c) {
   c.cars = c.cars || clone(seed.config.cars);
   c.clauses = c.clauses || clone(seed.config.clauses);
   c.assets = { ...seed.config.assets, ...c.assets };
+  FillLayout.upgrade(c.design);
   if (c.design?.version === 6) arrangeBillPages(c.design);
   return c;
 }
@@ -508,34 +520,30 @@ function normalizeData(raw) {
 }
 async function allocateNumber() {
   const prefix = String(cfg.fixed.prefix || "").trim();
-  const action = async () => {
-    const key = KEY + "-sequence-" + prefix;
-    let stored = 0;
-    try {
-      stored = Number(localStorage.getItem(key)) || 0;
-    } catch {}
-    const n = Math.max(
-      1,
-      Math.floor(Number(cfg.fixed.nextNumber) || 1),
-      stored,
-    );
-    if (!Number.isSafeInteger(n)) throw Error("العدد غير صالح");
-    try {
-      localStorage.setItem(key, String(n + 1));
-    } catch {
-      throw Error("تعذر حفظ تسلسل الأعداد؛ فعّل التخزين المحلي أولاً.");
-    }
-    cfg.fixed.nextNumber = n + 1;
-    await putDB("config", cfg);
-    return (prefix ? prefix + "-" : "") + n;
-  };
-  return navigator.locks
-    ? await navigator.locks.request(KEY + "-number", action)
-    : await action();
+  const branch=String(cfg.fixed.branch || "").trim();
+  const key="offline-counter:"+branch;
+  let floor=Math.max(1,Math.floor(Number(cfg.fixed.nextNumber)||1));
+  try{floor=Math.max(floor,Number(localStorage.getItem(KEY+"-sequence-"+prefix))||0);}catch{}
+  for(const {data} of Services.library.entries){
+    if(data.numberBranch && data.numberBranch!==branch)continue;
+    const match=normalizeDigits(data.number).match(/(?:^|-)(\d{1,9})(?:-F)?$/);
+    if(match)floor=Math.max(floor,Number(match[1])+1);
+  }
+  return new Promise((resolve,reject)=>{
+    const tx=db.transaction("store","readwrite"),store=tx.objectStore("store"),read=store.get(key);
+    let number;
+    read.onsuccess=()=>{
+      number=Math.max(floor,Number(read.result)||1);
+      if(!Number.isSafeInteger(number) || number>999999999){tx.abort();return;}
+      store.put(number+1,key);
+    };
+    tx.oncomplete=()=>resolve((prefix?prefix+"-":"")+number);
+    tx.onabort=()=>reject(Error("تعذّر حجز العدد المحلي."));
+  });
 }
 function reserveNumber(number) {
   const prefix = String(cfg.fixed.prefix || "").trim();
-  const raw = String(number || "");
+  const raw = String(number || "").replace(/-F$/i,"");
   const n = Number(
     prefix
       ? raw.startsWith(prefix + "-")
@@ -563,10 +571,11 @@ function scheduleConfig() {
     saveConfig().catch((e) => ($("saveStatus").textContent = e.message));
   }, 900);
 }
-async function saveConfig() {
+async function saveConfig(approvedScope) {
   const saved = clone(cfg);
   saved.updatedAt = Date.now();
   cfg.updatedAt = saved.updatedAt;
+  SharedDefaults.pendingWrites++;
   writeQueue = writeQueue
     .catch(() => {})
     .then(async () => {
@@ -581,10 +590,15 @@ async function saveConfig() {
         });
         await putDB("backups", backups.slice(0, 10));
       }
-      await SharedDefaults.publish(saved);
-      await putDB("config", saved);
-      await refreshBackups();
-    });
+      await SharedDefaults.publish(saved,approvedScope);
+      try{
+        await putDB("config", saved);
+        await refreshBackups();
+      }catch(error){
+        if(!approvedScope)throw error;
+        console.warn("Approved design was saved on the host. Local cache update failed.",error);
+      }
+    }).finally(()=>{SharedDefaults.pendingWrites--;});
   return writeQueue;
 }
 function settingsJSON(config = cfg, data = fresh()) {
@@ -800,12 +814,13 @@ function bindEvents() {
       Services.saveCurrent(d);
       await Services.flush();
       if (App.mode === "design") App.leave();
-      if (v.layout) {
-        const next = normalizeConfig({ ...cfg, ...v.layout });
-        cfg = next;
-      }
-      d = normalizeData(v.data);
-      if (!d.number) d.number = await allocateNumber();
+      const nextConfig = v.layout ? normalizeConfig({ ...cfg, ...v.layout }) : cfg;
+      const imported=normalizeData(v.data);
+      imported.numberBranch ||= nextConfig.fixed.branch;
+      await BranchNumbers.imported(imported,v.origin==="offline");
+      cfg=nextConfig;
+      d=v.layout ? normalizeData({...v.data,recordId:imported.recordId,number:imported.number,
+        numberBranch:imported.numberBranch,offlineNumber:imported.offlineNumber}) : imported;
       reserveNumber(d.number);
       Services.ensureSchemas();
       Images.ensure();
@@ -942,6 +957,7 @@ function bindEvents() {
       );
   };
   $("printAll").onclick = async () => {
+    const selected=d;
     if (document.activeElement?.closest("#fillPanel, #toolbar")) document.activeElement.blur();
     Services.refreshPrintClock();
     App.commitText();
@@ -989,7 +1005,14 @@ function bindEvents() {
       applyPageVisibility();
       return;
     }
-    window.print();
+    try{
+      if(d!==selected)throw Error("تغيّر المستند المفتوح. اختر طباعة من المستند المطلوب.");
+      await BranchNumbers.verify(d);
+      if(d!==selected)throw Error("تغيّر المستند المفتوح. اختر طباعة من المستند المطلوب.");
+      BranchNumbers.printing=BranchNumbers.signature(d);
+      window.print();
+    }catch(error){await Feedback.notice(error.message);}
+    finally{if(!App.printing)BranchNumbers.printing=null;}
     $("pagePreview").value = old;
     applyPageVisibility();
   };

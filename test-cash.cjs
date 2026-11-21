@@ -77,7 +77,7 @@ const assert = require("node:assert/strict");
     await p.locator("#archiveContractType").selectOption("cash");
     const positions = () =>
       p.evaluate(() => {
-        const source = App.scene.pages.find((page) => page.id === 1).nodes;
+        const source = ContractTemplates.scoped(cfg.design, "contract:installment").pages.find((page) => page.id === 1).nodes;
         const cash = App.scene.cashTemplate.nodes;
         const geometry = (n) => [n.x, n.y, n.w, n.h];
         const pairs = source
@@ -126,8 +126,8 @@ const assert = require("node:assert/strict");
     }
     assert.deepEqual(await p.evaluate(() => calculate(d).errors), []);
     assert.match(
-      await p.locator('[data-node="cash-extra-date-3"]').innerText(),
-      /12\/04\/2027/,
+      (await p.locator('[data-node="cash-extra-date-3"]').innerText()).replace(/[\u200f\u2066-\u2069]/g,""),
+      /١٢\/٠٤\/٢٠٢٧/,
     );
     assert.deepEqual(
       await p.evaluate(() => App.displayPages.map((p) => p.id)),
@@ -148,8 +148,8 @@ const assert = require("node:assert/strict");
       0,
     );
     assert.match(
-      await p.locator('[data-node="cash-extra-date-2"]').innerText(),
-      /12\/03\/2027/,
+      (await p.locator('[data-node="cash-extra-date-2"]').innerText()).replace(/[\u200f\u2066-\u2069]/g,""),
+      /١٢\/٠٣\/٢٠٢٧/,
     );
     assert.deepEqual(await positions(), blankLayout);
     await p.locator("#cash-amount-1").fill("2000000");
@@ -171,6 +171,8 @@ const assert = require("node:assert/strict");
     await p.locator("#pagePreview").selectOption("0");
     assert.equal(await p.evaluate(() => App.page), 0);
     const letter = p.locator('#pages .paper[data-page="0"]');
+    await letter.scrollIntoViewIfNeeded();
+    await p.waitForFunction(() => document.querySelector('#pages .paper[data-page="0"]')?.innerText.includes("مشتري تجريبي"));
     assert.match(await letter.innerText(), /مشتري تجريبي/);
     assert.equal(
       await letter.locator('[data-node="transfer-agents"] tbody tr').count(),
@@ -216,8 +218,8 @@ const assert = require("node:assert/strict");
       /عداد المسافات/,
     );
     assert(
-      (await p.locator('#pages .paper[data-page="1"]').textContent()).includes(
-        await p.evaluate(() => dateLabel(d.contractDate)),
+      (await p.locator('#pages .paper[data-page="1"]').textContent()).replace(/[\u200f\u2066-\u2069]/g,"").includes(
+        await p.evaluate(() => dateLabel(d.contractDate).replace(/\d/g,n=>"٠١٢٣٤٥٦٧٨٩"[n])),
       ),
     );
     assert.equal(
@@ -243,18 +245,20 @@ const assert = require("node:assert/strict");
       );
     });
     assert(location);
-    await p.locator("#cashTransferNote").fill("ش".repeat(160));
+    const noteMetrics = () => letterNote.evaluate(el => {
+      const body = el.querySelector(".node-content");
+      const image = el.querySelector(".document-ink").getBoundingClientRect();
+      return {size:getComputedStyle(body).fontSize, width:el.getBoundingClientRect().width, scroll:image.width,
+        height:image.height, value:body.textContent};
+    });
+    const shortNote = await noteMetrics();
+    const longNote = "ش".repeat(160);
+    await p.locator("#cashTransferNote").fill(longNote);
     await p.locator("#cashTransferNote").blur();
-    assert(
-      await letterNote.evaluate((el) => {
-        const range = document.createRange();
-        range.selectNodeContents(el.querySelector(".node-content"));
-        return (
-          range.getBoundingClientRect().bottom <=
-          el.getBoundingClientRect().bottom + 2
-        );
-      }),
-    );
+    const wrapped = await noteMetrics();
+    assert.equal(wrapped.size, shortNote.size);
+    assert(wrapped.height > shortNote.height && wrapped.scroll <= wrapped.width + 1);
+    assert(wrapped.value.includes(longNote));
     await p
       .locator("#cashTransferNote")
       .fill("تراجع معاملة نقل الملكية لدى الفرع.");
@@ -291,12 +295,7 @@ const assert = require("node:assert/strict");
     });
     const bounds = await first.evaluate((el) => {
       const rect = (key) => {
-        const n = el.querySelector(
-          '[data-node="cash-' + key + '"] .node-content',
-        );
-        const range = document.createRange();
-        range.selectNodeContents(n);
-        return range.getBoundingClientRect();
+        return el.querySelector('[data-node="cash-' + key + '"] > .document-ink').getBoundingClientRect();
       };
       return {
         clauses: rect("clause-12").bottom,
@@ -318,6 +317,7 @@ const assert = require("node:assert/strict");
           d,
         ).length,
     );
+    await p.evaluate(async()=>{await BranchNumbers.verify(d);BranchNumbers.printing=BranchNumbers.signature(d);});
     const pdf = await p.pdf({ preferCSSPageSize: true });
     assert.equal(
       (pdf.toString("latin1").match(/\/Type \/Page\b/g) || []).length,
@@ -338,34 +338,45 @@ const assert = require("node:assert/strict");
     assert(await p.locator("#count").isVisible());
     assert.equal(await p.locator('[data-node="cash-title"]').count(), 0);
     await p.locator("#archiveContractType").selectOption("cash");
-    const issued = await p.evaluate(async () => {
+    await p.evaluate(async () => {
       await App.enter();
       App.page = 1;
       App.selection = new Set(["cash-title"]);
       App.property("fontSize", 26);
       await App.approve();
       Services.beforePrint();
-      const papers = Services.printCandidate.papers;
-      const find = id => papers.map(page => page.querySelector('[data-node="' + id + '"]')).find(Boolean);
-      const evidence = {
-        transfer: find("transfer-note")?.textContent,
-        titleSize: find("cash-title")?.style.fontSize,
-        forbiddenPages: papers.filter(page => ["3", "6"].includes(page.dataset.page)).length,
-        amount: find("cash-extra-money-3")?.textContent,
-      };
       await Services.confirmPrint();
       await Services.showHome();
-      return evidence;
     });
     await p.reload();
     await p.waitForFunction(() => startReady);
     await p.locator("#printedArchive .archive-open").first().click();
-    await p.locator("#archiveViewBody iframe").waitFor();
-    assert.match(issued.transfer, /معاملة نقل الملكية/);
-    assert.equal(issued.titleSize, "26px");
-    assert.equal(issued.forbiddenPages, 0);
-    assert.match(issued.amount, /2,000,000/);
-    assert.equal(await p.evaluate(() => ArchiveOutput.file?.type), "application/pdf");
+    assert.match(
+      await p
+        .locator('#archiveViewBody [data-node="transfer-note"]')
+        .textContent(),
+      /معاملة نقل الملكية/,
+    );
+    assert.equal(
+      await p
+        .locator('#archiveViewBody [data-node="cash-title"]')
+        .evaluate((el) => el.style.fontSize),
+      "26px",
+    );
+    assert.equal(
+      await p
+        .locator(
+          '#archiveViewBody [data-page="6"],#archiveViewBody [data-page="3"]',
+        )
+        .count(),
+      0,
+    );
+    assert.match(
+      await p
+        .locator('#archiveViewBody [data-node="cash-extra-money-3"]')
+        .innerText(),
+      /2,000,000/,
+    );
     assert.deepEqual(errors, []);
     console.log(
       "PASS: cash first page, immediate or deferred payment, 4 dates, archive, approved edits and print layout.",

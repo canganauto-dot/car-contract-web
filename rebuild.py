@@ -3,12 +3,13 @@ import argparse
 import base64
 import hashlib
 import json
-import re
+import os
 from pathlib import Path
+from urllib.parse import urlsplit
 
 SOURCE = Path(__file__).resolve().parent
 SCRIPTS = [
-    'offline-edition.js', 'shared-defaults.js', 'contract-templates.js', 'entry-dates.js', 'web-resources.js', 'smart-tables.js', 'workbench.js', 'excel-export.js',
+    'offline-edition.js', 'pages-templates.js', 'shared-defaults.js', 'branch-numbers.js', 'contract-templates.js', 'entry-dates.js', 'web-resources.js', 'smart-tables.js', 'workbench.js', 'excel-export.js',
     'letters.js', 'appearance-originals.js', 'box-appearance.js',
     'editor-enhancements.js', 'directory-source.js', 'unified-directory.js',
     'company-sheet-data.js', 'contract-files.js', 'print-plan.js', 'company-sheets.js',
@@ -16,14 +17,25 @@ SCRIPTS = [
     'payment-schedule.js', 'cash-contract.js', 'exchange-contract.js',
     'external-contract.js', 'transfer-letter.js', 'paper-layout.js',
     'image-library.js', 'workspace-ui.js', 'contract-services.js', 'archive.js',
-    'archive-output.js', 'document-renderer.js', 'editor-clean.js', 'table-tools.js', 'ui-preferences.js', 'field-studio.js', 'fill-designer.js', 'fill-layout.js', 'app.js',
+    'archive-output.js', 'editor-settings.js', 'document-text.js', 'document-ink.js', 'document-renderer.js', 'document-scene.js', 'editor-clean.js', 'table-tools.js', 'ui-preferences.js', 'field-studio.js', 'fill-designer.js', 'fill-layout.js', 'staff-console.js', 'app.js',
 ]
 STYLES = ['document.css', 'editor-clean.css', 'features.css', 'workspace.css',
-          'archive.css', 'box-appearance.css', 'workbench.css', 'smart-tables.css', 'ui-refinements.css']
+          'archive.css', 'box-appearance.css', 'workbench.css', 'smart-tables.css', 'ui-refinements.css', 'fill-fields.css']
 
 
 def read(name):
     return (SOURCE / name).read_text(encoding='utf-8-sig')
+
+
+def template_endpoint():
+    value = os.environ.get('CONTRACT_TEMPLATE_API', '').strip()
+    if value:
+        url = urlsplit(value)
+        if (not url.hostname or url.username is not None or url.password is not None or url.query or url.fragment
+                or any(ord(c) <= 32 or c == chr(92) for c in value)
+                or not (url.scheme == 'https' or url.scheme == 'http' and url.hostname in {'localhost', '127.0.0.1'})):
+            raise ValueError('CONTRACT_TEMPLATE_API must be a public HTTPS endpoint without credentials or query parameters.')
+    return value
 
 
 def build(output):
@@ -49,32 +61,41 @@ def build(output):
         '<!--SCRIPTS-->': '\n'.join(f'<script defer src="assets/js/{name}"></script>' for name in scripts),
     }
     shell = read('editor-shell.html')
+    if os.environ.get('CONTRACT_STAFF_API') == '1':
+        shell = shell.replace('<head>', '<head>\n    <meta name="contract-staff-api" content="enabled">')
     for marker_text, content in fragments.items():
         if shell.count(marker_text) != 1:
             raise ValueError(f'Expected exactly one build marker: {marker_text}')
         shell = shell.replace(marker_text, content)
     files = {'index.html': shell.encode('utf-8'),
              'assets/css/theme.css': read('theme.css').encode('utf-8')}
-    rules = ["/*" + read("vendor/Amiri-OFL.txt") + "*/"]
-    for face, weight, style in [('Regular',400,'normal'), ('Bold',700,'normal'), ('Italic',400,'italic'), ('BoldItalic',700,'italic')]:
-        data = base64.b64encode((SOURCE / 'vendor' / f'Amiri-{face}.ttf').read_bytes()).decode('ascii')
-        rules.append(f'@font-face{{font-family:"Amiri";font-weight:{weight};font-style:{style};'
-                     f'src:url(data:font/ttf;base64,{data}) format("truetype");font-display:block;}}')
-    files['assets/css/contract-font.css'] = '\n'.join(rules).encode('utf-8')
+    font = base64.b64encode((SOURCE / 'vendor' / 'Alyamama.ttf').read_bytes()).decode('ascii')
+    rules = ('/*' + read('vendor/Alyamama-OFL.txt') + '*/\n'
+             '@font-face{font-family:"Alyamama";font-style:normal;font-weight:300 900;'
+             f'src:url(data:font/ttf;base64,{font}) format("truetype");size-adjust:80%;font-display:block;}}\n')
+    files['assets/css/contract-font.css'] = rules.encode('utf-8')
     files['assets/js/seed.js'] = ('const ContractSeed=' + json.dumps(seed, ensure_ascii=False,separators=(",",":"))
                                + ';\nconst ContractAssets=' + json.dumps(assets, ensure_ascii=False) + ';').encode('utf-8')
+    files['assets/template-sync.json'] = json.dumps({
+        'build': hashlib.sha256(files['assets/js/seed.js']).hexdigest(),
+        'endpoint': template_endpoint()
+    }).encode('utf-8')
     for name in ['contract-math.js'] + SCRIPTS:
         files['assets/js/' + name] = read(name).encode('utf-8')
+    # A newly opened page must load matching code and styles, including on a static host.
+    for name, content in files.items():
+        if name.startswith(('assets/js/', 'assets/css/')):
+            version = hashlib.sha256(content).hexdigest()[:12]
+            shell = shell.replace(f'"{name}"', f'"{name}?v={version}"')
+    files['index.html'] = shell.encode('utf-8')
     for name in ['pdf-lib-1.17.1.min.js', 'pdfjs-4.10.38.mjs', 'pdfjs-worker-4.10.38.mjs', 'pdf-lib-LICENSE.md', 'pdfjs-LICENSE']:
         files['assets/vendor/' + name] = (SOURCE / 'vendor' / name).read_bytes()
-    # Publish only media referenced by the application or its public templates.
-    media = {
-        path.decode('ascii')
-        for content in files.values()
-        for path in re.findall(rb'assets/media/[a-f0-9]{64}\.(?:png|jpg|webp)', content)
-    }
-    for path in sorted(media):
-        files[path] = (SOURCE / path).read_bytes()
+    skia = SOURCE / 'node_modules' / 'canvaskit-wasm'
+    for name in ['canvaskit.js','canvaskit.wasm']:
+        files['assets/vendor/'+name] = (skia / 'bin' / name).read_bytes()
+    files['assets/vendor/canvaskit-LICENSE'] = (skia / 'LICENSE').read_bytes()
+    for image in sorted((SOURCE / 'assets' / 'media').iterdir()):
+        files['assets/media/' + image.name] = image.read_bytes()
     for name in set(previous) | files.keys():
         target = (output / name).resolve()
         if output not in target.parents:

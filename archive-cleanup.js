@@ -14,20 +14,25 @@ const RemovedTestData = {
 
 async function removeTestArchives() {
   const matches = (data) => RemovedTestData.recordIds.includes(data?.recordId);
-  await updateArchive(archive => {
-    if (!archive?.entries) return;
+  const archive = await getDB("contractArchive");
+  if (archive?.entries) {
     const retained = archive.entries.filter(
       (entry) =>
         !RemovedTestData.entryIds.includes(entry.id) && !matches(entry.data),
     );
-    if (retained.length === archive.entries.length) return;
-    const used = new Set(retained.map(entry => entry.configKey).filter(Boolean));
-    return {
-      ...archive,
-      entries: retained,
-      configs: Object.fromEntries(Object.entries(archive.configs || {}).filter(([key]) => used.has(key))),
-    };
-  }, undefined, RemovedTestData.recordIds.map(id => "draft:" + id));
+    if (retained.length !== archive.entries.length) {
+      const used = new Set(
+        retained.flatMap(entry => [entry, ...(entry.history || [])]).map(entry => entry.configKey).filter(Boolean),
+      );
+      archive.entries = retained;
+      archive.configs = Object.fromEntries(
+        Object.entries(archive.configs || {}).filter(([key]) => used.has(key)),
+      );
+      await putDB("contractArchive", archive);
+    }
+  }
+  const draft = await getDB("draft");
+  if (matches(draft)) await putDB("draft", null);
   const open = await getDB("openWork");
   if (Array.isArray(open) && open.some(matches))
     await putDB(

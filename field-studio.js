@@ -2,8 +2,18 @@ const FieldStudio = {
   fields() { return cfg.design?.fieldRegistry || {}; },
   groups: {buyerInputs:"الزبون",guarantorInputs:"الكفيل",carInputs:"المركبة",oldVehicleInputs:"المركبة القديمة",paymentInputs:"الدفع",installmentInputs:"الأقساط",financialNotes:"الملاحظات",noteInputs:"الضمان"},
   sorted(keys) { return [...keys].sort((a,b)=>(this.fields()[a]?.order??999)-(this.fields()[b]?.order??999)); },
+  applies(spec) {
+    if(!spec?.scope)return true;
+    const scope=ContractTemplates.scopeKey();
+    return scope===spec.scope || scope==="contract:"+spec.scope;
+  },
+  inputValues() {
+    const values=Object.entries(d.bookValues || {});
+    return Object.fromEntries(values.filter(([key])=>this.applies(this.fields()[key])));
+  },
   values(result) {
     for (const [key,f] of Object.entries(this.fields())) {
+      if (!this.applies(f))continue;
       if (f.source==="company") result[key]=d.bookNoCompany?"":f.values?.[d.companyId]??"";
       if (f.source==="vehicle") {
         const car=cfg.cars.find(c=>[c.name,...(c.aliases||[])].some(n=>normalizeName(n)===normalizeName(d.car)));
@@ -15,15 +25,15 @@ const FieldStudio = {
     return result;
   },
   applyForm() {
-    const scope=d.templateId || d.contractType;
+    if(d.standaloneBook)return;
     const fields=Object.assign(Object.create(null),this.fields());
+    const managed=FillLayout.bindings();
     const template=ContractTemplates.find();
     if(template && !d.standaloneBook){
-      const known=context();
-      for(const ref of template.pages){
-        const page=ContractTemplates.resolve(cfg.design,ref);
-        for(const n of page?.nodes||[]) for(const match of (n.html||"").matchAll(/\{\{(\w+)\}\}/g)){
-          const key=match[1];
+      const known=context(), scene=ContractTemplates.scoped(cfg.design);
+      for(const ref of ContractTemplates.find(d.templateId,scene).pages){
+        const page=ContractTemplates.resolve(scene,ref);
+        for(const key of documentVariables(page)){
           if((!Object.hasOwn(known,key) || Object.hasOwn(d.bookValues||{},key)) && !Object.hasOwn(fields,key) && !(key in {}))
             fields[key]={label:cfg.variableLabels?.[key]||key,source:"input",group:"buyerInputs",order:999};
         }
@@ -31,7 +41,7 @@ const FieldStudio = {
     }
     for (const key of this.sorted(Object.keys(fields))) {
       const f=fields[key], host=$(f.group);
-      if(f.scope && f.scope!==scope)continue;
+      if(!this.applies(f) || managed.has(key))continue;
       if (!host) continue;
       let label=$(key)?.closest("label");
       if (!label && ["input","toggle"].includes(f.source)) {
@@ -41,6 +51,7 @@ const FieldStudio = {
         input.type=f.source==="toggle"?"checkbox":"text";
         input.value=d.bookValues?.[key]??f.value??""; input.checked=!!d.bookValues?.[key];
         input.onchange=()=>{(d.bookValues ||= {})[key]=input.type==="checkbox"?input.checked:input.value; render();saveDraft();};
+        if(key==="number"){input.type="text";input.value=d.number;BranchNumbers.bind(input);}
         label.append(span,input);label.style.setProperty("--entry-span","span 6");
       }
       if(!label || !label.closest("#cards") && label.isConnected) continue;
@@ -143,19 +154,12 @@ const FieldStudio = {
     this.button($("fieldActions"),"خانات الملء والمتغيرات",()=>this.open());
     const b=this.button($("draftCount").parentElement,"",async()=>{
       if(Archive.busy)return;
-      const entries=Archive.selectedRows().filter(e=>e.kind==="draft" && !Archive.issued(e));
-      if(!entries.length || !await Feedback.ask("حذف المعلّقات المحددة ("+entries.length+")؟"))return;
-      try {
-        await Services.flush();
-        const next = entries.some(e => e.id === "draft:" + d.recordId) ? fresh() : undefined;
-        const ids = new Set(entries.map(e => e.id));
-        const selected = Services.library.entries.filter(e => e.kind === "draft" && ids.has(e.id));
-        await Services.persistLibrary(selected.map(e => [e.id, e, undefined]), null);
-        if (next) d = next;
-        Archive.refresh();Workbench.paint();
-      } catch (error) {
-        await Feedback.notice(error.message);
-      }
+      const ids=new Set(Archive.selectedRows().filter(e=>e.kind==="draft").map(e=>e.id));
+      if(!ids.size || !await Feedback.ask("حذف المعلّقات المحددة ("+ids.size+")؟"))return;
+      await Services.flush();
+      if(ids.has("draft:"+d.recordId)){d=fresh();await putDB("draft",clone(d));}
+      Services.library.entries=Services.library.entries.filter(e=>e.kind!=="draft" || !ids.has(e.id));
+      await Services.persistLibrary();Archive.refresh();Workbench.paint();
     });
     b.id="deletePickedDrafts";b.className="danger";b.title="حذف المعلّقات المحددة";
     b.setAttribute("aria-label",b.title);b.innerHTML=Archive.icon("trash");

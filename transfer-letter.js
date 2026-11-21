@@ -77,7 +77,7 @@ const TransferLetter = {
       w,
       h,
       z: 5,
-      fontFamily: "Amiri",
+      fontFamily: CONTRACT_FONT,
       fontSize: 21,
       lineHeight: 1.05,
       color: "#164577",
@@ -195,7 +195,7 @@ const TransferLetter = {
         h,
         z: 5,
         fontSize: 20,
-        fontFamily: "Amiri",
+        fontFamily: CONTRACT_FONT,
         align: "right",
         lineHeight: 1.1,
         color: "#202a35",
@@ -279,7 +279,6 @@ const TransferLetter = {
         fontSize: 24,
         weight: "700",
         condition: "transfer-note",
-        fitLetterNote: true,
       },
     );
     text("directory", "عنوان قائمة الوكلاء", "وكلاء الشركة", 45, 174, 120, 6, {
@@ -315,7 +314,7 @@ const TransferLetter = {
       w: 116,
       h: 62,
       z: 5,
-      fontFamily: "Amiri",
+      fontFamily: CONTRACT_FONT,
       fontSize: 16,
       lineHeight: 1.05,
       align: "center",
@@ -389,7 +388,7 @@ const TransferLetter = {
       w: 174,
       h: 10,
       z: 5,
-      fontFamily: "Amiri",
+      fontFamily: CONTRACT_FONT,
       fontSize: 28,
       weight: "700",
       lineHeight: 1.05,
@@ -421,52 +420,5 @@ const TransferLetter = {
     });
     page.layoutVersion = 3;
     return page;
-  },
-  fitNote(content, n) {
-    if (!content.textContent.trim()) return;
-    const probe = content.cloneNode(true);
-    Object.assign(probe.style, {
-      position: "fixed",
-      top: "0",
-      left: "-300vw",
-      visibility: "hidden",
-      direction: "rtl",
-      width: n.w + "mm",
-      height: "auto",
-      whiteSpace: "pre-wrap",
-      overflowWrap: "anywhere",
-      fontFamily: CONTRACT_FONT,
-      fontSize: n.fontSize + "px",
-      fontWeight: n.weight,
-      lineHeight: String(n.lineHeight),
-    });
-    document.body.append(probe);
-    try {
-      const styled = [...probe.querySelectorAll("[style]")].filter(
-        (el) => el.style.fontSize,
-      );
-      const fonts = styled.map((el) =>
-        parseFloat(getComputedStyle(el).fontSize),
-      );
-      let size = n.fontSize;
-      while (size > 8 && probe.getBoundingClientRect().height > n.h * MM) {
-        probe.style.fontSize = --size + "px";
-        styled.forEach(
-          (el, index) =>
-            (el.style.fontSize = (fonts[index] * size) / n.fontSize + "px"),
-        );
-      }
-      if (size < n.fontSize) {
-        content.style.fontSize = size + "px";
-        // Rich-text spans must shrink with the node, or their fixed sizes defeat fitting.
-        [...content.querySelectorAll("[style]")]
-          .filter((el) => el.style.fontSize)
-          .forEach((el, index) => {
-            el.style.fontSize = (fonts[index] * size) / n.fontSize + "px";
-          });
-      }
-    } finally {
-      probe.remove();
-    }
   },
 };

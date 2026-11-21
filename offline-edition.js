@@ -58,7 +58,7 @@ const OfflineEdition = {
     const contents = await Promise.all(scripts.map(async script => {
       const path = script.getAttribute("src");
       const code = await (await this.resource(path)).text();
-      if (!path.endsWith("/seed.js")) return code;
+      if (!path.split("?")[0].endsWith("/seed.js")) return code;
       const at = code.indexOf("\nconst ContractAssets=");
       if (at < 0) throw Error("تعذرت قراءة موارد القوالب.");
       return "const ContractSeed=" + JSON.stringify({offline:true,appearanceId,workspaceCollapsed,config}) + ";" + code.slice(at);
@@ -66,13 +66,23 @@ const OfflineEdition = {
     // Package the same resources used by the running site. Keep executable code
     // intact and resolve its media URLs against the exported asset directory.
     const manifest = await (await this.resource(".web-build.json")).json();
+    const notices = page.createElement("template");
+    notices.id = "third-party-notices";
+    const licenses = manifest.files.filter(path=>path.startsWith("assets/vendor/") && path.includes("-LICENSE"));
+    for(const [path,license] of await Promise.all(licenses.map(async path=>[path,await (await this.resource(path)).text()]))){
+      const pre=page.createElement("pre");
+      pre.textContent=path.split("/").pop()+"\n"+license;
+      notices.content.append(pre);
+    }
+    page.body.append(notices);
     const resources = new Map();
     const paths = manifest.files.filter(path => path.startsWith("assets/media/") ||
-      /^assets\/vendor\/.*\.(js|mjs)$/.test(path));
+      /^assets\/vendor\/.*\.(js|mjs|wasm)$/.test(path));
     await Promise.all(paths.map(async path=>{
       const response = await this.resource(path);
       let blob = await response.blob();
       if (/\.m?js$/.test(path)) blob = new Blob([blob],{type:"text/javascript"});
+      if(path.endsWith(".wasm"))blob=new Blob([blob],{type:"application/wasm"});
       const encoded = await new Promise((resolve,reject)=>{
         const reader=new FileReader();
         reader.onload=()=>resolve(reader.result);
@@ -82,6 +92,9 @@ const OfflineEdition = {
       resources.set(path,encoded);
     }));
     const urls = Object.fromEntries([...resources].filter(([path])=>path.startsWith("assets/vendor/")));
+    if(!urls["assets/vendor/canvaskit.wasm"]?.startsWith("data:application/wasm;base64,") ||
+       !urls["assets/vendor/canvaskit.js"] || !contents.some(code=>code.startsWith('const ContractSeed={"offline":true,')))
+      throw Error("ملفات المحرّك أو القوالب غير مكتملة. حدّث الصفحة ثم نزّل النسخة مجدداً.");
     const resourceScript=page.createElement("script");
     resourceScript.textContent="globalThis.contractPack="+JSON.stringify(urls)+";";
     scripts[0].before(resourceScript);

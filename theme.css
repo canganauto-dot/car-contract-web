@@ -198,7 +198,7 @@
   }
 
   [data-palette] #fillPanel #cards > .card:has(> .card-heading) {
-    background-image: linear-gradient(to left, var(--theme-section) var(--heading-width), transparent var(--heading-width));
+    background-image: linear-gradient(to left, var(--theme-section), color-mix(in srgb,var(--theme-section) 88%,var(--ui-surface)) var(--heading-width), transparent var(--heading-width));
   }
 
   [data-palette] #fillPanel #cards > .card > .card-heading {
@@ -208,26 +208,6 @@
 
   [data-palette] #fillPanel #cards.exchange-form > :is(#oldVehiclePanel, #carCard) {
     border-color: var(--theme-section);
-  }
-
-  [data-palette] #fillPanel .entry-frame path:not(.entry-tab-fill) {
-    stroke: var(--entry-stroke, var(--entry-custom-edge, var(--ui-border)));
-  }
-
-  [data-palette] #fillPanel label.entry-field .entry-tab-fill {
-    fill: var(--entry-stroke, var(--entry-custom-edge, var(--entry-edge)));
-  }
-
-  [data-palette] #fillPanel label.entry-field:focus-within .entry-tab-fill {
-    fill: var(--ui-accent);
-  }
-
-  [data-palette] #fillPanel label.entry-field:has(.missing-value) {
-    --entry-stroke: #c74750;
-  }
-
-  [data-palette] #fillPanel label.entry-field:focus-within {
-    --entry-stroke: var(--ui-focus);
   }
 
   [data-palette] #fillPanel .fill-size-grip {
@@ -293,7 +273,7 @@
     padding: 2px 5px;
     border-radius: 4px;
     overflow-wrap: anywhere;
-    font: 600 clamp(9px, 1.1vw, 12px) / 1.2 "Amiri", serif !important;
+    font: 600 clamp(9px, 1.1vw, 12px) / 1.2 "Alyamama", serif !important;
     color: var(--tile-ink);
     background: var(--tile-key);
   }
@@ -305,7 +285,7 @@
     width: 19px;
     height: 19px;
     border-radius: 50%;
-    font: 600 12px / 1 "Amiri", serif;
+    font: 600 12px / 1 "Alyamama", serif;
     background: var(--tile-ink);
     color: var(--tile-key);
   }
@@ -320,4 +300,58 @@
   }
   .theme-font-size input {grid-column: 1 / -1; width: 100%; margin: 0}
   .theme-font-size output {direction: ltr; font-variant-numeric: tabular-nums}
+
+  [data-palette] :is(.app-ui,#toolbar,#workbench,#homeScreen,#fillPanel,#settingsDrawer,#editorPanel,dialog,.preview-controls,.fill-layout-panel)
+  :is(button,input:not([type=checkbox],[type=radio],[type=range],[type=color]),select,textarea,h2,h3,.card-heading):not(.paper *) {
+    border:0!important;box-shadow:none!important;
+    background-image:linear-gradient(145deg,color-mix(in srgb,var(--ui-zone) 34%,transparent),color-mix(in srgb,var(--ui-zone) 16%,transparent) 52%,transparent 100%)!important;
+  }
+  [data-palette] #fillPanel .entry-frame path {stroke:none!important}
+  [data-palette] #fillPanel :is(#cards,#bookFields) label.entry-field > :is(input,select,textarea,.entry-date) {
+    background:linear-gradient(165deg,transparent,color-mix(in srgb,var(--ui-zone) 5%,transparent) 48%,color-mix(in srgb,var(--ui-zone) 12%,transparent)),var(--fill-field-bg)!important;
+  }
+  [data-palette] #fillPanel #cards > .card:has(.card-heading) {border:0!important}
+  [data-palette] #homeScreen .home-search {display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:6px;min-width:0}
+  [data-palette] #homeScreen .archive-query {display:flex;align-items:center;min-width:0;padding:0 9px;overflow:hidden;border:0;
+    background:linear-gradient(155deg,var(--ui-field),var(--ui-subtle) 52%,var(--ui-surface))}
+  [data-palette] #homeScreen .home-search :is(.archive-query,#filterToggle) {box-sizing:border-box;height:28px;min-height:0;margin:0;padding-block:0}
+  [data-palette] #homeScreen .archive-query #archiveSearch {appearance:none;flex:1 1 0;min-width:0;width:0;height:24px;min-height:0;
+    max-height:100%;box-sizing:border-box;margin:0;padding:0 3px;font-size:15px;line-height:1;background:transparent!important;box-shadow:none}
+  [data-palette] #homeScreen .archive-query:focus-within {outline:0;background:linear-gradient(145deg,var(--ui-field),var(--ui-subtle) 48%,var(--ui-hover))}
+  [data-palette] :is(#homeScreen,#workbench,#settingsDrawer,#editorPanel,dialog) :is(.work-tile,.layer-item,.section,.preference-group,.archive-columns>section,.archive-panel,fieldset,legend) {border:0;box-shadow:none}
+  [data-palette] #fillPanel :is(#cards,#bookFields) label.entry-field > .entry-caption {
+    border:0;background:linear-gradient(135deg,var(--entry-edge),color-mix(in srgb,var(--entry-edge) 94%,var(--ui-zone)) 48%,color-mix(in srgb,var(--entry-edge) 84%,var(--ui-zone)));
+    border-radius:5px 5px 0 0;
+  }
+  [data-palette] #toolbar .fill-tools label:has(#contractNumber) {display:inline-flex;align-items:center;gap:4px}
+  [data-palette] #toolbar #contractNumber {inline-size:clamp(6ch,8vw,12ch);text-align:center;font-weight:700}
+}
+
+@media screen {
+  #staffSettings { min-width: 0; padding: .65rem; }
+  #staffSettings :is(h3,p), .staff-dialog :is(h3,p) { margin: 0; }
+  #staffSettings > div, .staff-form, .staff-directory { display: grid; gap: .65rem; }
+  .staff-head, .staff-controls, .staff-form fieldset { display: flex; flex-wrap: wrap; align-items: end; gap: .45rem; }
+  .staff-head {
+    border-radius: .65rem; padding: .65rem;
+    background: linear-gradient(130deg, var(--ui-hover), var(--ui-subtle) 52%, var(--ui-field));
+  }
+  .staff-head :is(h3,small,p) { flex-basis: 100%; }
+  .staff-head label, .staff-form > label { display: grid; gap: .12rem; min-width: 0; }
+  .staff-head label, .staff-controls > * { flex: 1 1 7rem; }
+  .staff-controls input { flex: 2 1 11rem; }
+  #staffSettings :is(select,input), .staff-form :is(select,input:not([type=checkbox])) { width: 100%; min-width: 0; }
+  .staff-directory ul { display: grid; gap: .25rem; padding: 0; margin: 0; list-style: none; }
+  .staff-directory li { display: flex; gap: .5rem; align-items: center; flex-wrap: wrap; background: var(--ui-subtle); border-radius: .4rem; padding: .4rem .5rem; }
+  .staff-directory li > div { display: grid; flex: 1 1 9rem; min-width: 0; overflow-wrap: anywhere; }
+  .staff-directory li small { direction: ltr; text-align: start; color: var(--ui-muted); unicode-bidi: plaintext; }
+  #staffSettings details { overflow-x: auto; }
+  #staffSettings table { width: 100%; border-collapse: collapse; margin-block: .4rem; }
+  #staffSettings :is(th,td) { padding: .25rem; text-align: start; }
+  #staffSettings th { background: var(--ui-subtle); }
+  .staff-dialog { width: min(28rem,94vw); max-height: 90dvh; overflow: auto; }
+  .staff-form fieldset { margin: 0; padding: .4rem; }
+  .staff-form fieldset label { display: inline-flex; align-items: center; gap: .25rem; }
+  .staff-form fieldset input { margin: 0; }
+  .staff-status:empty, .staff-form [role="alert"]:empty, .staff-form fieldset[hidden], #staffSettings[hidden] { display: none; }
 }

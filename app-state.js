@@ -83,6 +83,10 @@ function fresh() {
     companyId: cfg.companies[0].id,
     initialCompanyId: "",
     number: "",
+    numberBranch: "",
+    numberRequest: "",
+    numberUnconfirmed:false,
+    offlineNumber: false,
     contractDate: today(),
     contractTime: timeNow(),
     manualContractDate: false,
@@ -156,10 +160,10 @@ function openDB() {
     r.onerror = () => reject(r.error);
   });
 }
-function getDB(key, store) {
+function getDB(key) {
   return new Promise((resolve, reject) => {
     if (!db) return resolve(null);
-    const r = (store || db.transaction("store").objectStore("store")).get(key);
+    const r = db.transaction("store").objectStore("store").get(key);
     r.onsuccess = () => resolve(r.result);
     r.onerror = () => reject(r.error);
   });
@@ -171,34 +175,6 @@ function putDB(key, value) {
     tx.objectStore("store").put(value, key);
     tx.oncomplete = resolve;
     tx.onerror = () => reject(tx.error);
-  });
-}
-// Read and write in the same transaction so other tabs cannot interleave a save.
-function updateArchive(update, draft, clearDraftIds = []) {
-  return new Promise((resolve, reject) => {
-    if (!db) return reject(Error("التخزين المحلي غير متاح"));
-    const tx = db.transaction("store", "readwrite");
-    const store = tx.objectStore("store");
-    const request = store.get("contractArchive");
-    let failure;
-    tx.oncomplete = resolve;
-    tx.onabort = () => reject(failure || tx.error || Error("تعذر حفظ الأرشيف"));
-    request.onsuccess = () => {
-      try {
-        const next = update(request.result);
-        if (next) store.put(next, "contractArchive");
-        if (draft !== undefined) store.put(draft, "draft");
-        else if (clearDraftIds.length) {
-          const current = store.get("draft");
-          current.onsuccess = () => {
-            if (clearDraftIds.includes("draft:" + current.result?.recordId)) store.put(null, "draft");
-          };
-        }
-      } catch (error) {
-        failure = error;
-        tx.abort();
-      }
-    };
   });
 }
 function safeImage(value) {

@@ -126,13 +126,6 @@ const External = {
     ctx.externalPurchaseDate = dateLabel(d.externalPurchaseDate || "");
     ctx.externalWaiverDate = dateLabel(d.externalWaiverDate || d.contractDate);
   },
-  fitFontLayout(page) {
-    for (const node of page.nodes) {
-      if (node.id === "external-intro" && node.y === 88.67 && node.fontSize === 20)
-        Object.assign(node, { y: 87.7, h: 9.39, fontSize: 16.5, lineHeight: 1.05 });
-      if (node.id === "external-compact-externalKeys-title") node.fitSingleLine = true;
-    }
-  },
   pages(scene) {
     if (scene.externalPages) return this.upgrade(scene.externalPages);
     const make = (id, name) => ({ id, name, paperLayout: 3, nodes: [] });
@@ -149,7 +142,7 @@ const External = {
         w,
         h,
         z: 5,
-        fontFamily: "Amiri",
+        fontFamily: CONTRACT_FONT,
         fontSize: 20,
         lineHeight: 1.12,
         color: "#203c48",
@@ -389,7 +382,7 @@ const External = {
           y,
           w,
           h,
-          fontFamily: "Amiri",
+          fontFamily: CONTRACT_FONT,
           fontSize: 19,
           lineHeight: 1,
           align: "right",

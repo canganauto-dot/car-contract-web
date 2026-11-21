@@ -150,7 +150,7 @@ const { chromium } = require("playwright"),
     assert.equal(rows.length, 122);
     assert(rows[0].includes("المقدمة"));
     assert(rows[1].includes("دفعة خاصة"));
-    assert(rows[2].includes("30/11/2026"));
+    assert(rows[2].replace(/[\u200f\u2066-\u2069]/g,"").includes("٣٠/١١/٢٠٢٦"));
     assert(rows.at(-1).includes("الأخير · 120"));
     assert(rows.at(-1).includes("1,500"));
     assert(
@@ -171,6 +171,7 @@ const { chromium } = require("playwright"),
       d.skipCompanySheets = "9001,9002";
       applyPageVisibility();
     });
+    await page.evaluate(async()=>{await BranchNumbers.verify(d);BranchNumbers.printing=BranchNumbers.signature(d);});
     const pdf = await page.pdf({
       preferCSSPageSize: true,
       path: "development/work/legacy-results/schedule-check.pdf",

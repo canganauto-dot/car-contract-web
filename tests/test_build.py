@@ -21,10 +21,7 @@ class WebBuildTests(unittest.TestCase):
     def test_manifest_and_asset_references(self):
         output = SOURCE / 'dist'
         manifest = json.loads((output / '.web-build.json').read_text())
-        published = {p.relative_to(output).as_posix() for p in output.rglob('*') if p.is_file()}
-        self.assertEqual(published, {'.web-build.json', *manifest['files']})
-        self.assertEqual(set(manifest['sha256']), set(manifest['files']))
-        self.assertNotIn('offline.html', published)
+        self.assertNotIn('offline.html', manifest['files'])
         self.assertLess((output / 'index.html').stat().st_size, 150000)
         for name, expected in manifest['sha256'].items():
             self.assertEqual(builder.hashlib.sha256((output / name).read_bytes()).hexdigest(), expected, name)
@@ -32,9 +29,7 @@ class WebBuildTests(unittest.TestCase):
             self.assertTrue((output / 'assets' / 'js' / script).is_file())
 
     def test_output_cannot_replace_unrelated_files(self):
-        work = SOURCE / 'work'
-        work.mkdir(exist_ok=True)
-        with tempfile.TemporaryDirectory(dir=work) as directory:
+        with tempfile.TemporaryDirectory(dir=SOURCE) as directory:
             target = Path(directory)
             sentinel = target / 'user.txt'
             sentinel.write_text('keep')

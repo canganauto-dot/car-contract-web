@@ -5,6 +5,12 @@ function render() {
     App.configRef = cfg;
   }
   App.render();
+  if (Workbench.ready) {
+    Workbench.paint();
+    Workbench.form();
+    EntryDates.sync();
+    FillDesigner.apply(false);
+  }
 }
 (async () => {
   try {
@@ -23,11 +29,7 @@ function render() {
       }
     }
     if (!cfg.setupComplete) Object.assign(cfg.fixed,{organizer:"",prefix:"",branch:""});
-    // Keep the recovered draft and its archive baseline from the same read.
-    const store = db.transaction("store").objectStore("store");
-    const [draft, archive] = await Promise.all([getDB("draft", store), getDB("contractArchive", store)]);
-    if (Array.isArray(archive?.entries)) Services.library = archive;
-    d = normalizeData(draft);
+    d = normalizeData(await getDB("draft"));
     await putDB("config", cfg);
   } catch (e) {
     d = fresh();
@@ -37,6 +39,7 @@ function render() {
   Services.ensureSchemas();
   Images.ensure();
   bindEvents();
+  BranchNumbers.bind();
   $("printSides").value = cfg.printSides || "simplex";
   $("printSides").onchange = () => {
     cfg.printSides = $("printSides").value;
@@ -44,18 +47,23 @@ function render() {
   };
   try {
     await WebResources.loadDocumentFont();
-  } catch {
+    await DocumentInk.init();
+  } catch (error) {
     const cover = $("startupThread");
     cover.replaceChildren();
-    const retry = document.createElement("button");
-    retry.textContent = "تعذّر تحميل خط العقد. إعادة المحاولة";
-    retry.onclick = () => location.reload();
+    const standalone=seed.offline || location.protocol==="file:";
+    const retry = document.createElement(standalone?"p":"button");
+    retry.textContent = standalone ? "تعذّر فتح النسخة. نزّل ملف HTML مجدداً من زر التنزيل في الموقع." :
+      "تعذّر تحميل خط العقد أو محرّك الرسم. إعادة المحاولة";
+    retry.title=error.message || "";
+    if(!standalone)retry.onclick = () => location.reload();
     cover.append(retry);
     document.body.inert = false;
     return;
   }
   buildInputs();
   await App.init();
+  BranchNumbers.migration=BranchNumbers.registerExisting();
   await ContractFiles.init();
   EditorEnhancements.init();
   await Letters.init();
@@ -63,6 +71,7 @@ function render() {
   SmartTables.init();
   TableTools.init();
   UIPreferences.init();
+  StaffConsole.init();
   OfflineEdition.init();
   FieldStudio.init();
   FillDesigner.init();

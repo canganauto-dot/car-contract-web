@@ -351,6 +351,16 @@ const SmartTables = {
     );
   },
   model(n) {
+    if (n.type === "table" && !(Number.isFinite(Number(n.w)) && Number(n.w)>0)) {
+      // Older resized tables could be saved with a null width. Recover the saved column measurements.
+      const setup = n.liveTable || n.tableSetup;
+      const columns = setup?.columns || [];
+      const widths = columns.map(key=>Number(setup.widths?.[key]));
+      const measured = widths.length && widths.every(w=>Number.isFinite(w) && w>0)
+        ? widths.reduce((sum,w)=>sum+w,setup.numbered ? Number(setup.serialWidth) || 8 : 0) : 170;
+      const available = Math.max(1,210-(Number(n.x) || 0));
+      n = {...n,w:Math.min(measured,available)};
+    }
     if (!n.liveTable) {
       if (!n.tableSetup) return n;
       const holder = document.createElement("div");

@@ -1,6 +1,7 @@
 node_modules/
 dist/
 work/
+private/
 __pycache__/
 .env*
 !.env.example

@@ -330,9 +330,6 @@ dialog .primary {
   #toolbar #saveStatus {
     display: none;
   }
-  .fill-tools label:has(#contractNumber) {
-    display: none;
-  }
   .home-search {
     align-items: flex-start;
     flex-direction: column;

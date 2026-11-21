@@ -26,24 +26,12 @@ const Workbench = {
           await original(...args);
           this.paint();
           return true;
-        } catch (error) {
-          await Feedback.notice(error.message);
         } finally {
           this.switching = false;
           $("cards").inert = false;
         }
       };
     }
-    const oldRender = render;
-    render = () => {
-      oldRender();
-      if (this.ready) {
-        this.paint();
-        this.form();
-        EntryDates.sync();
-        FillDesigner.apply();
-      }
-    };
     const refresh = Archive.refresh.bind(Archive);
     Archive.refresh = () => {
       refresh();
@@ -110,7 +98,6 @@ const Workbench = {
       }
       tile.entry = entry;
       tile.active = active;
-      tile.actions.lastElementChild.hidden = Archive.issued(entry);
       tile.node.classList.toggle("active", active);
       const title = [data.standaloneBook ? data.bookTitle : ContractTemplates.find(data.templateId)?.name || "عقد",
         ContractFiles.customer(data) || "جديد", data.number, entry.note].filter(Boolean).join(" · ");
@@ -147,13 +134,7 @@ const Workbench = {
       if (!tile.active && !(await Services.openEntry(entry))) return;
       $("printAll").click();
     });
-    add("download", "تصدير JSON", () => {
-      const entry = tile.entry;
-      if (historical())
-        return download(ContractFiles.name(entry.data, "json", Archive.config(entry)),
-          ContractFiles.pack(entry.data, entry), "application/json");
-      return ContractFiles.save(tile.active ? d : entry.data);
-    });
+    add("download", "تصدير JSON", () => ContractFiles.save(tile.active ? d : tile.entry.data));
     add("trash", "حذف", () => Archive.remove(tile.entry));
     node.append(open, actions);
     return tile;
@@ -194,7 +175,7 @@ const Workbench = {
       dialog.querySelector(".letter-options").append(b);
     }
     const entries = Services.library.entries.filter(
-      (e) => e.kind === "draft" && !Archive.issued(e) && e.data.standaloneBook,
+      (e) => e.kind === "draft" && e.data.standaloneBook,
     );
     for (const entry of entries) {
       const b = document.createElement("button");
@@ -283,13 +264,16 @@ const Workbench = {
         { id: 0, name: "نقل ملكية" },
         ...(cfg.letterTemplates || []),
       ];
-      bookType.replaceChildren(...types.map((t) => new Option(t.name, t.id)));
+      if (bookType.length !== types.length || types.some((t,i) =>
+          bookType.options[i].value !== String(t.id) || bookType.options[i].text !== t.name))
+        bookType.replaceChildren(...types.map(t => new Option(t.name, t.id)));
       bookType.value = d.standaloneBook;
     }
     document.body.classList.toggle("book-work", isBook && !Services.home);
     let panel = $("bookFields");
     if (!isBook) {
       panel?.remove();
+      this.bookPanel=null; this.bookSchema=null;
       return;
     }
     if (!panel) {
@@ -297,35 +281,12 @@ const Workbench = {
       panel.id = "bookFields";
       $("cards").before(panel);
     }
-    const active = document.activeElement?.id;
-    if (
-      active?.startsWith("bookInput-") ||
-      document.activeElement?.closest("#smartTableInputs,#bookFields .entry-date")
-    )
-      return;
-    panel.replaceChildren();
-    const company = document.createElement("select");
-    company.id="bookCompany";
-    company.add(new Option("بدون شركة", "none"));
-    for (const c of cfg.companies) company.add(new Option(c.name, c.id));
-    company.value = d.bookNoCompany ? "none" : d.companyId;
-    company.onchange = () => {
-      d.bookNoCompany = company.value === "none";
-      if (!d.bookNoCompany) d.companyId = company.value;
-      render();
-      saveDraft();
-    };
-    const title = document.createElement("h3");
-    title.textContent = d.bookTitle;
-    const companyLabel=document.createElement("label"),companyCaption=document.createElement("span");
-    companyCaption.textContent="الشركة";companyLabel.append(companyCaption,company);panel.append(title,companyLabel);
     const page = App.displayPages?.find(
       (p) => p.id === Number(d.standaloneBook),
     );
     const keys = new Set(["number", "contractDate"]);
-    for (const n of page?.nodes || [])
-      for (const m of (n.html || "").matchAll(/\{\{(\w+)\}\}/g))
-        keys.add(m[1] === "date" ? "contractDate" : m[1]);
+    for (const key of documentVariables(page))
+      keys.add(key === "date" ? "contractDate" : key);
     const labels = {};
     for (const defs of Object.values(dataDefs))
       for (const [key, label] of defs) labels[key] = label;
@@ -335,9 +296,11 @@ const Workbench = {
     const savedOrder=bookOrders[scope] ||= [...FieldStudio.sorted(keys)];
     const orderedKeys=[...savedOrder.filter(key=>keys.has(key)),...FieldStudio.sorted(keys).filter(key=>!savedOrder.includes(key))];
     const values = context();
+    const managed=FillLayout.bindings();
+    const fields = [];
     for (const key of orderedKeys) {
       const spec = FieldStudio.fields()[key];
-      if ((spec?.scope && spec.scope!=="book:"+d.standaloneBook) || spec?.hidden || ["company","vehicle"].includes(spec?.source)) continue;
+      if (managed.has(key) || !FieldStudio.applies(spec) || spec?.hidden || ["company","vehicle"].includes(spec?.source)) continue;
       const dynamic = !(key in d) && (spec || !(key in values) || Object.hasOwn(d.bookValues || {},key));
       if (
         (!(key in d) && !dynamic) ||
@@ -346,18 +309,48 @@ const Workbench = {
         ["companyId", "standaloneBook"].includes(key)
       )
         continue;
+      fields.push({ key, spec, dynamic, label:spec?.label || (key==="cashTransferNote"?"ملاحظة نقل الملكية":labels[key]) ||
+        {number:"العدد",contractDate:"التاريخ",bookBody:"محتوى الكتاب"}[key] || key });
+    }
+    const schema = JSON.stringify([scope, d.bookTitle, cfg.companies.map(c => [c.id,c.name]),
+      fields.map(({key,label,spec,dynamic}) => [key,label,spec?.source,dynamic])]);
+    const fieldValue = ({key,spec,dynamic}) => (key==="number" && d.numberUnconfirmed ? d.numberRequest :
+      dynamic ? d.bookValues?.[key] ?? spec?.value : d[key]) ?? "";
+    if (this.bookPanel === panel && this.bookSchema === schema) {
+      $("bookCompany").value = d.bookNoCompany ? "none" : d.companyId;
+      for (const field of fields) {
+        const input = $("bookInput-" + field.key);
+        if (!input || document.activeElement === input) continue;
+        if (field.spec?.source === "toggle") input.checked = !!d.bookValues?.[field.key];
+        else if (input.value !== String(fieldValue(field))) input.value = fieldValue(field);
+      }
+      return;
+    }
+    this.bookPanel=panel; this.bookSchema=schema;
+    panel.replaceChildren();
+    const company = document.createElement("select");
+    company.id="bookCompany";
+    company.add(new Option("بدون شركة", "none"));
+    for (const c of cfg.companies) company.add(new Option(c.name, c.id));
+    company.value = d.bookNoCompany ? "none" : d.companyId;
+    company.onchange = () => {
+      d.bookNoCompany = company.value === "none";
+      if (!d.bookNoCompany) d.companyId = company.value;
+      render();saveDraft();
+    };
+    const title = document.createElement("h3");
+    title.textContent = d.bookTitle;
+    const companyLabel=document.createElement("label"), companyCaption=document.createElement("span");
+    companyCaption.textContent="الشركة";companyLabel.append(companyCaption,company);panel.append(title,companyLabel);
+    for (const field of fields) {
+      const {key,spec,dynamic} = field;
       const l = document.createElement("label");
-      l.textContent =
-        spec?.label || (key==="cashTransferNote"?"ملاحظة نقل الملكية":labels[key]) ||
-        { number: "العدد", contractDate: "التاريخ", bookBody: "محتوى الكتاب" }[
-          key
-        ] ||
-        key;
+      l.textContent = field.label;
       const input = document.createElement(
         key === "bookBody" ? "textarea" : "input",
       );
       input.id = "bookInput-" + key;
-      input.value = (dynamic ? d.bookValues?.[key] ?? spec?.value : d[key]) ?? "";
+      input.value = fieldValue(field);
       if (/Date$/.test(key)) input.type = "date";
       if (spec?.source === "toggle") {input.type="checkbox"; input.checked=!!d.bookValues?.[key];}
       input.onchange = () => {
@@ -368,6 +361,7 @@ const Workbench = {
         saveDraft();
       };
       l.append(input);
+      if(key==="number")BranchNumbers.bind(input);
       panel.append(l);
     }
     const print = document.createElement("button");

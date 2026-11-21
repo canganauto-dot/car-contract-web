@@ -4,5 +4,8 @@
   "devDependencies": {
     "playwright": "1.57.0",
     "prettier": "3.6.2"
+  },
+  "dependencies": {
+    "canvaskit-wasm": "0.42.0"
   }
 }

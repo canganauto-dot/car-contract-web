@@ -129,7 +129,7 @@ const Schedule = {
     for (const n of page.nodes) {
       if (!/^schedule-col-/.test(n.id) || n.paymentCheck) continue;
       const div = document.createElement("div");
-      div.innerHTML = safeMarkup(n.html, true);
+      div.innerHTML = n.html;
       for (const row of div.querySelectorAll("tr")) {
         const head = !!row.querySelector("th"),
           cell = document.createElement(head ? "th" : "td");
@@ -140,7 +140,7 @@ const Schedule = {
             ? "{{scheduleCheck" + index + "}}"
             : "";
         cell.style.width = "9%";
-        cell.style.fontFamily = "Arial";
+        cell.style.fontFamily = CONTRACT_FONT;
         row.append(cell);
       }
       n.html = div.innerHTML;

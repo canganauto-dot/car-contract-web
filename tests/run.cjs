@@ -20,10 +20,15 @@ const run = (command, args, cwd, env = process.env) =>
 
 (async () => {
   await run("py", ["-3", "-B", "tests/test_build.py"], source);
-  await run(process.execPath, ["tests/excel-export.cjs"], source);
+  await run("py", ["-3", "-B", "tests/branch_numbers_test.py"], source);
+  await run(process.execPath, ["tests/shared-templates.cjs"], source);
+  await run(process.execPath, ["tests/pages-templates.cjs"], source);
+  await run(process.execPath, ["tests/document-editing.cjs"], source);
+  await run(process.execPath, ["tests/fill-layout.cjs"], source);
+  await run(process.execPath, ["tests/staff-archive.cjs"], source);
   await run(process.execPath, ["tests/web.cjs"], source);
   await run(process.execPath, ["tests/ui-editor.cjs"], source);
-  const web = await serve(path.join(source, "dist"));
+  const web = await serve(process.env.CONTRACT_TEST_BUILD || path.join(source, "dist"), {sampleFaces: !process.env.CONTRACT_TEST_BUILD});
   try {
     for (const name of [
       "cash",

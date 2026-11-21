@@ -8,7 +8,7 @@ const serve = require("./server.cjs");
 const output = path.resolve(__dirname, "../work/ui-verification");
 fs.mkdirSync(output, { recursive: true });
 (async () => {
-  const web = await serve(path.resolve(__dirname, "../dist"));
+  const web = await serve(process.env.CONTRACT_TEST_BUILD || path.resolve(__dirname, "../dist"), {sampleFaces: !process.env.CONTRACT_TEST_BUILD});
   const browser = await chromium.launch({ channel: "msedge" });
   const page = await browser.newPage({
     viewport: { width: 1366, height: 900 },
@@ -174,6 +174,7 @@ fs.mkdirSync(output, { recursive: true });
             appearanceId:"previous-download", version:2, theme:"cloud", fontSize:12,
           }));
         });
+        await offline.context().setOffline(true);
         await offline.goto(pathToFileURL(file).href);
         await offline.waitForFunction(() => startReady);
         if (await offline.locator("#setupDialog").isVisible()) {
@@ -185,6 +186,9 @@ fs.mkdirSync(output, { recursive: true });
         }
         await offline.locator(".offline-home button").first().click();
         await offline.waitForFunction(() => !Services.home && !Workbench.switching);
+        const exported = await offline.evaluate(() => JSON.parse(ContractFiles.pack(d)));
+        assert.equal(exported.origin,"offline");
+        assert.match(exported.data.number,/^Q-[0-9]+-F$/);
         await offline.evaluate(async () => {
           document.activeElement.blur();
           await document.fonts.ready;
@@ -209,12 +213,12 @@ fs.mkdirSync(output, { recursive: true });
               previousY = y;
             }
             return {lines, family:getComputedStyle(sample).fontFamily,
-              loaded:[...document.fonts].some(f => f.family.includes("Amiri") && f.status === "loaded"),
+              loaded:[...document.fonts].some(f => f.family.includes("Alyamama") && f.status === "loaded"),
               embedded:WebResources.styles().includes("data:font/ttf;base64,")};
           } finally { sample.remove(); }
         });
         const layout = await typography(page);
-        assert(layout.loaded && layout.embedded && layout.family.includes("Amiri"));
+        assert(layout.loaded && layout.embedded && layout.family.includes("Alyamama"));
         assert(layout.lines.length > 1);
         assert.deepEqual(await typography(offline), layout);
         const book = p => p.evaluate(async () => {
@@ -355,7 +359,7 @@ fs.mkdirSync(output, { recursive: true });
           w: 125,
           h: 35,
           direction: "rtl",
-          html: "<table><tbody><tr><td>أ</td><td>ب</td></tr><tr><td>ج</td><td>د</td></tr></tbody></table>",
+          html: "<table><tbody><tr><td>أ</td><td>ب</td></tr><tr><td>{{buyer}}</td><td>د</td></tr></tbody></table>",
         });
         delete n.liveTable;
         delete n.tableSetup;
@@ -461,7 +465,7 @@ fs.mkdirSync(output, { recursive: true });
         App.render();
       });
       assert(
-        await page.evaluate(() => App.selected()[0].html.includes("25px")),
+        await page.evaluate(() => App.selected()[0].html.includes("25px") && App.selected()[0].html.includes("{{buyer}}") && !App.selected()[0].html.includes("data:image")),
       );
     });
     await test("fillable table dimensions and cell styles survive model regeneration", async () => {
@@ -510,6 +514,8 @@ fs.mkdirSync(output, { recursive: true });
         const n = App.selected()[0];
         n.liveTable.direction = "rtl";
         n.liveTable.numbered = true;
+        const recovered = SmartTables.model({...n,w:null});
+        if(!(recovered.w>0 && recovered.w<=210) || /NaN|Infinity/.test(recovered.html))throw Error("Invalid recovered table width");
         App.render();
         App.tableId = n.id;
         TableTools.select("column", 0);

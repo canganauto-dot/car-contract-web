@@ -20,7 +20,14 @@ jobs:
         with:
           persist-credentials: false
       - uses: actions/configure-pages@v5
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Install pinned rendering dependencies
+        run: npm ci --ignore-scripts --omit=dev --no-audit --no-fund
       - name: Build and verify static application
+        env:
+          CONTRACT_TEMPLATE_API: ${{ vars.CONTRACT_TEMPLATE_API }}
         run: |
           python3 rebuild.py --out dist
           python3 -m unittest discover -s tests

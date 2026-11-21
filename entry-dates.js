@@ -1,7 +1,19 @@
 // Keep the form's native ISO values for schedules, JSON and archive comparisons.
 const EntryDates = {
-  sync() {
-    for (const native of document.querySelectorAll('#toolbar input[type=date], #fillPanel input[type=date]')) {
+  sync(root = document) {
+    const scope=root===document ? "#toolbar .entry-date, #fillPanel .entry-date" : ".entry-date";
+    for(const wrap of root.querySelectorAll(scope)) {
+      const original=wrap.lastElementChild;
+      if(!original || original.type==="date") continue;
+      this.bindings?.get(original)?.controller.abort();
+      const before=this.bindings?.get(original);
+      if(before?.tabIndex==null)original.removeAttribute("tabindex");else original.setAttribute("tabindex",before.tabIndex);
+      original.removeAttribute("aria-hidden");
+      wrap.replaceWith(original);
+      this.bindings?.delete(original);
+    }
+    const selector=root===document ? '#toolbar input[type=date], #fillPanel input[type=date]' : 'input[type=date]';
+    for (const native of root.querySelectorAll(selector)) {
       if (!native.parentElement.classList.contains("entry-date")) this.attach(native);
       const text=native.parentElement.querySelector(".date-text");
       if (document.activeElement!==text) text.value=dateLabel(native.value);
@@ -19,6 +31,8 @@ const EntryDates = {
     text.setAttribute("aria-label",label+" (dd/mm/yyyy)");
     native.before(wrap);
     wrap.append(text,native);
+    const controller=new AbortController();
+    (this.bindings ||= new WeakMap()).set(native,{controller,tabIndex:native.getAttribute("tabindex")});
     native.tabIndex=-1;
     native.setAttribute("aria-hidden","true");
     const commit=()=>{
@@ -65,7 +79,7 @@ const EntryDates = {
       text.value=dateLabel(native.value);
     };
     text.onkeydown=e=>{if(e.key==="Enter"){e.preventDefault();text.blur()}};
-    native.addEventListener("input",()=>text.value=dateLabel(native.value));
+    native.addEventListener("input",()=>text.value=dateLabel(native.value),{signal:controller.signal});
     text.value=dateLabel(native.value);
   }
 };

@@ -1,5 +1,5 @@
 :root {
-  font-family: "Segoe UI", Tahoma, sans-serif;
+  font-family: "Alyamama", serif;
   color: #243d49;
   font-size: 12px;
 }
@@ -292,7 +292,7 @@ body.design-mode .fill-tools {
   box-shadow: 0 5px 22px #26445a22;
   margin: 0 auto 25px;
   direction: rtl;
-  font-family: "Amiri", Tahoma, sans-serif;
+  font-family: "Alyamama", Tahoma, sans-serif;
   -webkit-text-size-adjust: 100%;
   text-size-adjust: 100%;
   font-size: 11px;
@@ -382,13 +382,13 @@ body.design-mode .fill-tools {
   min-height: 0;
   user-select: none;
 }
-.design-mode .scene-node.preview-font-size,
-.design-mode .scene-node.preview-font-size * {
-  font-size: var(--preview-font-size) !important;
-}
 .scene-node[data-type="text"] {
+  display: flex;
+  flex-direction: column;
   overflow: visible;
 }
+.scene-node[data-valign="middle"] { justify-content: safe center; }
+.scene-node[data-valign="bottom"] { justify-content: safe flex-end; }
 .scene-node[data-clause-number]::before {
   content: attr(data-clause-number);
   position: absolute;
@@ -400,11 +400,25 @@ body.design-mode .fill-tools {
   font: inherit;
   pointer-events: none;
 }
-.scene-node > .node-content {
+.scene-node .node-content {
   width: 100%;
-  height: 100%;
+  flex: none;
+  min-width: 0;
   white-space: pre-wrap;
   overflow-wrap: anywhere;
+  word-break: normal;
+}
+.scene-node .node-content :where(p, div) { margin: 0; }
+.paper .ink-source {position:absolute;opacity:0;pointer-events:none;height:var(--ink-height,auto);overflow:hidden}
+.paper {text-size-adjust:none;-webkit-text-size-adjust:none;print-color-adjust:exact;-webkit-print-color-adjust:exact}
+.paper .scene-node img.document-ink {display:block;width:100%;max-width:none;flex:none;object-fit:fill;pointer-events:none}
+.paper .scene-node.is-editing .ink-source[contenteditable=true] {position:relative;height:auto;opacity:1;pointer-events:auto}
+.paper .ink-source[contenteditable=true] + .document-ink {display:none}
+.scene-node:has(.ink-ordinal)::before {content:none}
+.ink-ordinal {position:absolute;left:100%;width:4.4mm;top:0;pointer-events:none}
+@media print{
+  body.number-print-blocked > * {display:none!important}
+  body.number-print-blocked::after {display:block;direction:rtl;padding:20mm;content:"استخدم زر طباعة العقد لتأكيد عدد الفرع قبل الطباعة."}
 }
 .scene-node img {
   width: 100%;
@@ -423,12 +437,13 @@ body.design-mode .fill-tools {
   position: absolute;
   inset: 12%;
   display: flex;
-  align-items: center;
-  justify-content: center;
-  text-align: center;
+  flex-direction: column;
+  justify-content: safe center;
   pointer-events: none;
   overflow: hidden;
 }
+.scene-node[data-valign="top"] > .shape-text { justify-content: flex-start; }
+.scene-node[data-valign="bottom"] > .shape-text { justify-content: safe flex-end; }
 .design-mode .scene-node {
   cursor: grab;
   touch-action: none;
@@ -440,7 +455,7 @@ body.design-mode .fill-tools {
   outline: 2px solid #258cba;
   cursor: text;
 }
-.scene-node.is-editing > .node-content {
+.scene-node.is-editing .node-content {
   user-select: text;
   cursor: text;
   overflow: auto;
@@ -813,7 +828,6 @@ body.design-mode .fill-tools {
   outline: 0;
   background: #fffdf5;
   overflow: auto;
-  display: block;
   cursor: text;
 }
 #textTools button.active {
@@ -837,35 +851,3 @@ body.design-mode .fill-tools {
   stroke: currentColor !important;
 }
 @media print { body > .paper[aria-hidden="true"] {display:none!important} }
-
-/* Text always wraps inside its box, including legacy rich-text nowrap styles. */
-.scene-node[data-type="text"] > .node-content,
-.scene-node[data-type="text"] > .node-content * {
-  white-space: pre-wrap !important;
-  overflow-wrap: anywhere !important;
-  word-break: normal;
-  box-sizing: border-box;
-  min-width: 0;
-  max-width: 100%;
-}
-
-.scene-node[data-type="text"] > .node-content.short-text-line,
-.scene-node[data-type="text"] > .node-content.short-text-line * {
-  white-space: nowrap !important;
-  overflow-wrap: normal !important;
-}
-
-.exchange-clause-flow {
-  position: absolute;
-  display: flex;
-  flex-direction: column;
-  gap: 1px;
-}
-.exchange-clause-flow > .scene-node {
-  position: relative;
-  inset: auto !important;
-  height: auto !important;
-}
-.exchange-clause-flow > .scene-node > .node-content {
-  height: auto;
-}

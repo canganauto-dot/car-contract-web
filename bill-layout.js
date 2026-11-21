@@ -113,7 +113,7 @@ function arrangeBillFrames(scene) {
           direction: "rtl",
           weight: "400",
           color: ink,
-          nowrap: false,
+
           ...options,
         });
       }
@@ -147,8 +147,8 @@ function arrangeBillFrames(scene) {
       field("words", 16, 21, 123, 12, 20);
 
       shape("terms-frame", "إطار نص التعهد", 10, 41, 190, 36);
-      text("promise", 16, 43.2, 178, 11.6, 18, { balanced: true });
-      text("order", 16, 55.1, 178, 12.1, 18, { weight: "700", balanced: true });
+      text("promise", 16, 43.2, 178, 11.6, 18);
+      text("order", 16, 55.1, 178, 12.1, 18, { weight: "700" });
       text("received", 16, 68.8, 178, 6.5, 18);
 
       shape("customer-frame", "إطار الزبون والتوقيع والبصمة", 65, 79, 135, 55);

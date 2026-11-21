@@ -1,10 +1,17 @@
 const ContractTemplates = {
   scopeKey() { return d.standaloneBook ? "book:"+d.standaloneBook : "contract:"+(d.templateId||d.contractType||"installment"); },
-  scoped(scene) {
-    const {documentLayouts,...base}=scene;
-    return clone({...base,...documentLayouts?.[this.scopeKey()]});
+  scoped(scene, scope = this.scopeKey()) {
+    const {documentLayouts, ...base} = scene;
+    const layout = documentLayouts?.[scope];
+    const result = { ...base, ...layout };
+    // A saved layout owns the edited pages of its template, not the catalog.
+    if (base.contractTemplates && layout?.contractTemplates) {
+      const own = layout.contractTemplates.find(template => scope === "contract:" + template.id);
+      result.contractTemplates = base.contractTemplates.map(template => template.id === own?.id ? own : template);
+    }
+    return clone(result);
   },
-  layoutKeys: ["pages","cashTemplate","exchangeTemplate","externalPages","transferLetter","scheduleTemplate","companySheets","printLayouts","contractTemplates"],
+  layoutKeys: ["pages","cashTemplate","exchangeTemplate","externalPages","transferLetter","scheduleTemplate","companySheets","printLayouts","contractTemplates","variableLabels"],
 
   find(id = d?.templateId, scene = cfg.design) {
     return !id ? null : scene?.contractTemplates?.find(t => t.id === id);
@@ -51,8 +58,24 @@ const ContractTemplates = {
       this.list(s,scene);
     }
     if((cfg.letterTemplates||[]).length) el.source.add(new Option("الكتب الخاصة","books"));
-    const refsFor = id => id==="books" ? scene.pages.filter(p=>(cfg.letterTemplates||[]).some(t=>t.id===p.id)).map(p=>({id:p.id,page:p})) : this.find(id, scene)?.pages.map(r=>({...r})) ||
-      this.catalog(scene,id).map(p=>({id:p.id,source:id}));
+    const sources = new Map();
+    const refsFor = id => {
+      if (sources.has(id)) return sources.get(id);
+      let refs;
+      if (id === "books") {
+        refs = (cfg.letterTemplates || []).flatMap(t => {
+          const page = this.scoped(scene, "book:" + t.id).pages.find(p => p.id === t.id);
+          return page ? [{ id: t.id, page }] : [];
+        });
+      } else {
+        const source = this.scoped(scene, "contract:" + id);
+        const template = this.find(id, source);
+        const pages = template ? template.pages : this.catalog(source, id).map(p => ({ id:p.id, source:id }));
+        refs = pages.map(ref => ref.id === -1 ? { ...ref } : { ...ref, page:this.resolve(source, ref) });
+      }
+      sources.set(id, refs);
+      return refs;
+    };
     let refs=[];
     const draw = () => {
       const host=form.querySelector(".template-pages");
@@ -71,7 +94,7 @@ const ContractTemplates = {
       });
     };
     el.base.onchange=()=>{refs=refsFor(el.base.value);draw()};
-    el.source.onchange=()=>el.sheet.replaceChildren(...refsFor(el.source.value).map(r=>new Option(this.resolve(scene,r).name,r.id)));
+    el.source.onchange=()=>el.sheet.replaceChildren(...refsFor(el.source.value).map(r=>new Option(this.resolve(scene,r)?.name || String(r.id),r.id)));
     el.add.onclick=()=>{
       const item=refsFor(el.source.value).find(r=>r.id===Number(el.sheet.value));
       if(!item) return;
@@ -84,6 +107,7 @@ const ContractTemplates = {
     form.onsubmit=async e=>{
       e.preventDefault();
       const name=el.title.value.trim();
+      if(!refs.length){status.textContent="أضف ورقة واحدة على الأقل للقالب.";return}
       if(!name || [...el.base.options].some(o=>o.text===name)){status.textContent="اختر اسماً مميزاً للقالب.";return}
       const baseType=this.find(el.base.value,scene)?.baseType || el.base.value;
       const id="template-"+crypto.randomUUID();
