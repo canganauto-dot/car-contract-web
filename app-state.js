@@ -152,7 +152,7 @@ function fresh() {
 }
 function openDB() {
   return new Promise((resolve, reject) => {
-    const r = indexedDB.open(KEY, 1);
+    const r = indexedDB.open(Cloud.enabled ? Cloud.storageKey() : KEY, 1);
     r.onupgradeneeded = () => {
       r.result.createObjectStore("store");
     };

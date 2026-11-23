@@ -157,6 +157,7 @@ const FieldStudio = {
       const ids=new Set(Archive.selectedRows().filter(e=>e.kind==="draft").map(e=>e.id));
       if(!ids.size || !await Feedback.ask("حذف المعلّقات المحددة ("+ids.size+")؟"))return;
       await Services.flush();
+      if(Cloud.enabled){try{for(const e of Services.library.entries.filter(e=>ids.has(e.id)))await Cloud.write("remove",e.data);}catch(error){Services.library=await Cloud.archive();Archive.refresh();await Feedback.notice(error.message);return;}}
       if(ids.has("draft:"+d.recordId)){d=fresh();await putDB("draft",clone(d));}
       Services.library.entries=Services.library.entries.filter(e=>e.kind!=="draft" || !ids.has(e.id));
       await Services.persistLibrary();Archive.refresh();Workbench.paint();

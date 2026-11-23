@@ -215,6 +215,10 @@ const ContractFiles = {
       if (!pdf.getPageCount()) return;
       const blob = new Blob([await pdf.save()], { type: "application/pdf" }),
         name = this.name(entry.data, "pdf");
+      if(Cloud.enabled){
+        await Cloud.file(entry,"signed_pdf",blob);entry.cloudSigned=true;delete entry.signedFile;
+        $("signedDialog").close();Archive.refresh();await Feedback.notice("حُفظت النسخة الموقّعة في أرشيف الفرع.");return;
+      }
       let saved = false;
       if (this.folder && directoryAllowed) {
         const f = await this.folder.getFileHandle(name, { create: true }),

@@ -201,7 +201,8 @@ const StaffConsole = {
     this.preview = !document.querySelector(
       'meta[name="contract-staff-api"][content="enabled"]',
     );
-    this.api = this.preview ? new StaffPreview() : new StaffService();
+    if(Cloud.enabled){this.preview=false;this.companyId=Cloud.company.id;}
+    this.api = Cloud.enabled ? Cloud.staff() : this.preview ? new StaffPreview() : new StaffService();
     const shortcut = staffButton("", () => Workspace.open("staff"));
     shortcut.id = "staffShortcut";
     shortcut.title = "حسابي وصلاحياتي";
@@ -251,7 +252,7 @@ const StaffConsole = {
         return;
       }
       const c =
-        session.companies.find((c) => c.id === this.companyId) ||
+        session.companies.find((c) => c.id === (Cloud.enabled?Cloud.company.id:this.companyId)) ||
         session.companies[0];
       this.companyId = c?.id;
       const rows = staffCan(c, "memberships") ? await this.api.members(c) : [];
@@ -338,6 +339,17 @@ const StaffConsole = {
         staffField("معاينة الدور", role),
       );
     } else head.append(this.logoutButton());
+    if(Cloud.enabled){
+      const change=staffElement("button","تغيير كلمة مروري");change.type="button";head.append(change);
+      change.onclick=()=>{
+        const dlg=document.createElement("dialog"),form=document.createElement("form");
+        const current=document.createElement("input"),next=document.createElement("input");current.type=next.type="password";current.autocomplete="current-password";next.autocomplete="new-password";current.required=next.required=true;next.minLength=12;next.maxLength=128;
+        const save=staffElement("button","حفظ"),close=staffElement("button","إلغاء"),status=staffElement("output");close.type="button";close.onclick=()=>dlg.close();
+        form.append(staffField("كلمة المرور الحالية",current),staffField("كلمة المرور الجديدة",next),save,close,status);
+        form.onsubmit=async event=>{event.preventDefault();save.disabled=true;try{await Cloud.call("password",{current:current.value,password:next.value});dlg.close();this.notice.textContent="تم تغيير كلمة المرور.";}catch(e){status.textContent=e.message;}finally{save.disabled=false;}};
+        dlg.append(form);document.body.append(dlg);dlg.onclose=()=>dlg.remove();dlg.showModal();current.focus();
+      };
+    }
     this.body.replaceChildren(head);
     if (!c) {
       head.append(staffElement("p", "لا توجد عضوية شركة نشطة لهذا الحساب."));
@@ -349,6 +361,7 @@ const StaffConsole = {
       c.id,
     );
     company.onchange = () => {
+      if(Cloud.enabled)return Cloud.switchCompany(company.value);
       this.companyId = company.value;
       this.refresh();
     };
@@ -383,7 +396,10 @@ const StaffConsole = {
       branch.onchange();
       head.append(staffField("صلاحياتي في الفرع", branch), rights);
     }
-    if (staffCan(c, "memberships")) this.directory(c, rows);
+    if (staffCan(c,"memberships")){
+      this.directory(c,rows);
+      if(Cloud.enabled)this.approvals(c);
+    }
     const details = staffElement("details");
     details.open = c.role !== "administrator";
     details.append(staffElement("summary", "صلاحيات الأدوار"));
@@ -409,6 +425,22 @@ const StaffConsole = {
     details.append(table);
     this.body.append(details);
   },
+  async approvals(c){
+    const section=staffElement("section"),list=staffElement("ul");section.className="staff-directory";
+    section.append(staffElement("h3","طلبات الدخول واعتماد التصاميم"),list);this.body.append(section);
+    try{
+      const rows=await Cloud.call("pending",{company:c.id});
+      for(const q of rows){
+        const row=staffElement("li");
+        row.append(staffElement("b",q.kind==="access"?"طلب دخول":"تعديل تصميم"),staffElement("span",q.name+" · "+q.subject+(q.kind==="design"?" · "+q.pages+" صفحة":"")));
+        const decision=async action=>{try{await Cloud.call(action,{company:c.id,requestId:q.id});await this.refresh("حُفظ القرار.");}catch(error){this.notice.textContent=error.message;}};
+        if(q.kind==="design")row.append(staffButton("تنزيل التصميم للمراجعة",async()=>{try{download("design.json",JSON.stringify(await Cloud.call("inspect",{company:c.id,requestId:q.id}),null,2),"application/json");}catch(error){this.notice.textContent=error.message;}}));
+        row.append(staffButton("موافقة",()=>q.kind==="access"?this.edit(c,null,q):decision("approve_design")),staffButton("رفض",()=>decision("reject")));
+        list.append(row);
+      }
+      if(!rows.length)list.append(staffElement("li","لا توجد طلبات بانتظار الموافقة."));
+    }catch(error){list.textContent=error.message;}
+  },
   directory(c, rows) {
     const section = staffElement("section");
     section.className = "staff-directory";
@@ -416,7 +448,7 @@ const StaffConsole = {
     bar.className = "staff-controls";
     const query = staffElement("input");
     query.type = "search";
-    query.placeholder = "ابحث بالاسم أو البريد";
+    query.placeholder = Cloud.enabled ? "ابحث بالاسم أو اسم المستخدم" : "ابحث بالاسم أو البريد";
     query.setAttribute("aria-label", query.placeholder);
     const role = staffSelect("تصفية الدور", [
       ["", "كل الأدوار"],
@@ -483,7 +515,7 @@ const StaffConsole = {
     this.body.append(section);
     draw();
   },
-  edit(c, member) {
+  edit(c, member, request) {
     if (!staffCan(c, "memberships") || member?.id === c.memberId) return;
     const dialog = staffElement("dialog"),
       form = staffElement("form");
@@ -496,8 +528,11 @@ const StaffConsole = {
     email.type = "email";
     email.maxLength = 254;
     email.dir = "ltr";
-    name.value = member?.name || "";
-    email.value = member?.email || "";
+    name.value = member?.name || request?.name || "";
+    email.value = member?.email || request?.subject || "";
+    const pass=staffElement("input");
+    if(Cloud.enabled){email.type="text";email.readOnly=!!member||!!request;
+      pass.type="password";pass.autocomplete="new-password";pass.minLength=12;pass.maxLength=128;pass.required=!member;}
     const role = staffSelect(
       "الدور",
       Object.entries(staffRoles),
@@ -555,7 +590,8 @@ const StaffConsole = {
         (member ? "تعديل عضوية" : "إضافة مستخدم") + " · " + c.name,
       ),
       staffField("الاسم", name),
-      staffField("البريد الإلكتروني", email),
+      staffField(Cloud.enabled ? "اسم المستخدم" : "البريد الإلكتروني", email),
+      ...(Cloud.enabled ? [staffField(member?"كلمة مرور جديدة (اختياري)":"كلمة المرور",pass)] : []),
       staffField("الدور", role),
       staffField("حالة العضوية", status),
       branches,
@@ -590,6 +626,7 @@ const StaffConsole = {
         await this.api.save(c, member, {
           name: name.value.trim(),
           email: email.value.trim(),
+          ...(Cloud.enabled ? {password:pass.value,requestId:request?.id} : {}),
           role: role.value,
           branchIds,
           branchRoles,

@@ -3,6 +3,10 @@ const BranchNumbers = {
   async send(data,mode,label="",prompt=true) {
     const branch=data.numberBranch || cfg.fixed.branch;
     if(!branch)throw Error("اختَر الفرع أولاً لحجز العدد.");
+    if(Cloud.enabled){
+      const result=await Cloud.call("number",{branch,record:data.recordId,mode,label,prefix:cfg.fixed.prefix||"",expected:data.number||"",offline:!!data.offlineNumber});
+      data.numberBranch=branch;return result.number;
+    }
     const local=!seed.offline && SharedDefaults.enabled && !SharedDefaults.pages;
     const url=local ? "/_numbers" : !seed.offline && PagesTemplates.endpoint && new URL("numbers",PagesTemplates.endpoint).href;
     if(!url)throw Error("حجز عدد الفرع يحتاج اتصال بخدمة الأعداد. يمكنك الاحتفاظ بالمسودة.");
@@ -98,7 +102,7 @@ const BranchNumbers = {
   },
   signature(data){return JSON.stringify([data.recordId,data.numberBranch,data.number]);},
   async registerExisting() {
-    if(seed.offline || !cfg.setupComplete || (!PagesTemplates.endpoint && SharedDefaults.pages))return;
+    if(Cloud.enabled || seed.offline || !cfg.setupComplete || (!PagesTemplates.endpoint && SharedDefaults.pages))return;
     const items=[...Services.library.entries].sort((a,b)=>Number(b.kind==="printed")-Number(a.kind==="printed"));
     const seen=new Set();
     const synced=await getDB("branch-number-history") || {};

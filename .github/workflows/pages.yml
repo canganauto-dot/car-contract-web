@@ -27,6 +27,7 @@ jobs:
         run: npm ci --ignore-scripts --omit=dev --no-audit --no-fund
       - name: Build and verify static application
         env:
+          CONTRACT_HOSTED: '1'
           CONTRACT_TEMPLATE_API: ${{ vars.CONTRACT_TEMPLATE_API }}
         run: |
           python3 rebuild.py --out dist

@@ -19,23 +19,15 @@ The builder reads source files and public configuration only. It never reads old
 
 The download button packages the current templates, form, print renderer and embedded Alyamama font into one offline HTML file. The export is built from the current web build when requested.
 
-## Staff settings
+## Hosted staff workspace
 
-Open **الإعدادات → المستخدمون والصلاحيات** in the online edition. The default build uses an in-memory demonstration with separate company memberships, role previews, branch assignments and suspension. Reloading resets that demonstration. The offline edition has no staff portal.
+GitHub Pages builds with `CONTRACT_HOSTED=1`. The sign-in screen accepts a username and password. An employee can request an account for a company. Its administrator reviews the request under **الإعدادات ← المستخدمون والصلاحيات**, selects branches and a role, and supplies the initial password. Users can change their own password there. Administrators select their active company in the same panel.
 
-For a future authenticated deployment, set `CONTRACT_STAFF_API=1` when building and implement the following same-origin HTTP service under `api/staff/`. This build option connects only the staff console. The existing browser-local archive, template tools and signed attachments still require their own authenticated backend integration before the application can serve as a shared, access-controlled archive.
+A company administrator may publish a design directly or review a design submitted by staff. Approval checks the previous version and applies to that company. Issuing a document reserves its branch number, records an immutable revision, and saves its PDF. Drafts also reserve branch numbers. Signed uploads and downloads go through the authenticated service and private storage. Managers and employees see only their assigned branches.
 
-| Method and path | Expected result |
-| --- | --- |
-| GET session | 401 when signed out, otherwise JSON with name, active, csrf and companies. Return only the active memberships and branch scopes of the authenticated identity. |
-| POST login / POST logout | Start or invalidate a server-side session. Login accepts email and password. Respond with JSON or 204. |
-| GET companies/{companyId}/members | Array of memberships for an authorized company administrator. |
-| POST companies/{companyId}/members | Create or invite a membership through the server. Accept name, email, role, active, branchIds and branchRoles. |
-| PATCH companies/{companyId}/members/{memberId} | Update that membership. Compare the If-Match version transactionally and return 412 for a stale update. |
+The Edge Function and ordered database migrations are in `supabase/`. The function reads its privileged credentials from its server environment. The static site contains its public endpoint only. The login and account-request actions run before sign-in. Each protected operation verifies the session and checks the current memberships. The Pages workflow deploys frontend assets; backend changes are deployed separately.
 
-A session company has id, name, role, memberId, branches (id/name), branchIds and optional branchRoles keyed by branch ID. Membership rows have id, name, email, role, active, branchIds, branchRoles and version. The display role is administrator, branch_manager or employee. A branch manager can be an employee in another assigned branch. An administrator sees all branches only inside companies where that identity is an active administrator.
-
-The adapter uses same-origin session cookies and sends a CSRF token on authenticated changes. Implement origin and CSRF checks, secure HttpOnly session cookies, validated branch ownership, company-scoped suspension, protection of the last administrator and trusted audit logging in the service. Return 401 for expired sessions and 403 for unauthorized operations. Protect archive queries and document downloads at the server. UI capabilities only control presentation.
+A local build without the hosted flag runs the local workflow. An exported offline HTML keeps its archive on its own device. Use JSON export and import to bring existing local documents into the hosted workspace.
 
 ## Sources
 
@@ -71,7 +63,9 @@ Clients use conditional revision requests every five seconds while visible and w
 
 Run one local host process for both ports. Downloaded offline HTML contains the template snapshot at download time. The development server binds to loopback.
 
-### Sharing designs on GitHub Pages
+### Optional template service for standalone static hosts
+
+The production Pages site uses the authenticated Supabase deployment described above. This section applies to independent builds without the hosted flag.
 
 For local editing, approve a design on the development host. The approval rebuilds `dist`. Publishing the contents of that directory distributes the approved templates. A visible, idle browser checks the build identifier in `assets/template-sync.json` every five seconds and verifies the downloaded templates against it. An interrupted deployment keeps the previous usable layout until the files match. On an unconfigured static site the editor saves a draft and explains how to publish it.
 

@@ -63,6 +63,7 @@ const SharedDefaults = {
     if(local?.fixed)Object.assign(current.fixed,local.fixed);
     current.setupComplete=!!local?.setupComplete;
     if(!this.unavailable)current.sharedHostVersion=1;
+    if(Cloud.enabled)Cloud.prepare(current);
     this.baseline=clone(current);
     this.revision=base.sharedRevision;
     return current;

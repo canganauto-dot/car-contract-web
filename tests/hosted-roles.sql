@@ -1,0 +1,60 @@
+DO $$
+DECLARE admin uuid:=gen_random_uuid(); worker uuid:=gen_random_uuid(); branch uuid; x jsonb; n jsonb;
+BEGIN
+ INSERT INTO auth.users(id,email) VALUES(admin,'admin@dummy.invalid'),(worker,'test@dummy.invalid');
+ INSERT INTO contract_private.initial_access(singleton,digest,companies,expires_at)
+ VALUES(true,encode(sha256(convert_to('fixture','UTF8')),'hex'),ARRAY['bakheet','imad'],now()+interval '1 minute');
+ PERFORM public.contract_portal(NULL,'bootstrap',jsonb_build_object('target',admin,'secret','fixture'));
+ x:=public.contract_portal(admin,'session','{}'); ASSERT jsonb_array_length(x->'companies')=2;
+ SELECT b.id INTO branch FROM app.branches b JOIN app.companies c ON c.id=b.company_id WHERE c.code='bakheet' AND b.name='الدورة';
+ PERFORM public.contract_portal(admin,'create',jsonb_build_object('company','bakheet','target',worker,'username','worker','name','اختبار','role','employee','active',true,'branchRoles',jsonb_build_object(branch,'employee')));
+ x:=public.contract_portal(worker,'session','{}'); ASSERT jsonb_array_length(x->'companies')=1;
+ ASSERT jsonb_array_length(x->'companies'->0->'branches')=1;
+ BEGIN PERFORM public.contract_portal(worker,'members','{"company":"bakheet"}'); RAISE EXCEPTION 'employee read roster'; EXCEPTION WHEN insufficient_privilege THEN NULL; END;
+ BEGIN PERFORM public.contract_portal(worker,'layouts','{"company":"imad"}'); RAISE EXCEPTION 'company scope failed'; EXCEPTION WHEN insufficient_privilege THEN NULL; END;
+ x:=public.contract_portal(admin,'publish',jsonb_build_object('company','bakheet','expected','0','scope','contract:cash','baseHash',repeat('1',64),'layout','{"pages":[]}'::jsonb));
+ ASSERT public.contract_portal(worker,'layouts','{"company":"bakheet"}')->>'revision'=x->>'revision';
+ BEGIN PERFORM public.contract_portal(worker,'publish','{"company":"bakheet"}'); RAISE EXCEPTION 'employee approved'; EXCEPTION WHEN insufficient_privilege THEN NULL; END;
+ BEGIN PERFORM public.contract_portal(admin,'publish','{"company":"bakheet","expected":"0"}'); RAISE EXCEPTION 'stale approval'; EXCEPTION WHEN serialization_failure THEN NULL; END;
+ n:=public.contract_number(worker,'{"company":"bakheet","branch":"الدورة","record":"fixture-1","mode":"claim","prefix":"Q"}');
+ ASSERT n->>'number'='Q-1';
+ BEGIN PERFORM public.contract_number(worker,'{"company":"bakheet","branch":"النجف","record":"fixture-2","mode":"claim"}');
+  RAISE EXCEPTION 'cross branch'; EXCEPTION WHEN insufficient_privilege THEN NULL; END;
+ ASSERT NOT has_function_privilege('authenticated','public.contract_portal(uuid,text,jsonb)','EXECUTE');
+ ASSERT NOT has_function_privilege('anon','public.contract_number(uuid,jsonb)','EXECUTE');
+ DECLARE req uuid; new_staff uuid:=gen_random_uuid();
+ BEGIN
+ PERFORM public.contract_review(NULL,'request_access','{"company":"bakheet","username":"newuser","name":"اختبار"}');
+ req:=(public.contract_review(admin,'pending','{"company":"bakheet"}')->0->>'id')::uuid; ASSERT req IS NOT NULL;
+ BEGIN PERFORM public.contract_review(worker,'pending','{"company":"bakheet"}');RAISE EXCEPTION 'employee read approvals';EXCEPTION WHEN insufficient_privilege THEN NULL;END;
+ INSERT INTO auth.users(id,email) VALUES(new_staff,'new@dummy.invalid');
+ PERFORM public.contract_review(admin,'approve_access',jsonb_build_object('company','bakheet','name','اختبار','requestId',req,'role','employee','active',true,'target',new_staff,'branchRoles',jsonb_build_object(branch,'employee')));
+ ASSERT public.contract_portal(new_staff,'session','{}')->>'username'='newuser';
+ PERFORM public.contract_review(worker,'propose',jsonb_build_object('company','bakheet','expected',x->>'revision','scope','contract:cash','baseHash',repeat('1',64),'layout','{"pages":[]}'::jsonb));
+ req:=(public.contract_review(admin,'pending','{"company":"bakheet"}')->0->>'id')::uuid;
+ PERFORM public.contract_review(admin,'approve_design',jsonb_build_object('company','bakheet','requestId',req));
+ ASSERT public.contract_review(admin,'pending','{"company":"bakheet"}')='[]';
+ END;
+ DECLARE p jsonb:='{"company":"bakheet","record":"fixture-1","version":0,"data":{"recordId":"fixture-1","number":"Q-1","companyId":"bakheet","numberBranch":"الدورة","buyer":"زبون تجربة","contractType":"cash","contractDate":"2026-11-22"},"config":{"test":true},"finance":{"mode":"cash","total":500,"deposit":100,"depositDate":"2026-11-22","count":0,"payment":0,"interval":1,"earlyCount":0,"earlyPayment":0,"split":false,"rows":[{"kind":"initial","label":"واصل","amount":100,"date":"2026-11-22"}]}}'; rev uuid;
+ BEGIN
+ x:=public.contract_archive(worker,'draft',p); ASSERT x->>'version'='1';
+ ASSERT jsonb_array_length(public.contract_archive(worker,'list',p))=1;
+ BEGIN PERFORM public.contract_archive(worker,'issue',p); RAISE EXCEPTION 'stale issue'; EXCEPTION WHEN serialization_failure THEN NULL; END;
+ p:=p||'{"version":1}'; x:=public.contract_archive(worker,'issue',p); rev:=(x->>'revision')::uuid; ASSERT rev IS NOT NULL;
+ ASSERT public.contract_archive(worker,'issue',p)->>'revision'=rev::text;
+ ASSERT public.contract_archive(worker,'read',p||jsonb_build_object('revision',rev))->'config'=p->'config';
+ PERFORM public.contract_number(admin,'{"company":"bakheet","branch":"النجف","record":"fixture-2","mode":"claim"}');
+ BEGIN PERFORM public.contract_archive(worker,'read',p||'{"record":"fixture-2"}'); RAISE EXCEPTION 'cross branch archive'; EXCEPTION WHEN insufficient_privilege THEN NULL; END;
+ p:=p||jsonb_build_object('request',gen_random_uuid(),'revision',rev,'hash',repeat('a',64),'size',100,'purpose','signed_pdf');
+ x:=public.contract_archive(worker,'reserve_file',p); ASSERT x->>'path' IS NOT NULL;
+ PERFORM public.contract_archive(worker,'publish_file',p); ASSERT public.contract_archive(worker,'download',p)#>>'{}'=x->>'path';
+ n:=public.contract_number(worker,'{"company":"bakheet","branch":"الدورة","record":"letter-zero","mode":"claim","prefix":"Q"}');
+ p:=jsonb_build_object('company','bakheet','record','letter-zero','version',0,'config','{}'::jsonb,'data',jsonb_build_object('recordId','letter-zero','number',n->>'number','numberBranch','الدورة','companyId','bakheet','standaloneBook','0','contractDate','2026-11-22'));
+ x:=public.contract_archive(worker,'issue',p);
+ ASSERT EXISTS(SELECT 1 FROM app.contracts WHERE client_key='letter-zero' AND kind='letter' AND letter_key='0');
+ UPDATE app.company_memberships SET active=false WHERE employee_id=worker;
+ BEGIN PERFORM public.contract_archive(worker,'list',p); RAISE EXCEPTION 'inactive archive'; EXCEPTION WHEN insufficient_privilege THEN NULL; END;
+ BEGIN PERFORM public.contract_archive(worker,'download',p||jsonb_build_object('record','fixture-1','revision',rev,'purpose','signed_pdf')); RAISE EXCEPTION 'inactive download'; EXCEPTION WHEN insufficient_privilege THEN NULL; END;
+ ASSERT NOT has_function_privilege('authenticated','public.contract_archive(uuid,text,jsonb)','EXECUTE');
+ END;
+END $$;

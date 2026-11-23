@@ -18,6 +18,11 @@ class WebBuildTests(unittest.TestCase):
         self.assertNotIn('data:image/', json.dumps(seed))
         self.assertNotIn('signedFile', json.dumps(seed))
 
+    def test_hosted_financial_calculations_match_the_form(self):
+        browser = (SOURCE / 'contract-math.js').read_text(encoding='utf-8').strip()
+        server = (SOURCE / 'supabase/functions/contract-access/money.js').read_text(encoding='utf-8')
+        self.assertEqual(server.strip().removesuffix('export {calculate,amount,addMonths};').strip(), browser)
+
     def test_manifest_and_asset_references(self):
         output = SOURCE / 'dist'
         manifest = json.loads((output / '.web-build.json').read_text())

@@ -28,7 +28,7 @@ const PagesTemplates = {
           !(url.protocol==="https:" || url.protocol==="http:" && ["localhost","127.0.0.1"].includes(url.hostname)))
         throw Error("عنوان خدمة التصاميم غير صالح.");
     }
-    return {build,endpoint};
+    return {build,endpoint:Cloud.enabled ? Cloud.endpoint : endpoint};
   },
   async read(previous) {
     const {build,endpoint}=await this.descriptor();
@@ -45,7 +45,9 @@ const PagesTemplates = {
       this.hashes=new Map();
     }
     if(this.endpoint!==endpoint){this.endpoint=endpoint;this.latest=null;}
-    if(endpoint){
+    if(Cloud.enabled){
+      this.latest=await Cloud.call("layouts");
+    }else if(endpoint){
       const headers=this.latest?{"If-None-Match":'"'+this.latest.revision+'"'}:{};
       const response=await this.request(endpoint,{headers});
       if(response.status!==304){
@@ -59,6 +61,7 @@ const PagesTemplates = {
     if(previous===revision)return null;
     const base=clone(this.base);
     for(const [scope,record] of Object.entries(this.latest?.layouts || {})){
+      if(!/^(?:contract|book):/.test(scope))continue;
       if(record.baseHash!==await this.baseHash(scope))continue;
       const layout=record.layout;
       (base.design.documentLayouts ||= {})[scope]=clone(layout);
@@ -98,6 +101,16 @@ const PagesTemplates = {
     const [base,revision]=expected.split(":");
     if(base!==build || this.endpoint!==endpoint)throw Error("نُشر إصدار جديد للموقع. حدّث الصفحة وراجع مسودتك قبل الاعتماد.");
     if(!endpoint)throw Error("خدمة اعتماد التصاميم غير مربوطة بهذا الموقع.");
+    if(Cloud.enabled){
+      const baseHash=await this.baseHash(scope);
+      if(Cloud.company.role!=="administrator"){
+        await Cloud.call("propose",{expected:revision,scope,layout,baseHash});
+        throw Error("أُرسل التصميم للمدير وبقيت مسودتك محفوظة إلى حين الموافقة.");
+      }
+      const result=await Cloud.call("publish",{expected:revision,scope,layout,baseHash});
+      this.latest={revision:result.revision,layouts:{...this.latest?.layouts,[scope]:{baseHash,layout:clone(layout)}}};
+      return build+":"+result.revision;
+    }
     const key=await this.editorKey();
     if(!key)throw Error("بقي تعديلك محفوظاً كمسودة.");
     const baseHash=await this.baseHash(scope);

@@ -13,6 +13,7 @@ function render() {
   }
 }
 (async () => {
+  await Cloud.gate();
   try {
     db = await openDB();
     await removeTestArchives();
@@ -29,9 +30,11 @@ function render() {
       }
     }
     if (!cfg.setupComplete) Object.assign(cfg.fixed,{organizer:"",prefix:"",branch:""});
+    if(Cloud.enabled) Cloud.prepare(cfg);
     d = normalizeData(await getDB("draft"));
     await putDB("config", cfg);
   } catch (e) {
+    if(Cloud.enabled)throw e;
     d = fresh();
     d.number = d.number || "غير محفوظ";
     $("saveStatus").textContent = "تعذر التخزين المحلي";
@@ -85,5 +88,9 @@ function render() {
   saveDraft();
   await refreshBackups();
   $("fileStatus").textContent =
-    "الحفظ محلي في هذا المتصفح. صدّر JSON للنسخ الاحتياطي.";
-})();
+    Cloud.enabled ? "أرشيف الشركة متصل. تُحفظ المسودات ضمن الفرع." : "الحفظ محلي في هذا المتصفح. صدّر JSON للنسخ الاحتياطي.";
+})().catch(error=>{
+  const cover=$("startupThread"), retry=document.createElement("button");
+  retry.textContent="تعذّر فتح مساحة العمل. إعادة المحاولة";retry.title=error.message;
+  retry.onclick=()=>location.reload();cover.replaceChildren(retry);document.body.inert=false;
+});

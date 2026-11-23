@@ -17,7 +17,7 @@ SCRIPTS = [
     'payment-schedule.js', 'cash-contract.js', 'exchange-contract.js',
     'external-contract.js', 'transfer-letter.js', 'paper-layout.js',
     'image-library.js', 'workspace-ui.js', 'contract-services.js', 'archive.js',
-    'archive-output.js', 'editor-settings.js', 'document-text.js', 'document-ink.js', 'document-renderer.js', 'document-scene.js', 'editor-clean.js', 'table-tools.js', 'ui-preferences.js', 'field-studio.js', 'fill-designer.js', 'fill-layout.js', 'staff-console.js', 'app.js',
+    'archive-output.js', 'editor-settings.js', 'document-text.js', 'document-ink.js', 'document-renderer.js', 'document-scene.js', 'editor-clean.js', 'table-tools.js', 'ui-preferences.js', 'field-studio.js', 'fill-designer.js', 'fill-layout.js', 'staff-console.js', 'cloud.js', 'app.js',
 ]
 STYLES = ['document.css', 'editor-clean.css', 'features.css', 'workspace.css',
           'archive.css', 'box-appearance.css', 'workbench.css', 'smart-tables.css', 'ui-refinements.css', 'fill-fields.css']
@@ -61,6 +61,8 @@ def build(output):
         '<!--SCRIPTS-->': '\n'.join(f'<script defer src="assets/js/{name}"></script>' for name in scripts),
     }
     shell = read('editor-shell.html')
+    if os.environ.get('CONTRACT_HOSTED') == '1':
+        shell = shell.replace('<head>', '<head>\n    <meta name="contract-cloud" content="https://udaylhvskqgsamgbtvbn.supabase.co/functions/v1/contract-access">')
     if os.environ.get('CONTRACT_STAFF_API') == '1':
         shell = shell.replace('<head>', '<head>\n    <meta name="contract-staff-api" content="enabled">')
     for marker_text, content in fragments.items():

@@ -95,6 +95,7 @@ const ArchiveOutput = {
     if (!$("archiveViewer").open) $("archiveViewer").showModal();
   },
   async view(entry, parent=entry) {
+    if(Cloud.enabled)await Cloud.materialize(entry);
     const signed = Archive.signed(entry);
     const title =
       (entry.data.externalSeller || entry.data.buyer || "عقد") +

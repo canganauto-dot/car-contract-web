@@ -241,7 +241,7 @@ const Archive = {
       table.nodes.delete(id);
     }
     rows.forEach((entry, i) => {
-      const signed = printed && !!this.signed(entry);
+      const signed = printed && (!!entry.cloudSigned || !!this.signed(entry));
       let row = table.nodes.get(entry.id);
       if (!row || row.entry !== entry || row.document !== entry.data || row.signed !== signed) {
         const updated = this.makeRow(entry, printed, signed);
@@ -359,6 +359,7 @@ const Archive = {
     )
       return;
     await Services.flush();
+    if(Cloud.enabled){try{await Cloud.write("remove",entry.data);}catch(error){await Feedback.notice(error.message);return;}}
     const active = entry.id === "draft:" + d.recordId;
     if (active) {
       d = fresh();
@@ -389,7 +390,7 @@ const Archive = {
     $("archiveStatus").textContent = "";
     try {
       if (action === "view") await ArchiveOutput.view(rows[0]);
-      else await ArchiveOutput.output(rows, action);
+      else {if(Cloud.enabled)for(const entry of rows)await Cloud.materialize(entry);await ArchiveOutput.output(rows, action);}
     } catch (e) {
       const message = "تعذّر فتح المستند أو تجهيزه. " + e.message;
       $("archiveStatus").textContent = message;

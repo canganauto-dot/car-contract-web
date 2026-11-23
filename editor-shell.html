@@ -15,6 +15,11 @@
         display:block !important; position:fixed; inset:0; width:100vw; height:100dvh;
         z-index:2147483647; background:#17222d; color:#9abed9; pointer-events:none;
       }
+      html[data-starting] body > #startupThread.cloud-signin {display:grid !important;place-items:center;pointer-events:auto}
+      #startupThread.cloud-signin form {width:min(22rem,90vw);padding:1.25rem;background:#27384a;color:white;border-radius:.7rem;display:grid;gap:.7rem;font:1.15rem Alyamama,sans-serif}
+      #startupThread.cloud-signin label {display:grid;gap:.2rem}
+      #startupThread.cloud-signin h1 {font-size:1.6rem;margin:0} #startupThread.cloud-signin input {min-width:0;padding:.45rem;background:white;color:#152132}
+      #startupThread.cloud-signin button {position:static;transform:none;padding:.45rem;background:#add8f3;color:#132335}
       #startupThread svg { position:absolute; top:50%; left:0; transform:translateY(-50%); width:100%; height:38px; overflow:hidden }
       #startupThread button { position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); pointer-events:auto }
       #startupThread p { position:absolute; inset:45% 10% auto; text-align:center; color:#efefef }

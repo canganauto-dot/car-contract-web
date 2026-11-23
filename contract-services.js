@@ -572,9 +572,10 @@ class ContractServices {
     if (!data.recordId) data.recordId = "contract-" + crypto.randomUUID();
     this.pendingData = clone(data);
     clearTimeout(this.timer);
-    this.timer = setTimeout(() => this.flush(), 450);
+    this.timer = setTimeout(() => this.flush().catch(error=>{$("saveStatus").textContent=error.message;}), 450);
   }
   persistLibrary() {
+    if(Cloud.enabled)return Promise.resolve();
     this.library.updatedAt = Date.now();
     // Entry documents are immutable after insertion. Copy the mutable entry
     // wrappers and let IndexedDB serialize the snapshot once, without JSON.
@@ -599,8 +600,16 @@ class ContractServices {
         (e) => e.kind === "printed" && e.data.recordId === data.recordId,
       );
       const id = "draft:" + data.recordId;
-      const at = this.library.entries.findIndex(e => e.id === id);
+      let at = this.library.entries.findIndex(e => e.id === id);
       const fingerprint = this.fingerprint(data);
+      if(Cloud.enabled && (!printed || this.fingerprint(printed.data)!==fingerprint || at>=0) &&
+          (at<0 || this.fingerprint(this.library.entries[at].data)!==fingerprint)){
+        try{
+          if(!data.number){data.number=await BranchNumbers.send(data,"claim");if(d.recordId===data.recordId){d.number=data.number;d.numberBranch=data.numberBranch;}}
+          await Cloud.write("draft",data);
+          at=this.library.entries.findIndex(e=>e.id===id);
+        }catch(error){this.pendingData ||= data;throw error;}
+      }
       if (printed && this.fingerprint(printed.data) === fingerprint) {
         if (at >= 0) {
           this.library.entries.splice(at, 1);
@@ -614,6 +623,7 @@ class ContractServices {
       }
     }
     await this.queue;
+    if(Cloud.enabled)await Cloud.writes;
     if (Workbench.ready) Workbench.paint();
   }
   async showHome() {
@@ -621,6 +631,7 @@ class ContractServices {
     App.commitText();
     this.saveCurrent(d);
     await this.flush();
+    if(Cloud.enabled)this.library=await Cloud.archive();
     this.home = true;
     document.body.classList.add("home-mode");
     $("homeScreen").hidden = false;
@@ -700,6 +711,15 @@ class ContractServices {
     const candidate = this.printCandidate;
     this.printCandidate = null;
     await this.flush();
+    if(Cloud.enabled){
+      try{
+        await Cloud.issue(candidate.data);
+        this.library=await Cloud.archive();this.archivePanel();Workbench.paint();
+        if($("printResultDialog").open)$("printResultDialog").close();
+        $("saveStatus").textContent="تم إصدار المستند وحفظ نسخته في أرشيف الفرع.";
+      }catch(error){this.printCandidate=candidate;await Feedback.notice(error.message);}
+      return;
+    }
     const key = candidate.data.recordId || "legacy-" + candidate.data.number;
     candidate.data.recordId = key;
     const previous = this.library.entries.find(
@@ -844,7 +864,7 @@ class ContractServices {
   async init() {
     this.ensureSchemas();
     Images.scan();
-    const stored = await getDB("contractArchive");
+    const stored = Cloud.enabled ? await Cloud.archive() : await getDB("contractArchive");
     this.library = stored || this.library;
     if (!Array.isArray(this.library.entries))
       this.library = { version: 1, entries: [], configs: {}, updatedAt: 0 };
@@ -860,7 +880,11 @@ class ContractServices {
       await this.persistLibrary();
     }
     this.initialized = true;
-    if (d.number) {
+    if(Cloud.enabled && d.recordId){
+      const match=this.library.entries.find(e=>e.data.recordId===d.recordId && e.kind==="draft") || this.library.entries.find(e=>e.data.recordId===d.recordId);
+      if(match)d=normalizeData(clone(match.data));
+    }
+    if (d.number && !Cloud.enabled) {
       if (!d.recordId) d.recordId = "legacy-" + d.number;
       this.saveCurrent(d);
       await this.flush();
@@ -942,6 +966,13 @@ class ContractServices {
     };
     $("addCompanyField").onclick = () => this.addCompanyField();
     $("addFormula").onclick = () => this.saveFormula();
+    if(Cloud.enabled){
+      const button=document.createElement("button");button.type="button";button.textContent="إصدار";button.title="إصدار المستند وأرشفته";
+      $("printSides").after(button);
+      button.onclick=async()=>{if(this.home||button.disabled)return;button.disabled=true;
+        try{document.activeElement?.blur();await BranchNumbers.verify(d);this.refreshPrintClock();this.printCandidate={data:SmartTables.snapshot(d)};await this.confirmPrint();}
+        catch(error){await Feedback.notice(error.message);}finally{button.disabled=false;}};
+    }
     $("confirmPrinted").onclick = () => this.confirmPrint();
     $("cancelPrinted").onclick = () => {
       this.printCandidate = null;
@@ -959,6 +990,7 @@ class ContractServices {
       const prefix = $("setupPrefix").value.trim(),
         organizer = $("setupOrganizer").value.trim();
       if (!prefix || !organizer || !$("setupBranch").value.trim()) return;
+      if(Cloud.enabled && !Cloud.company.branches.some(b=>b.name===$("setupBranch").value.trim())){await Feedback.notice("اختر أحد الفروع المسندة لحسابك.");return;}
       Object.assign(cfg.fixed, {
         prefix,
         organizer,
