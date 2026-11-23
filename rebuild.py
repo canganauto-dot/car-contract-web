@@ -17,7 +17,7 @@ SCRIPTS = [
     'payment-schedule.js', 'cash-contract.js', 'exchange-contract.js',
     'external-contract.js', 'transfer-letter.js', 'paper-layout.js',
     'image-library.js', 'workspace-ui.js', 'contract-services.js', 'archive.js',
-    'archive-output.js', 'editor-settings.js', 'document-text.js', 'document-ink.js', 'document-renderer.js', 'document-scene.js', 'editor-clean.js', 'table-tools.js', 'ui-preferences.js', 'field-studio.js', 'fill-designer.js', 'fill-layout.js', 'staff-console.js', 'cloud.js', 'app.js',
+    'archive-output.js', 'editor-settings.js', 'document-text.js', 'document-ink.js', 'document-renderer.js', 'document-scene.js', 'editor-clean.js', 'table-tools.js', 'ui-preferences.js', 'field-studio.js', 'fill-designer.js', 'fill-layout.js', 'staff-console.js', 'cloud.js', 'sales-forms.js', 'app.js',
 ]
 STYLES = ['document.css', 'editor-clean.css', 'features.css', 'workspace.css',
           'archive.css', 'box-appearance.css', 'workbench.css', 'smart-tables.css', 'ui-refinements.css', 'fill-fields.css']
@@ -70,7 +70,7 @@ def build(output):
             raise ValueError(f'Expected exactly one build marker: {marker_text}')
         shell = shell.replace(marker_text, content)
     files = {'index.html': shell.encode('utf-8'),
-             'assets/css/theme.css': read('theme.css').encode('utf-8')}
+             'assets/css/theme.css': (read('theme.css') + ('\n' + read('sales-forms.css') if os.environ.get('CONTRACT_HOSTED') == '1' else '')).encode('utf-8')}
     font = base64.b64encode((SOURCE / 'vendor' / 'Alyamama.ttf').read_bytes()).decode('ascii')
     rules = ('/*' + read('vendor/Alyamama-OFL.txt') + '*/\n'
              '@font-face{font-family:"Alyamama";font-style:normal;font-weight:300 900;'

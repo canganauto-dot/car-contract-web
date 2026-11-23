@@ -21,9 +21,32 @@ async function upstream(path:string,method:string,key:string,body?:unknown,beare
  return data;
 }
 const rpc=(name:string,body:unknown)=>upstream("/rest/v1/rpc/"+name,"POST",service,body);
-const portal=(actor:string|null,action:string,payload:unknown={})=>rpc("contract_portal",{actor,action,payload});
+const portal=async(actor:string|null,action:string,payload:unknown={})=>{
+ const result=await rpc("contract_portal",{actor,action,payload});
+ if(action==="session" && result)result.formsWorkspace=result.companies?.some((c:{department?:string})=>typeof c.department==="string")===true;
+ return result;
+};
 const username=(value:unknown)=>{const name=String(value||"").trim().toLowerCase();if(!/^[a-z0-9][a-z0-9_.-]{2,39}$/.test(name))throw new Failure(400,"اسم المستخدم من ٣ إلى ٤٠ حرفاً إنكليزياً أو رقماً.");return name};
 const password=(value:unknown)=>{if(typeof value!=="string" || value.length<12 || value.length>128)throw new Failure(400,"استخدم كلمة مرور من ١٢ إلى ١٢٨ حرفاً.");return value;};
+// Forms move into the contract editor as business inputs only. Identity, numbering,
+// print state, templates and attachment paths are assigned separately by the server.
+function formFields(source:Record<string,unknown>){
+ const keys=("contractType contractDate buyer buyerPhone buyerId buyerIdDate buyerIdFrom buyerAddress district street house "+
+ "guarantor guarantorId guarantorIdDate guarantorIdFrom guarantorAddress guarantorPhone guarantorDistrict guarantorStreet guarantorHouse "+
+ "externalSeller externalSellerAddress externalSellerPhone externalSellerId externalBuyer externalBuyerAddress externalBuyerPhone externalBuyerId externalKeys externalPurchaseDate externalWaiverDate "+
+ "oldCar oldVin oldModel oldColor oldMileage oldPlate car brand color model plate mileage vin total deposit depositDate firstDate payment count intervalMonths phaseEnabled phaseCount phasePayment phaseSecondCount "+
+ "firstAuto depositAuto cashReceived cashDueDate cashTransferNote exchangeManual exchangePayer exchangePaymentNote warrantyYears noWarranty notes").split(" ");
+ const data:Record<string,unknown>={};
+ for(const key of keys){const v=source[key];if(typeof v==="string"||typeof v==="boolean"||typeof v==="number")data[key]=v;}
+ if(source.bookValues && typeof source.bookValues==="object" && !Array.isArray(source.bookValues)){
+  data.bookValues=Object.fromEntries(Object.entries(source.bookValues).filter(([k,v])=>/^[a-zA-Z][a-zA-Z0-9_]{0,63}$/.test(k)&&!Object.hasOwn(Object.prototype,k)&&["string","number","boolean"].includes(typeof v)));
+ }
+ for(const key of ["extras","cashPayments"]){
+  const rows=source[key];if(!Array.isArray(rows))continue;
+  data[key]=rows.slice(0,4).map(r=>({amount:String(r?.amount??""),date:String(r?.date??""),label:String(r?.label??"دفعة"),enabled:!!r?.amount}));
+ }
+ return data;
+}
 function cleanLayout(p:Record<string,any>){
  const allowed=new Set("approvedLayout pages cashTemplate exchangeTemplate externalPages transferLetter scheduleTemplate companySheets printLayouts contractTemplates variableLabels".split(" "));
  if(!p.layout || typeof p.layout!=="object" || Array.isArray(p.layout) || Object.keys(p.layout).some(k=>!allowed.has(k)))throw new Failure(400,"تصميم غير صالح.");
@@ -40,7 +63,7 @@ async function createAccount(actor:string|null,action:string,p:Record<string,any
  const id=created.id||created.user?.id; if(!id)throw new Failure(503,"تعذّر تأكيد إنشاء حساب الدخول.");
  try{
   const {password:_unused,...safe}=p;
-  if(action==="create" && p.requestId)await rpc("contract_review",{actor,action:"approve_access",p:{...safe,username:handle,target:id}});
+  if(action==="create")await rpc("contract_staff_assignment",{actor,action,p:{...safe,username:handle,target:id}});
   else await portal(actor,action,{...safe,username:handle,target:id});
  }catch(error){
   // A confirmed DB rejection rolls back membership creation. Leave a disabled-by-default
@@ -137,7 +160,18 @@ Deno.serve(async(req)=>{
    if(!file.ok)throw new Failure(503,"تعذّر استرجاع الملف.");
    return new Response(file.body,{headers:{...headers,"Content-Type":"application/pdf"}});
   }
+  if(action==="update")return reply(200,await rpc("contract_staff_assignment",{actor:user.id,action,p}));
+  if(["forms_list","form_read","form_save","form_publish","form_approve","form_convert","move_contract"].includes(action)){
+   if(["form_save","form_publish"].includes(action) && (!p.data || Array.isArray(p.data) || typeof p.data!=="object" || JSON.stringify(p.data).length>500000 || !["cash","installment","external","exchange"].includes(p.data.contractType)))throw new Failure(400,"راجع محتوى الفورمة.");
+   if(action==="form_save"||action==="form_publish")p.data=formFields(p.data);
+   return reply(200,await rpc("sales_forms",{actor:user.id,action,p}));
+  }
   if(action==="number")return reply(200,await rpc("contract_number",{actor:user.id,p}));
+  if(["layouts","propose"].includes(action)){
+   const profile=await portal(user.id,"session");
+   const membership=profile?.companies?.find((c:{id:string})=>c.id===p.company);
+   if(!membership || (membership.role==="employee" && ["sales","finance"].includes(membership.department)))throw new Failure(403,"هذه العملية تخص قسم العقود.");
+  }
   if(["publish","propose"].includes(action))cleanLayout(p);
   if(["pending","propose","approve_design","reject","inspect"].includes(action))return reply(200,await rpc("contract_review",{actor:user.id,action,p}));
   if(!["session","members","update","layouts","publish"].includes(action))throw new Failure(404,"عملية غير معروفة.");

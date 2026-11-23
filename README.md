@@ -29,6 +29,14 @@ The Edge Function and ordered database migrations are in `supabase/`. The functi
 
 A local build without the hosted flag runs the local workflow. An exported offline HTML keeps its archive on its own device. Use JSON export and import to bring existing local documents into the hosted workspace.
 
+## Department workspaces
+
+Sales staff save personal forms and publish them to the assigned branch. Finance sees published forms from its authorized branches. A branch manager can mark a published form approved in a managed branch. Administrators may approve within their authorized companies. A contract clerk can convert a published form into one editable private contract draft. Publication and managerial approval are separate events. Converting or editing the contract preserves the submitted form.
+
+Private contract and letter drafts are returned only to their owner. The shared archive lists issued documents. The server also enforces scope on individual reads, contract numbering and PDF access. Company reassignment preserves the number of a private, unissued draft and requires contract access to the same branch in both companies. Staff with management roles receive the selected branch responsibilities across the companies administered by their grantor. The login checkbox stores a renewable session on the device until logout or revocation.
+
+For a hosted release apply the forms migration, deploy the updated contract-access function, then publish the frontend. Existing employees default to the contracts department. The administrator selects sales or finance under staff settings. To verify locally, run the isolated PostgreSQL suite in tests/hosted_postgres.py, build a hosted fixture into work/forms-hosted, and run tests/sales-workspace.cjs. The browser fixture uses test responses and does not write production data.
+
 ## Sources
 
 - `editor-shell.html`, `editor-panel.html`, `form-shell.html`, `settings-shell.html`, `menu-shell.html`, `features.html` contain the interface fragments.

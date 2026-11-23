@@ -11,30 +11,45 @@ const Cloud = {
       body:JSON.stringify({...data,company:data.company || this.company?.id,action})});
     const result=await response.json().catch(()=>null);
     if(!response.ok){
-      if(authenticated && response.status===401){sessionStorage.removeItem("contract-auth");this.tokens=null;location.reload();}
+      if(authenticated && response.status===401){this.clearLogin();location.reload();}
       throw Object.assign(Error(result?.error || "تعذّر الاتصال بالخادم."),{status:response.status});
     }
     return result;
   },
+  get formsReady(){return this.enabled && this.account?.formsWorkspace===true;},
+  get restricted(){return ["sales","finance"].includes(this.company?.department) && this.company?.role==="employee";},
+  clearLogin(){sessionStorage.removeItem("contract-auth");if(this.remember)localStorage.removeItem("contract-auth");this.tokens=null;},
   accept(s){
-    this.tokens={access_token:s.access_token,refresh_token:s.refresh_token,expires_at:s.expires_at};
-    sessionStorage.setItem("contract-auth",JSON.stringify(this.tokens));this.account=s.account;
+    this.tokens={userId:s.account.userId,access_token:s.access_token,refresh_token:s.refresh_token,expires_at:s.expires_at};
+    (this.remember?localStorage:sessionStorage).setItem("contract-auth",JSON.stringify(this.tokens));this.account=s.account;
   },
   renew(){
-    if(!this.refreshing)this.refreshing=this.call("refresh",{refresh_token:this.tokens.refresh_token},false)
-      .then(s=>this.accept(s)).finally(()=>{this.refreshing=null;});
+    if(!this.refreshing){
+      const refresh=async()=>{
+        if(this.remember){
+          const saved=JSON.parse(localStorage.getItem("contract-auth")||"null");
+          if(!saved)throw Error("انتهت جلسة الدخول.");
+          this.tokens=saved;
+          if(this.tokens.expires_at*1000>Date.now()+60000)return;
+        }
+        this.accept(await this.call("refresh",{refresh_token:this.tokens.refresh_token},false));
+      };
+      this.refreshing=(this.remember && navigator.locks?navigator.locks.request("contracts-auth-refresh",refresh):refresh()).finally(()=>{this.refreshing=null;});
+    }
     return this.refreshing;
   },
   async gate(){
     if(!this.enabled)return;
-    try{this.tokens=JSON.parse(sessionStorage.getItem("contract-auth")||"null");
+    this.remember=!sessionStorage.getItem("contract-auth") && !!localStorage.getItem("contract-auth");
+    window.addEventListener("storage",event=>{if(this.remember && event.key==="contract-auth" && (!event.newValue || JSON.parse(event.newValue).userId!==this.tokens?.userId))location.reload();});
+    try{this.tokens=JSON.parse((this.remember?localStorage:sessionStorage).getItem("contract-auth")||"null");
       if(this.tokens){this.account=await this.call("session");if(this.company)return;}
-    }catch{}
-    this.tokens=null;sessionStorage.removeItem("contract-auth");
+    }catch(error){if(this.tokens && ![400,401,403].includes(error.status))throw error;}
+    this.clearLogin();
     const host=$("startupThread"),old=[...host.childNodes];
     document.body.inert=false;host.classList.add("cloud-signin");
     const form=document.createElement("form");
-    form.innerHTML='<h1>منظومة عقود السيارات</h1><label>اسم المستخدم<input name="username" dir="ltr" autocomplete="username" required></label><label>كلمة المرور<input name="password" type="password" autocomplete="current-password" required></label><button>تسجيل الدخول</button><output role="status"></output>';
+    form.innerHTML='<h1>منظومة عقود السيارات</h1><label>اسم المستخدم<input name="username" dir="ltr" autocomplete="username" required></label><label>كلمة المرور<input name="password" type="password" autocomplete="current-password" required></label><label><span><input name="remember" type="checkbox"> تذكّر دخولي على هذا الجهاز</span></label><button>تسجيل الدخول</button><output role="status"></output>';
     const request=document.createElement("button");request.type="button";request.textContent="طلب حساب موظف";form.append(request);
     request.onclick=()=>{
       const apply=document.createElement("form");apply.innerHTML='<h1>طلب حساب موظف</h1><label>الاسم الكامل<input name="name" required maxlength="120"></label><label>اسم المستخدم<input name="username" dir="ltr" required maxlength="40"></label><label>الشركة<select name="company"></select></label><button>إرسال للمدير</button><button type="button">العودة للدخول</button><output role="status"></output>';
@@ -47,21 +62,21 @@ const Cloud = {
     };
     host.replaceChildren(form);form.elements.username.focus();
     await new Promise(resolve=>{form.onsubmit=async e=>{e.preventDefault();const button=form.querySelector("button");button.disabled=true;
-      try{this.accept(await this.call("login",{username:form.elements.username.value,password:form.elements.password.value},false));resolve();}
+      try{this.remember=form.elements.remember.checked;this.accept(await this.call("login",{username:form.elements.username.value,password:form.elements.password.value},false));resolve();}
       catch(error){form.querySelector("output").textContent=error.message;form.elements.password.select();}
       finally{button.disabled=false;}
     };});
     document.body.inert=true;host.classList.remove("cloud-signin");host.replaceChildren(...old);
   },
-  async logout(){try{await this.call("logout");}finally{sessionStorage.removeItem("contract-auth");sessionStorage.removeItem("contract-company");location.reload();}},
+  async logout(){try{await this.call("logout");}finally{this.clearLogin();sessionStorage.removeItem("contract-company");location.reload();}},
   async switchCompany(id){
     if(this.company?.id===id || !this.account.companies.some(c=>c.id===id))return;
-    try{document.activeElement?.blur();await Services.flush();sessionStorage.setItem("contract-company",id);location.reload();}
+    try{document.activeElement?.blur();if(SalesForms.active || this.restricted)await SalesForms.flush();else await Services.flush();sessionStorage.setItem("contract-company",id);location.reload();}
     catch(error){await Feedback.notice(error.message);}
   },
   storageKey(){
     const c=this.company;
-    return "contracts-online-"+JSON.stringify([this.account.userId,c.id,c.role,[...c.branches.map(b=>b.id)].sort()]);
+    return "contracts-online-"+JSON.stringify([this.account.userId,c.id,c.role,...(this.restricted?[c.department]:[]),[...c.branches.map(b=>b.id)].sort()]);
   },
   prepare(cfg){
     const c=this.company;

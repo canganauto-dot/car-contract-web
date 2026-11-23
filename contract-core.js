@@ -301,7 +301,8 @@ function renderExtraInputs() {
 function companyOptions() {
   for (const id of ["companySelect", "settingsCompany"]) {
     $(id).replaceChildren();
-    for (const c of cfg.companies) $(id).add(new Option(c.name, c.id));
+    const options=Cloud.formsReady && id==="companySelect"?Cloud.account.companies.filter(c=>!["sales","finance"].includes(c.department)):cfg.companies;
+    for (const c of options) $(id).add(new Option(c.name, c.id));
     $(id).value = d.companyId;
   }
   fillCompany();
@@ -740,7 +741,16 @@ function bindEvents() {
     d.contractTime = $("contractTime").value || timeNow();
     render();
   };
-  $("companySelect").onchange = () => {
+  $("companySelect").onchange = async () => {
+    if(Cloud.enabled && $("companySelect").value!==Cloud.company.id){
+      const next=$("companySelect").value;$("companySelect").value=d.companyId;
+      try{
+        if(!d.recordId)return await Cloud.switchCompany(next);
+        Services.saveCurrent(d);await Services.flush();
+        await Cloud.call("move_contract",{record:d.recordId,version:Cloud.versions.get(d.recordId),destination:next});
+        sessionStorage.setItem("open-company-draft",d.recordId);sessionStorage.setItem("contract-company",next);location.reload();
+      }catch(error){await Feedback.notice(error.message);}return;
+    }
     d.companyId = $("companySelect").value;
     $("settingsCompany").value = d.companyId;
     fillCompany();

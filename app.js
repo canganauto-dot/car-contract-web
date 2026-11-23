@@ -14,6 +14,11 @@ function render() {
 }
 (async () => {
   await Cloud.gate();
+  if(Cloud.enabled && Cloud.restricted){
+    cfg=normalizeConfig(clone(seed.config));Cloud.prepare(cfg);
+    await SalesForms.init();document.documentElement.removeAttribute("data-starting");
+    document.body.inert=false;return;
+  }
   try {
     db = await openDB();
     await removeTestArchives();
@@ -78,6 +83,11 @@ function render() {
   OfflineEdition.init();
   FieldStudio.init();
   FillDesigner.init();
+  if(Cloud.formsReady){
+    await SalesForms.init();
+    const key=sessionStorage.getItem("open-company-draft");
+    if(key){sessionStorage.removeItem("open-company-draft");const entry=Services.library.entries.find(e=>e.id==="draft:"+key);if(entry)await Services.openEntry(entry);}
+  }
   await startupMinimum;
   document.documentElement.setAttribute("data-revealing", "");
   document.documentElement.removeAttribute("data-starting");

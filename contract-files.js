@@ -111,11 +111,14 @@ const ContractFiles = {
     };
     $("signedCamera").onclick = async () => {
       try {
-        this.stream = await navigator.mediaDevices.getUserMedia({
-          video: { width: { ideal: 1920 }, height: { ideal: 1080 } },
+        this.stream?.getTracks().forEach(track=>track.stop());
+        const opening=this.cameraOpening=Symbol(),stream=await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: { ideal: "environment" }, width: { ideal: 1920 }, height: { ideal: 1920 } },
           audio: false,
         });
-        $("signedVideo").srcObject = this.stream;
+        if(this.cameraOpening!==opening || !$("signedDialog").open){stream.getTracks().forEach(t=>t.stop());return;}
+        this.stream=stream;$("signedVideo").hidden=false;
+        $("signedVideo").srcObject = stream;
         await $("signedVideo").play();
         $("signedCapture").hidden = false;
       } catch (e) {
@@ -126,15 +129,16 @@ const ContractFiles = {
       const v = $("signedVideo"),
         c = document.createElement("canvas");
       if (!v.videoWidth) return;
-      c.width = v.videoWidth;
-      c.height = v.videoHeight;
-      c.getContext("2d").drawImage(v, 0, 0);
+      const ratio=210/297, width=Math.min(v.videoWidth,v.videoHeight*ratio), height=width/ratio;
+      c.width=Math.round(width);c.height=Math.round(height);
+      c.getContext("2d").drawImage(v,(v.videoWidth-width)/2,(v.videoHeight-height)/2,width,height,0,0,c.width,c.height);
       this.shots.push(c.toDataURL("image/jpeg", 0.9));
       this.showShots();
     };
     $("signedFinish").onclick = () => this.attach(this.shots);
     $("signedClose").onclick = () => $("signedDialog").close();
     $("signedDialog").onclose = () => {
+      this.cameraOpening=null;$("signedVideo").hidden=true;
       this.stream?.getTracks().forEach((t) => t.stop());
       this.stream = null;
       $("signedVideo").srcObject = null;
@@ -157,6 +161,7 @@ const ContractFiles = {
   },
   open(entry) {
     this.entry = entry;
+    $("signedVideo").hidden=true;
     this.shots = [];
     this.showShots();
     $("signedStatus").textContent = this.folder

@@ -538,6 +538,15 @@ const StaffConsole = {
       Object.entries(staffRoles),
       member?.role || "employee",
     );
+    const department=staffSelect("القسم",[["contracts","العقود"],["sales","المبيعات"],["finance","المالية"]],member?.department||"contracts");
+    const scopes=staffElement("fieldset");scopes.append(staffElement("legend","الشركات المخوّلة"));
+    const choices=(this.session.companies||[]).filter(x=>x.role==="administrator").map(x=>{
+      const input=staffElement("input");input.type="checkbox";input.value=x.id;
+      input.checked=x.id===c.id || !!member?.companies?.includes(x.id);
+      scopes.append(staffField(x.name,input));return input;
+    });
+    const scopeState=()=>{department.disabled=role.value!=="employee";for(const input of choices){input.disabled=input.value===c.id||role.value!=="employee";if(input.disabled)input.checked=true;}};
+    role.addEventListener("change",scopeState);scopeState();
     const status = staffSelect(
       "حالة العضوية",
       [
@@ -593,6 +602,7 @@ const StaffConsole = {
       staffField(Cloud.enabled ? "اسم المستخدم" : "البريد الإلكتروني", email),
       ...(Cloud.enabled ? [staffField(member?"كلمة مرور جديدة (اختياري)":"كلمة المرور",pass)] : []),
       staffField("الدور", role),
+      ...(Cloud.formsReady ? [staffField("القسم",department),scopes] : []),
       staffField("حالة العضوية", status),
       branches,
       msg,
@@ -626,7 +636,7 @@ const StaffConsole = {
         await this.api.save(c, member, {
           name: name.value.trim(),
           email: email.value.trim(),
-          ...(Cloud.enabled ? {password:pass.value,requestId:request?.id} : {}),
+          ...(Cloud.enabled ? {password:pass.value,requestId:request?.id,department:role.value==="employee"?department.value:"contracts",companies:choices.filter(x=>x.checked).map(x=>x.value)} : {}),
           role: role.value,
           branchIds,
           branchRoles,

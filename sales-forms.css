@@ -1,0 +1,23 @@
+#salesWorkspace {position:fixed;inset:0;z-index:10000;box-sizing:border-box;overflow:auto;scrollbar-gutter:stable;background:var(--ui-canvas,#f1f4f6);color:var(--ui-ink,#192b38);padding:clamp(12px,2vw,28px);font-family:Alyamama,sans-serif}
+#salesWorkspace[hidden]{display:none}
+#salesWorkspace>header,#salesWorkspace .forms-actions{display:flex;align-items:center;flex-wrap:wrap;gap:.65rem;margin-block-end:1rem}
+#salesWorkspace>header{border-bottom:1px solid currentColor;padding-bottom:.65rem}
+#salesWorkspace h1,#salesWorkspace h2{font-size:1.4rem;margin:0;margin-inline-end:auto}
+#salesWorkspace>output{display:block;min-height:1.5em}
+#salesWorkspace .forms-lists{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,22rem),1fr));gap:1rem}
+#salesWorkspace section,#salesWorkspace fieldset{background:var(--ui-surface,#fff);border:1px solid #7c91a566;border-radius:8px;padding:.8rem}
+#salesWorkspace .forms-row{display:grid;grid-template-columns:auto minmax(6rem,1fr) auto;align-items:center;gap:.3rem .8rem;padding-block:.45rem;border-bottom:1px solid #83929a55}
+#salesWorkspace .forms-row small{grid-column:2/-1}#salesWorkspace .forms-row span{font-size:.9em;grid-column:2/-1}
+#salesWorkspace .forms-name{text-align:start;font-weight:700}
+#salesWorkspace fieldset{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:.55rem;margin-block:.7rem}
+#salesWorkspace label{display:grid;gap:.15rem;min-width:0}#salesWorkspace fieldset input:not([type=checkbox]),#salesWorkspace textarea{width:100%;box-sizing:border-box;background:#fafafa;color:#152028;padding:.3em .6em;font:inherit}
+#salesWorkspace label:has(textarea){grid-column:1/-1}
+#salesWorkspace .forms-output iframe{width:min(75vw,760px);height:55vh;display:block}
+@media(max-width:720px){#salesWorkspace fieldset{grid-template-columns:repeat(2,minmax(0,1fr))}}
+
+
+@media screen {body.forms-workspace > [inert] {visibility:hidden!important;pointer-events:none!important}}
+
+.hosted-workspaces #homeScreen .archive-columns {grid-template-columns:minmax(0,1fr)}
+.hosted-workspaces #homeScreen section:has(>#draftArchive){display:none}
+.hosted-workspaces #toolbar .bar-group button:not(#homeButton){width:auto;min-width:3em;padding-inline:.55em}

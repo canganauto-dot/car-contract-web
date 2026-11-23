@@ -882,7 +882,7 @@ class ContractServices {
     this.initialized = true;
     if(Cloud.enabled && d.recordId){
       const match=this.library.entries.find(e=>e.data.recordId===d.recordId && e.kind==="draft") || this.library.entries.find(e=>e.data.recordId===d.recordId);
-      if(match)d=normalizeData(clone(match.data));
+      d=match?normalizeData(clone(match.data)):fresh();
     }
     if (d.number && !Cloud.enabled) {
       if (!d.recordId) d.recordId = "legacy-" + d.number;

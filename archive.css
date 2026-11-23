@@ -479,10 +479,16 @@ body.home-mode {
   overflow: auto;
 }
 #signedVideo {
-  width: 100%;
-  max-height: 45vh;
+  display:block;
+  margin-inline:auto;
+  width:min(100%, 40vh);
+  height:auto;
+  aspect-ratio:210 / 297;
+  object-fit:cover;
+  object-position:center;
   background: #1e2b36;
 }
+#signedVideo[hidden] {display:none}
 #signedShots,
 .layout-row {
   display: flex;

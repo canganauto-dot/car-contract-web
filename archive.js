@@ -151,7 +151,7 @@ const Archive = {
   },
   refresh() {
     const entries = Services.library.entries.filter(
-      (e) => !!e.data.standaloneBook === (Workbench.archiveKind === "books"),
+      (e) => (!Cloud.formsReady || e.kind==="printed") && !!e.data.standaloneBook === (Workbench.archiveKind === "books"),
     );
     const form = $("archiveFilters"),
       select = form.elements.company,

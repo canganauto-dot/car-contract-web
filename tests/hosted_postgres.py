@@ -62,6 +62,8 @@ def main():
                     db.execute(path.read_text(encoding='utf-8-sig'))
                     print('PASS migration', path.name,flush=True)
                 db.execute((HERE/'hosted-roles.sql').read_text(encoding='utf-8-sig'))
+                db.execute((HERE/'sales-workflow.sql').read_text(encoding='utf-8-sig'))
+                print('PASS private drafts, sales publication, finance access, approvals and contract conversion',flush=True)
                 print('PASS company administration, template approval, numbering and role checks',flush=True)
         finally:
             invoke('pg_ctl','-D',data,'-m','fast','-w','stop')

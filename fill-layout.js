@@ -489,6 +489,13 @@ const FillLayout = {
       if(spec.free){item.metrics=this.boxMetrics(box);this.freeBox(item,spec,item.metrics);}
       if (spec.hidden && !this.panel) this.style(box,"display","none");
     }
+    // Keep the contact row together when the scroll gutter or camera width changes.
+    const name=$("buyer")?.closest("label"), photo=$("customerPhotoTools"), phone=$("buyerPhone")?.closest("label");
+    if(name && photo && phone && name.nextElementSibling===photo && photo.nextElementSibling===phone &&
+        getComputedStyle(name.parentElement).gridTemplateColumns.split(" ").length===12){
+      const span=el=>Number(getComputedStyle(el).gridColumn.match(/span (\d+)/)?.[1])||1;
+      this.style(name,"grid-column","span "+Math.max(1,12-span(photo)-span(phone)));
+    }
     const extents=new Map();
     for(const [id,spec] of Object.entries(layout || {})){
       if(!spec.free || !spec.dy || this.elements.get(id)?.pinned)continue;

@@ -63,3 +63,8 @@
     }
   }
 }
+
+@media screen {
+  #fillPanel { box-sizing:border-box; min-inline-size:0; padding-inline:8px; scrollbar-gutter:stable; }
+  #fillPanel :is(#cards,#bookFields,.entry-field) { min-inline-size:0; max-inline-size:100%; }
+}
