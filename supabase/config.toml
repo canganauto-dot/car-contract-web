@@ -1,0 +1,5 @@
+project_id = "car-contract-web"
+
+[functions.ownership-qr]
+# Verification is public. Issuance validates the staff JWT and company in the function.
+verify_jwt = false
