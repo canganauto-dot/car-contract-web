@@ -260,6 +260,7 @@ class ContractEditor extends DocumentSceneRenderer {
     this.inspector();
     this.layers();
     TransferLetter.decorate(d, balance);
+      ContractFiles.paintTransferQrAction();
     Workspace.markMissing(balance);
     Workspace.paymentRows();
     if(document.activeElement!==$("contractNumber"))$("contractNumber").value=d.numberUnconfirmed?d.numberRequest:d.number;
