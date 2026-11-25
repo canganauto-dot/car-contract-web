@@ -64,16 +64,12 @@ const ContractFiles = {
     if (String(d?.standaloneBook) !== "0")
       return Feedback.notice("إصدار الباركود متاح لكتاب نقل الملكية فقط");
     App.commitText();
-    const company = cfg.companies.find((item) => item.id === d.companyId);
-    const payload = JSON.parse(this.pack(d));
-    Object.assign(payload.data, {
-      standaloneBook: "0",
-      bookTitle: d.bookTitle || "نقل ملكية",
-      contractDate: d.contractDate || d.date || "",
-      transferAddressee: "وكيل شركة " + (company?.name || ""),
-      manager: company?.manager || "",
-      organizer: d.organizer || cfg.fixed.organizer || "",
-    });
+    const values = context();
+    const fields = ["number", "buyer", "car", "model", "plate", "vin", "color",
+      "transferAddressee", "cashTransferNote", "manager", "organizer"];
+    const data = Object.fromEntries(fields.map(key => [key, values[key] ?? ""]));
+    Object.assign(data, { standaloneBook: "0", companyId: d.companyId, contractDate: d.contractDate });
+    const payload = { format: "contracts-data", version: 1, data };
     const bytes = new TextEncoder().encode(JSON.stringify(payload));
     let binary = "";
     for (const byte of bytes) binary += String.fromCharCode(byte);
