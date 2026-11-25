@@ -55,6 +55,34 @@ const ContractFiles = {
       data: values,
     });
   },
+  paintTransferQrAction() {
+    const action = $("transferQrAction");
+    if (action)
+      action.hidden = !(App.mode === "fill" && String(d?.standaloneBook) === "0");
+  },
+  openTransferQr() {
+    if (String(d?.standaloneBook) !== "0")
+      return Feedback.notice("إصدار الباركود متاح لكتاب نقل الملكية فقط");
+    App.commitText();
+    const company = cfg.companies.find((item) => item.id === d.companyId);
+    const payload = JSON.parse(this.pack(d));
+    Object.assign(payload.data, {
+      standaloneBook: "0",
+      bookTitle: d.bookTitle || "نقل ملكية",
+      contractDate: d.contractDate || d.date || "",
+      transferAddressee: "وكيل شركة " + (company?.name || ""),
+      manager: company?.manager || "",
+      organizer: d.organizer || cfg.fixed.organizer || "",
+    });
+    const bytes = new TextEncoder().encode(JSON.stringify(payload));
+    let binary = "";
+    for (const byte of bytes) binary += String.fromCharCode(byte);
+    const link = document.createElement("a");
+    link.href = "https://canganauto-dot.github.io/QR/#data=" + encodeURIComponent(btoa(binary));
+    link.target = "_blank";
+    link.rel = "noopener";
+    link.click();
+  },
   async save(data = d) {
     App.commitText();
     await Services.flush();
@@ -94,6 +122,7 @@ const ContractFiles = {
       e.target.value = "";
     };
     $("fillPrint").onclick = () => $("printAll").click();
+    $("issueTransferQr").onclick = () => this.openTransferQr();
     $("signedFolder").onclick = async () => {
       try {
         this.folder = await showDirectoryPicker({ mode: "readwrite" });
