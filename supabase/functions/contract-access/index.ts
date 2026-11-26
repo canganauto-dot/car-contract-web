@@ -115,15 +115,24 @@ function pushDestination(raw:string){
  return url;
 }
 const encode64=(bytes:Uint8Array)=>btoa(Array.from(bytes,c=>String.fromCharCode(c)).join("")).replaceAll("+","-").replaceAll("/","_").replace(/=+$/,"");
-const vapid=()=>Deno.env.get("FORM_VAPID_JWK");
-function publicPushKey(){
- const source=vapid();if(!source)return null;
- const {x,y}=JSON.parse(source);const decode=(v:string)=>Uint8Array.from(atob(v.replaceAll("-","+").replaceAll("_","/")),s=>s.charCodeAt(0));
- return encode64(new Uint8Array([4,...decode(x),...decode(y)]));
+let pushKeyPromise:Promise<JsonWebKey>|undefined;
+async function signingKey(){
+ const configured=Deno.env.get("FORM_VAPID_JWK");
+ if(configured)return JSON.parse(configured) as JsonWebKey;
+ if(!pushKeyPromise)pushKeyPromise=(async()=>{
+  const pair=await crypto.subtle.generateKey({name:"ECDSA",namedCurve:"P-256"},true,["sign","verify"]);
+  const candidate=await crypto.subtle.exportKey("jwk",pair.privateKey);
+  return await rpc("contract_push_identity",{candidate}) as JsonWebKey;
+ })().catch(error=>{pushKeyPromise=undefined;throw error;});
+ return pushKeyPromise;
+}
+function publicPushKey(key:JsonWebKey){
+ const decode=(v:string)=>Uint8Array.from(atob(v.replaceAll("-","+").replaceAll("_","/")),s=>s.charCodeAt(0));
+ return encode64(new Uint8Array([4,...decode(key.x!),...decode(key.y!)]));
 }
 async function drainPush(){
- if(!vapid()||!Deno.env.get("FORM_VAPID_SUBJECT"))return;
- const vapidDetails={subject:Deno.env.get("FORM_VAPID_SUBJECT")!,publicKey:publicPushKey()!,privateKey:JSON.parse(vapid()!).d};
+ const key=await signingKey();
+ const vapidDetails={subject:Deno.env.get("FORM_VAPID_SUBJECT")||origin+"/car-contract-web/",publicKey:publicPushKey(key),privateKey:key.d!};
  const jobs=await rpc("form_devices",{actor:null,action:"claim",p:{}});
  await Promise.all(jobs.map(async(job:{endpoint:string,lease:string,id:number,kind:string,details?:Record<string,string>,auth:string,p256dh:string})=>{
   let outcome="retry";
@@ -155,6 +164,7 @@ Deno.serve(async(req)=>{
    if(!Deno.env.get("FORM_PUSH_JOB_TOKEN")||req.headers.get("authorization")!=="Bearer "+Deno.env.get("FORM_PUSH_JOB_TOKEN"))throw new Failure(403,"غير مخوّل.");
    await drainPush();return reply(200,true);
   }
+  if(action==="push_key")return reply(200,{key:publicPushKey(await signingKey())});
   if(action==="qr_verify"){const v=await rpc("document_qr",{actor:null,action:"verify",p:{id:p.id}});return v?reply(200,v):reply(404,{error:"الرمز غير موجود."});}
   if(action==="request_access")return reply(200,await rpc("contract_review",{actor:null,action,p:{company:p.company,name:p.name,username:username(p.username)}}));
   if(action==="login"){
@@ -204,7 +214,7 @@ Deno.serve(async(req)=>{
    return new Response(file.body,{headers:{...headers,"Content-Type":"application/pdf"}});
   }
   if(action==="update")return reply(200,await rpc("contract_staff_assignment",{actor:user.id,action,p}));
-  if(action==="push_key")return reply(200,{key:Deno.env.get("FORM_VAPID_SUBJECT")?publicPushKey():null});
+
   if(action==="push_subscribe"||action==="push_unsubscribe"){
    const endpoint=pushDestination(p.endpoint).href;
    return reply(200,await rpc("form_devices",{actor:user.id,action:action==="push_subscribe"?"subscribe":"unsubscribe",p:{endpoint,auth:p.auth,p256dh:p.p256dh}}));
