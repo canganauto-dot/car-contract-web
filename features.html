@@ -111,14 +111,13 @@
 </section>
 <dialog id="setupDialog">
   <form id="setupForm">
-    <h2>إعداد هذا الكمبيوتر</h2>
+    <h2>بيانات الموظف والفرع</h2>
     <p>
       تُحفظ هذه المعلومات لكل العقود، ويمكن تعديلها لاحقاً من إعدادات الملء.
     </p>
     <div class="properties-grid">
-      <label
-        >حرف الكمبيوتر<input id="setupPrefix" maxlength="4" required /></label
-      ><label>اسم المنظّم<input id="setupOrganizer" required /></label>
+      <label>الاسم الثنائي<input id="setupOrganizer" required /></label>
+      <label>الصفة في الشركة<input id="setupTitle" required /></label>
     </div>
     <datalist id="setupBranches"><option value="الدورة"></option><option value="الجادرية"></option><option value="البياع"></option><option value="النجف"></option><option value="كربلاء"></option><option value="الموصل"></option><option value="كركوك"></option></datalist><label>الفرع<input id="setupBranch" required list="setupBranches" /></label
     ><label class="check"

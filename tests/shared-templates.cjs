@@ -42,7 +42,7 @@ const {chromium} = require("playwright");
       const page=await browser.newPage();
       page.on("pageerror",error=>console.error(error));
       await page.goto(url);await page.waitForFunction(()=>startReady);
-      await page.locator("#setupPrefix").fill(prefix);
+      await page.locator("#setupTitle").fill("موظف العقود");
       await page.locator("#setupOrganizer").fill("اختبار "+prefix);
       await page.locator("#setupBranch").fill("اختبار");
       await page.locator("#setupForm button").click();

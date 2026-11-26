@@ -4,6 +4,12 @@ const Archive = {
   metrics: new WeakMap(),
   tables: new Map(),
   paths: {
+    bell:"M4 17h16l-2-3V9a6 6 0 0 0-12 0v5z M10 20a2 2 0 0 0 4 0",
+    mute:"M3 3l18 18 M7 7a6 6 0 0 0-1 3v4l-2 3h12 M18 13V9a6 6 0 0 0-8-6 M10 20h4",
+    scan:"M3 8V3h5 M16 3h5v5 M21 16v5h-5 M8 21H3v-5 M6 12h12",
+    add:"M12 5v14M5 12h14",
+    refresh:"M20 10a8 8 0 1 0-1 7M20 4v6h-6",
+    logout:"M10 4H4v16h6M9 12h12m-5-5 5 5-5 5",
     staff: "M15.5 7a3.5 3.5 0 1 1-7 0 3.5 3.5 0 0 1 7 0M4 21v-2a8 7 0 0 1 16 0v2",
     camera:"M3 7h4l2-3h6l2 3h4v13H3z M16 13a4 4 0 1 1-8 0 4 4 0 0 1 8 0",
     shutter:"M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0 M18 12a6 6 0 1 1-12 0 6 6 0 0 1 12 0",
@@ -223,9 +229,9 @@ const Archive = {
     let table = this.tables.get(kind);
     if (!table) {
       box.innerHTML = '<table class="archive-list"><thead><tr><th class="tickcol"><input type="checkbox"></th>' +
-        '<th class="ordinal">#</th><th>اسم الزبون</th><th>العدد</th><th>التاريخ</th>' +
+        '<th class="ordinal">#</th><th>اسم الزبون</th><th>العدد</th><th>التاريخ والوقت</th>' +
         (printed ? '<th class="statecol">موقّع</th>' : "") +
-        '</tr></thead><tbody></tbody></table><p class="archive-empty" hidden></p>';
+        '<th>الموظف</th></tr></thead><tbody></tbody></table><p class="archive-empty" hidden></p>';
       const all = box.querySelector("th input");
       table = { all, body:box.querySelector("tbody"), empty:box.querySelector(".archive-empty"), nodes:new Map() };
       all.dataset.group = kind;
@@ -279,7 +285,9 @@ const Archive = {
     open.textContent = (data.contractType === "external"
       ? [data.externalSeller, data.externalBuyer].filter(Boolean).join(" / ") : data.buyer) || "عقد غير مكتمل";
     row.querySelector("bdi").textContent = data.number;
-    row.querySelector("time").textContent = dateLabel(data.contractDate);
+    row.querySelector("time").textContent = entry.updatedAt ? SalesForms.time(entry.updatedAt) :
+      [dateLabel(data.contractDate),data.contractTime].filter(Boolean).join(" ");
+    row.insertCell().textContent = entry.seller || data.organizer || entry.config?.fixed?.organizer || "—";
     if (printed) {
       const status = row.cells[5];
       status.innerHTML = this.icon(signed ? "check" : "close");

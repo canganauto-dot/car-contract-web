@@ -9,7 +9,7 @@ from urllib.parse import urlsplit
 
 SOURCE = Path(__file__).resolve().parent
 SCRIPTS = [
-    'offline-edition.js', 'pages-templates.js', 'shared-defaults.js', 'branch-numbers.js', 'contract-templates.js', 'entry-dates.js', 'web-resources.js', 'smart-tables.js', 'workbench.js', 'excel-export.js',
+    'offline-edition.js', 'pages-templates.js', 'shared-defaults.js', 'branch-numbers.js', 'contract-templates.js', 'sheet-library.js', 'document-qr.js', 'entry-dates.js', 'web-resources.js', 'smart-tables.js', 'workbench.js', 'excel-export.js',
     'letters.js', 'appearance-originals.js', 'box-appearance.js',
     'editor-enhancements.js', 'directory-source.js', 'unified-directory.js',
     'company-sheet-data.js', 'contract-files.js', 'print-plan.js', 'company-sheets.js',
@@ -17,7 +17,7 @@ SCRIPTS = [
     'payment-schedule.js', 'cash-contract.js', 'exchange-contract.js',
     'external-contract.js', 'transfer-letter.js', 'paper-layout.js',
     'image-library.js', 'workspace-ui.js', 'contract-services.js', 'archive.js',
-    'archive-output.js', 'editor-settings.js', 'document-text.js', 'document-ink.js', 'document-renderer.js', 'document-scene.js', 'editor-clean.js', 'table-tools.js', 'ui-preferences.js', 'field-studio.js', 'fill-designer.js', 'fill-layout.js', 'staff-console.js', 'cloud.js', 'sales-forms.js', 'app.js',
+    'archive-output.js', 'editor-settings.js', 'document-text.js', 'document-ink.js', 'document-renderer.js', 'document-scene.js', 'editor-clean.js', 'table-tools.js', 'ui-preferences.js', 'field-studio.js', 'fill-designer.js', 'fill-layout.js', 'staff-console.js', 'cloud.js', 'form-paper.js', 'form-inbox.js', 'sales-forms.js', 'app.js',
 ]
 STYLES = ['document.css', 'editor-clean.css', 'features.css', 'workspace.css',
           'archive.css', 'box-appearance.css', 'workbench.css', 'smart-tables.css', 'ui-refinements.css', 'fill-fields.css']
@@ -50,6 +50,13 @@ def build(output):
     if set(seed) != {'config'} or 'pin' in seed['config']:
         raise ValueError('The build seed must contain only public configuration, without a PIN or archive.')
     assets = {'headers': json.loads(read('stock-first-headers.json')), 'logos': json.loads(read('header-logos.json'))}
+    stamp = SOURCE / 'assets' / 'rejected.png'
+    if not stamp.exists():
+        stamp = SOURCE.parent / 'rejected.png'
+    if stamp.is_file():
+        if not stamp.read_bytes().startswith(bytes.fromhex('89504e470d0a1a0a')):
+            raise ValueError('rejected.png must be a PNG image.')
+        assets['rejectStamp'] = 'assets/media/rejected.png'
     scripts = ['seed.js', 'contract-math.js'] + SCRIPTS
     fragments = {
         '<!--CARDS-->': read('form-shell.html'),
@@ -84,6 +91,7 @@ def build(output):
     }).encode('utf-8')
     for name in ['contract-math.js'] + SCRIPTS:
         files['assets/js/' + name] = read(name).encode('utf-8')
+    files['assets/js/document-qr.js'] = b'/*' + (SOURCE/'vendor/qrcode-generator-LICENSE').read_bytes() + b'*/\n' + (SOURCE/'vendor/qrcode-generator.js').read_bytes() + b'\n' + files['assets/js/document-qr.js']
     # A newly opened page must load matching code and styles, including on a static host.
     for name, content in files.items():
         if name.startswith(('assets/js/', 'assets/css/')):
@@ -96,6 +104,15 @@ def build(output):
     for name in ['canvaskit.js','canvaskit.wasm']:
         files['assets/vendor/'+name] = (skia / 'bin' / name).read_bytes()
     files['assets/vendor/canvaskit-LICENSE'] = (skia / 'LICENSE').read_bytes()
+    if 'rejectStamp' in assets:
+        files[assets['rejectStamp']] = stamp.read_bytes()
+    if os.environ.get('CONTRACT_HOSTED') == '1':
+        files['reader/decoder.js'] = b'/*' + (SOURCE/'vendor/jsQR-LICENSE').read_bytes() + b'*/\n' + (SOURCE/'vendor/jsQR.js').read_bytes()
+        for name in ('index.html','reader.js','manifest.webmanifest'):
+            files['reader/'+name] = (SOURCE/'reader'/name).read_bytes()
+        for name in ['manifest.webmanifest','sw.js','icon-192.png','icon-512.png']:
+            files[name] = (SOURCE / 'pwa' / name).read_bytes()
+        files['index.html'] = files['index.html'].replace(b'</head>', b'<link rel="manifest" href="./manifest.webmanifest"><link rel="apple-touch-icon" href="./icon-192.png"><meta name="theme-color" content="#193b49"></head>')
     for image in sorted((SOURCE / 'assets' / 'media').iterdir()):
         files['assets/media/' + image.name] = image.read_bytes()
     for name in set(previous) | files.keys():

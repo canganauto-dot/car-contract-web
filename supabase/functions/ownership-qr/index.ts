@@ -17,9 +17,12 @@ Deno.serve(async req => {
     const p = await req.json();
     if (!uuid.test(p.id)) return reply(400, {error:"رقم الإصدار غير صالح."});
     if (p.action === "verify") {
-      const {data,error} = await db.from("ownership_qr").select("id,buyer,vin").eq("id",p.id).maybeSingle();
+      const {data,error} = await db.rpc("document_qr",{actor:null,action:"verify",p:{id:p.id}});
       if (error) throw error;
-      return data ? reply(200,data) : reply(404,{error:"السجل غير موجود."});
+      if(!data)return reply(404,{error:"السجل غير موجود."});
+      if(!data.approved)return reply(409,{approved:false,error:"هذا الباركود غير معتمد."});
+      const values=Object.fromEntries(data.fields.map((f:{key:string,value:string})=>[f.key,f.value]));
+      return reply(200,{...data,buyer:values.buyer||"",vin:values.vin||""});
     }
     if (p.action !== "issue") return reply(400,{});
     const token = req.headers.get("Authorization")?.match(/^Bearer (.+)$/i)?.[1];

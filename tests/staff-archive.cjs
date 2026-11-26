@@ -17,8 +17,8 @@ const serve = require("./server.cjs");
     await page.waitForFunction(() => startReady);
     if (await page.locator("#setupDialog").isVisible()) {
       await page.locator("#setupBranch").fill("الدورة");
-      await page.locator("#setupOrganizer").fill("اختبار");
-      await page.locator("#setupPrefix").fill("Q");
+      await page.locator("#setupOrganizer").fill("اختبار تجريبي");
+      await page.locator("#setupTitle").fill("موظف العقود");
       await page.locator("#setupForm button").click();
     }
     await page.locator("#workNew").click();

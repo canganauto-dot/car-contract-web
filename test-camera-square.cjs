@@ -22,8 +22,8 @@ const { chromium } = require("playwright"),
     );
     if (await p.locator("#setupDialog").isVisible()) {
       await p.locator("#setupBranch").fill("الدورة");
-      await p.locator("#setupOrganizer").fill("اختبار");
-      await p.locator("#setupPrefix").fill("Q");
+      await p.locator("#setupOrganizer").fill("اختبار تجريبي");
+      await p.locator("#setupTitle").fill("موظف العقود");
       await p.locator("#setupForm button").click();
     }
     await p.locator("#workNew").click();

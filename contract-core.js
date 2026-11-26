@@ -1,6 +1,21 @@
+function branchHasAgent(branch){return !["الدورة","الجادرية","البياع"].includes(String(branch||"").trim().replace(/^فرع\s+/u,""));}
+const Plate={
+  clean(value){return normalizeDigits(value).replace(/[\u061c\u200e\u200f\u202a-\u202e\u2066-\u2069]/g,"");},
+  direction(value){return /\p{Script=Arabic}/u.test(this.clean(value))?"rtl":"ltr";},
+  printed(value){const raw=this.clean(value);return raw?(this.direction(raw)==="rtl"?"\u2067":"\u2066")+raw+"\u2069":"";},
+  bind(input){
+    const apply=()=>{
+      const raw=input.value,start=input.selectionStart,end=input.selectionEnd;
+      const clean=this.clean(raw);
+      if(clean!==raw){input.value=clean;if(start!==null)input.setSelectionRange(this.clean(raw.slice(0,start)).length,this.clean(raw.slice(0,end)).length);}
+      input.dir=this.direction(clean);
+    };
+    apply();input.addEventListener("input",apply,true);
+  }
+};
 function context(r = calculate(d)) {
   const c = co(),
-    f = cfg.fixed;
+    f = branchHasAgent(d.numberBranch||cfg.fixed.branch)?cfg.fixed:{...cfg.fixed,hasAgent:false};
   const result = {
     ...d,
     ...FieldStudio.inputValues(),
@@ -20,7 +35,8 @@ function context(r = calculate(d)) {
     depositDate: dateLabel(d.depositDate),
     firstDate: dateLabel(d.firstDate),
     lastDate: dateLabel(r.lastDate),
-    agencyDate: dateLabel(f.agencyDate),
+    agencyDate: f.hasAgent?dateLabel(f.agencyDate):"",
+    agencyNo:f.hasAgent?f.agencyNo:"",agencyFrom:f.hasAgent?f.agencyFrom:"",
     buyerIdDate: dateLabel(d.buyerIdDate),
     guarantorIdDate: dateLabel(d.guarantorIdDate),
     agent: f.hasAgent ? f.agent : "",
@@ -50,6 +66,7 @@ function context(r = calculate(d)) {
   };
   const values=FieldStudio.values(Services.enrichContext(result,r));
   values.number=d.number;
+  values.plate=Plate.printed(d.plate);values.oldPlate=Plate.printed(d.oldPlate);
   return values;
 }
 let ctx = {};
@@ -133,9 +150,9 @@ const dataDefs = {
   ],
 };
 const fixedDefs = [
-  ["organizer", "المنظم"],
+  ["organizer", "الاسم الثنائي"],
   ["branch", "الفرع"],
-  ["prefix", "حرف / رمز الحاسبة"],
+  ["staffTitle", "الصفة في الشركة"],
   ["nextNumber", "بداية تسلسل الفرع الجديد", "number"],
   ["hasAgent", "إظهار بيانات الوكيل", "checkbox", true],
   ["agent", "اسم الوكيل", "text", true],
@@ -191,11 +208,12 @@ function buildFields(where, defs, target, onChange) {
       input.checked = !!target[key];
       label.className += " check";
     } else input.value = target[key] ?? "";
+    if(key==="plate"||key==="oldPlate")Plate.bind(input);
     if (type === "textarea") {
       input.rows = 3;
       input.maxLength = 330;
     }
-    if (key === "prefix") input.maxLength = 4;
+    if(where==="fixedInputs" && Cloud.enabled && ["organizer","staffTitle","branch"].includes(key))input.disabled=true;
     input.addEventListener("change", () => {
       copyPartyAddress(key, target, input);
       const val = type === "checkbox" ? input.checked : input.value;
@@ -241,7 +259,8 @@ function buildInputs() {
   $("cards").classList.toggle("exchange-form", exchange);
   $("oldVehiclePanel").hidden = !exchange;
   $("vehicleHeading").textContent = exchange ? "السيارة الجديدة" : "المركبة";
-  buildFields("fixedInputs", fixedDefs, cfg.fixed, () => {
+  buildFields("fixedInputs", fixedDefs.filter(([key])=>branchHasAgent(cfg.fixed.branch)||!["hasAgent","agent","agencyNo","agencyDate","agencyFrom"].includes(key)), cfg.fixed, (key) => {
+    if(key==="branch"){if(!branchHasAgent(cfg.fixed.branch))cfg.fixed.hasAgent=false;buildInputs();}
     scheduleConfig();
     render();
   });
@@ -301,7 +320,7 @@ function renderExtraInputs() {
 function companyOptions() {
   for (const id of ["companySelect", "settingsCompany"]) {
     $(id).replaceChildren();
-    const options=Cloud.formsReady && id==="companySelect"?Cloud.account.companies.filter(c=>!["sales","finance"].includes(c.department)):cfg.companies;
+    const options=Cloud.formsReady && id==="companySelect"?Cloud.brands.filter(c=>!["sales","finance"].includes(c.department)):cfg.companies;
     for (const c of options) $(id).add(new Option(c.name, c.id));
     $(id).value = d.companyId;
   }
@@ -429,6 +448,9 @@ function normalizeData(raw) {
     } else if (typeof raw[k] === "string" || typeof raw[k] === "number")
       result[k] = raw[k];
   }
+  result.verificationCodes=DocumentQR.clean(raw.verificationCodes);
+  if(Array.isArray(raw.pendingQr))result.pendingQr=raw.pendingQr.filter(v=>DocumentQR.uuid.test(v?.id)&&typeof v.signature==="string"&&v.signature.length<80000);
+  result.plate=Plate.clean(result.plate);result.oldPlate=Plate.clean(result.oldPlate);
   for (const key of ["extraSlotsShown", "cashSlotsShown"])
     if (raw[key] !== undefined)
       result[key] = Math.min(4, Math.max(0, Math.trunc(Number(raw[key])) || 0));
@@ -538,7 +560,7 @@ async function allocateNumber() {
       if(!Number.isSafeInteger(number) || number>999999999){tx.abort();return;}
       store.put(number+1,key);
     };
-    tx.oncomplete=()=>resolve((prefix?prefix+"-":"")+number);
+    tx.oncomplete=()=>resolve(String(number));
     tx.onabort=()=>reject(Error("تعذّر حجز العدد المحلي."));
   });
 }
@@ -563,7 +585,7 @@ function reserveNumber(number) {
   }
 }
 function newContract() {
-  return Services.createContract();
+  return Services.startContract();
 }
 function scheduleConfig() {
   clearTimeout(saveTimer);
@@ -742,14 +764,14 @@ function bindEvents() {
     render();
   };
   $("companySelect").onchange = async () => {
-    if(Cloud.enabled && $("companySelect").value!==Cloud.company.id){
-      const next=$("companySelect").value;$("companySelect").value=d.companyId;
+    if(Cloud.enabled && d.recordId && $("companySelect").value!==d.companyId){
+      const next=$("companySelect").value,previous=d.companyId;
       try{
-        if(!d.recordId)return await Cloud.switchCompany(next);
         Services.saveCurrent(d);await Services.flush();
-        await Cloud.call("move_contract",{record:d.recordId,version:Cloud.versions.get(d.recordId),destination:next});
-        sessionStorage.setItem("open-company-draft",d.recordId);sessionStorage.setItem("contract-company",next);location.reload();
-      }catch(error){await Feedback.notice(error.message);}return;
+        await Cloud.call("move_contract",{company:previous,record:d.recordId,version:Cloud.versions.get(d.recordId),destination:next});
+        Services.library=await Cloud.archive();
+        $("companySelect").value=next;d.initialCompanyId=next;
+      }catch(error){$("companySelect").value=previous;await Feedback.notice(error.message);return;}
     }
     d.companyId = $("companySelect").value;
     $("settingsCompany").value = d.companyId;
@@ -828,9 +850,10 @@ function bindEvents() {
       const imported=normalizeData(v.data);
       imported.numberBranch ||= nextConfig.fixed.branch;
       await BranchNumbers.imported(imported,v.origin==="offline");
+      await DocumentQR.registerPending(imported);
       cfg=nextConfig;
       d=v.layout ? normalizeData({...v.data,recordId:imported.recordId,number:imported.number,
-        numberBranch:imported.numberBranch,offlineNumber:imported.offlineNumber}) : imported;
+        numberBranch:imported.numberBranch,offlineNumber:imported.offlineNumber,verificationCodes:imported.verificationCodes,pendingQr:imported.pendingQr}) : imported;
       reserveNumber(d.number);
       Services.ensureSchemas();
       Images.ensure();
@@ -848,7 +871,7 @@ function bindEvents() {
   };
   $("exportHTML").onclick = () =>
     download("contract-settings.json", settingsJSON(), "application/json");
-  $("saveCompany").onclick = () => {
+  $("saveCompany").onclick = async () => {
     try {
       const c = cfg.companies.find((c) => c.id === $("settingsCompany").value);
       if (!c) return;
@@ -859,6 +882,7 @@ function bindEvents() {
       c.address = $("editCompanyAddress").value;
       c.phone = $("editCompanyPhone").value;
       if (!c.name) throw Error("اسم الشركة مطلوب");
+      if(Cloud.enabled)await Cloud.saveBrand(c);
       companyOptions();
       render();
       scheduleConfig();
@@ -866,7 +890,7 @@ function bindEvents() {
       Feedback.notice(e.message);
     }
   };
-  $("addCompany").onclick = () => {
+  $("addCompany").onclick = async () => {
     const c = {
       id: "c" + Date.now(),
       name: "شركة جديدة",
@@ -876,9 +900,11 @@ function bindEvents() {
       address: "",
       phone: "",
     };
+    if(Cloud.enabled){try{await Cloud.saveBrand(c);}catch(e){await Feedback.notice(e.message);return;}}
     cfg.companies.push(c);
-    d.companyId = c.id;
+    if(!Cloud.enabled)d.companyId = c.id;
     companyOptions();
+    $("settingsCompany").value=c.id;fillCompany();
     render();
     scheduleConfig();
   };
@@ -1019,6 +1045,8 @@ function bindEvents() {
       if(d!==selected)throw Error("تغيّر المستند المفتوح. اختر طباعة من المستند المطلوب.");
       await BranchNumbers.verify(d);
       if(d!==selected)throw Error("تغيّر المستند المفتوح. اختر طباعة من المستند المطلوب.");
+      render(); await DocumentQR.issueSelected();
+      if(d!==selected)throw Error("تغيّر المستند المفتوح.");
       BranchNumbers.printing=BranchNumbers.signature(d);
       window.print();
     }catch(error){await Feedback.notice(error.message);}

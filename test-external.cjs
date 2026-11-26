@@ -11,9 +11,9 @@ const { pathToFileURL } = require("url");
     p.on("pageerror", (e) => errors.push(e.message));
     await p.goto(process.env.CONTRACT_TEST_URL);
     await p.waitForFunction(() => startReady);
-    if (await p.locator("#setupPrefix").isVisible()) {
-      await p.locator("#setupPrefix").fill("T");
-      await p.locator("#setupOrganizer").fill("اختبار");
+    if (await p.locator("#setupTitle").isVisible()) {
+      await p.locator("#setupTitle").fill("موظف العقود");
+      await p.locator("#setupOrganizer").fill("اختبار تجريبي");
       await p.locator("#setupBranch").fill("الدورة");
       await p.locator("#setupForm button").click();
     }

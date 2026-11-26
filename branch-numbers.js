@@ -4,13 +4,13 @@ const BranchNumbers = {
     const branch=data.numberBranch || cfg.fixed.branch;
     if(!branch)throw Error("اختَر الفرع أولاً لحجز العدد.");
     if(Cloud.enabled){
-      const result=await Cloud.call("number",{branch,record:data.recordId,mode,label,prefix:cfg.fixed.prefix||"",expected:data.number||"",offline:!!data.offlineNumber});
+      const result=await Cloud.call("number",{company:data.companyId,branch,record:data.recordId,mode,label,prefix:"",expected:data.number||"",offline:!!data.offlineNumber});
       data.numberBranch=branch;return result.number;
     }
     const local=!seed.offline && SharedDefaults.enabled && !SharedDefaults.pages;
     const url=local ? "/_numbers" : !seed.offline && PagesTemplates.endpoint && new URL("numbers",PagesTemplates.endpoint).href;
     if(!url)throw Error("حجز عدد الفرع يحتاج اتصال بخدمة الأعداد. يمكنك الاحتفاظ بالمسودة.");
-    const payload={branch,record:data.recordId,mode,label,prefix:cfg.fixed.prefix || "",
+    const payload={branch,record:data.recordId,mode,label,prefix:"",
       start:Math.max(1,Number(cfg.fixed.nextNumber)||1),expected:data.number || "",offline:!!data.offlineNumber};
     const call=async()=>{
       const headers={"Content-Type":"application/json"};

@@ -63,6 +63,8 @@ def main():
                     print('PASS migration', path.name,flush=True)
                 db.execute((HERE/'hosted-roles.sql').read_text(encoding='utf-8-sig'))
                 db.execute((HERE/'sales-workflow.sql').read_text(encoding='utf-8-sig'))
+                db.execute((HERE/'document-qr.sql').read_text(encoding='utf-8-sig'))
+                print('PASS QR visibility, authorization, revocation, legacy lookup and duplicate issue',flush=True)
                 print('PASS private drafts, sales publication, finance access, approvals and contract conversion',flush=True)
                 print('PASS company administration, template approval, numbering and role checks',flush=True)
         finally:

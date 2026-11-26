@@ -35,13 +35,14 @@ const ArchiveOutput = {
           !Object.hasOwn(entry.data, transferKey)) {
         d[transferKey] = !!scene.transferLetter && !d.skipTransferLetter;
       }
+      if(entry.kind==="draft")for(const page of [scene.transferLetter,...scene.pages].filter(Boolean))DocumentQR.ensure(page);
       if (!entry.configKey && !entry.config?.design)
         Services.upgradeScene(scene);
       const { papers } = App.documentPages(
         scene,
         false,
         (id) => (face ? id === (d.standaloneBook ? Number(d.standaloneBook) : 1) : Schedule.enabled(id)),
-        !!(entry.configKey || entry.config?.design),
+        !!(entry.configKey || entry.config?.design),undefined,entry.kind!=="draft",
       );
       if (!papers.childElementCount)
         throw Error("لم تُحدّد صفحات للعقد " + d.number);
@@ -209,6 +210,7 @@ const ArchiveOutput = {
         else if (entry.snapshot?.pdf) await this.appendSigned(pdf, entry.snapshot.pdf, face, entry.snapshot.facePages);
         else {
           const papers = Array.from(this.papers(entry, face, true, mode).children);
+          await DocumentQR.issue(papers.flatMap(p=>[...p.querySelectorAll("[data-qr-payload]")]),entry.data);
           for (const paper of papers) {
             const page = pdf.addPage(PDFLib.PageSizes.A4);
             if (paper.dataset.blank) continue;
@@ -339,7 +341,7 @@ const ArchiveOutput = {
       const signed = Archive.signed(entry);
       if (signed) await this.signedSheets(doc, signed, face);
       else if (entry.snapshot?.pdf) await this.signedSheets(doc, entry.snapshot.pdf, face, entry.snapshot.facePages);
-      else doc.body.append(this.papers(entry, face, true, mode));
+      else {const sheets=this.papers(entry,face,true,mode);await DocumentQR.issue([...sheets.querySelectorAll("[data-qr-payload]")],entry.data);doc.body.append(sheets);}
     }
     await Promise.all([...doc.images].map((img) => img.decode()));
     await WebResources.loadDocumentFont(doc);

@@ -260,6 +260,7 @@ class ImageLibrary {
           c.imageValues ||= {};
           c.imageValues[slot.id] = value;
           if (slot.builtin === "company") c.background = value;
+          if(Cloud.enabled)Cloud.saveBrand(c).catch(e=>Feedback.notice(e.message));
           this.companyPanel();
           render();
           scheduleConfig();

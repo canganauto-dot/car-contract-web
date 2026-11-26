@@ -13,11 +13,13 @@ function render() {
   }
 }
 (async () => {
+  if(Cloud.enabled && new URLSearchParams(location.search).has("verify"))return DocumentQR.verifyLocal();
   await Cloud.gate();
   if(Cloud.enabled && Cloud.restricted){
     cfg=normalizeConfig(clone(seed.config));Cloud.prepare(cfg);
+    UIPreferences.defaults=UIPreferences.validate(cfg.design?.uiDefaults);UIPreferences.value=UIPreferences.read();UIPreferences.apply();
     await SalesForms.init();document.documentElement.removeAttribute("data-starting");
-    document.body.inert=false;return;
+    document.body.inert=false;startReady=true;return;
   }
   try {
     db = await openDB();
@@ -26,7 +28,7 @@ function render() {
     cfg = seed.offline ? normalizeConfig(clone(seed.config)) : await SharedDefaults.start(saved);
     cfg.setupComplete = !!saved?.setupComplete;
     if (seed.offline && saved?.setupComplete) {
-      for (const key of ["organizer","prefix","branch","nextNumber"])
+      for (const key of ["organizer","staffTitle","branch","nextNumber"])
         if (saved.fixed?.[key] !== undefined) cfg.fixed[key] = saved.fixed[key];
       if (saved.offlineAgentConfigured) {
         for (const key of ["hasAgent","agent","agencyNo","agencyDate","agencyFrom"])
@@ -34,7 +36,7 @@ function render() {
         cfg.offlineAgentConfigured = true;
       }
     }
-    if (!cfg.setupComplete) Object.assign(cfg.fixed,{organizer:"",prefix:"",branch:""});
+    if (!cfg.setupComplete) Object.assign(cfg.fixed,{organizer:"",staffTitle:"",prefix:"",branch:""});
     if(Cloud.enabled) Cloud.prepare(cfg);
     d = normalizeData(await getDB("draft"));
     await putDB("config", cfg);
@@ -54,8 +56,7 @@ function render() {
     scheduleConfig();
   };
   try {
-    await WebResources.loadDocumentFont();
-    await DocumentInk.init();
+    await Promise.all([WebResources.loadDocumentFont(),DocumentInk.init()]);
   } catch (error) {
     const cover = $("startupThread");
     cover.replaceChildren();
@@ -88,11 +89,7 @@ function render() {
     const key=sessionStorage.getItem("open-company-draft");
     if(key){sessionStorage.removeItem("open-company-draft");const entry=Services.library.entries.find(e=>e.id==="draft:"+key);if(entry)await Services.openEntry(entry);}
   }
-  await startupMinimum;
-  document.documentElement.setAttribute("data-revealing", "");
   document.documentElement.removeAttribute("data-starting");
-  await new Promise(resolve => setTimeout(resolve, 450));
-  document.documentElement.removeAttribute("data-revealing");
   document.body.inert = false;
   startReady = true;
   saveDraft();

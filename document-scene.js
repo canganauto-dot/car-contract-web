@@ -1,6 +1,6 @@
 // Shared A4 output for the editor, preview, archive, offline edition and printing.
 class DocumentSceneRenderer {
-  documentPages(scene, design, include = () => true, archived = false, balance = calculate(d)) {
+  documentPages(scene, design, include = () => true, archived = false, balance = calculate(d), frozenCodes = false) {
     if(scene.documentLayouts)scene=ContractTemplates.scoped(scene);
     ctx = context(balance);
     const cash = d.contractType === "cash";
@@ -62,7 +62,8 @@ class DocumentSceneRenderer {
       External.context(extra);
       for (const [key, value] of Object.entries(extra)) if (key.startsWith("external")) ctx[key] = value;
     }
-    displayPages = Letters.pages(scene, displayPages);
+    displayPages = Letters.pages(scene, displayPages).filter(p=>!p.addedFor);
+    displayPages.push(...scene.pages.filter(p=>p.addedFor===ContractTemplates.scopeKey()));
     if (!design) displayPages = displayPages.filter(p =>
       !Schedule.requiresGuarantor(p.id,d) &&
       (p.id !== 0 || !paymentTransfer || TransferLetter.applies(d)),
@@ -71,13 +72,16 @@ class DocumentSceneRenderer {
     displayPages = SmartTables.expand(displayPages, design);
     const baseCtx = ctx;
     for (const page of displayPages) {
+      if(!archived||d.verificationCodes?.[page.id])DocumentQR.ensure(page);
       if (!archived) EditorEnhancements.upgradePage(page);
       if (!archived && page.id >= 0) PaperLayout.apply(page);
       if(!archived && page.id===1 && !d.standaloneBook && d.contractType==="exchange")Exchange.numberClauses(page);
       if (!include(page.tableParent ?? page.id)) continue;
       ctx = baseCtx;
       if (page.id < 0) ctx = { ...baseCtx, ...Schedule.values(page) };
-      if (page.id === 0) ctx = {
+      if(page.sourceScope==="contract:external"){ctx={...baseCtx};External.context(ctx);}
+      if(page.sourcePage<0)ctx={...baseCtx,...Schedule.values({id:page.sourcePage})};
+      if (page.id === 0 || page.sourcePage===0) ctx = {
         ...baseCtx,
         ...(External.active() ? {buyer:baseCtx.externalBuyer} : {}),
         cashTransferNote: TransferLetter.note(d, balance, baseCtx.cashTransferNote),
@@ -116,7 +120,7 @@ class DocumentSceneRenderer {
             : n.condition === "transfer-note"
               ? !!ctx.cashTransferNote?.trim()
               : n.condition === "agent"
-                ? cfg.fixed.hasAgent
+                ? branchHasAgent(d.numberBranch||cfg.fixed.branch)&&cfg.fixed.hasAgent
                 : amount(d.extras[Number(n.condition.split("-")[1])]?.amount) >
                   0);
         if (show || design) {
@@ -129,7 +133,7 @@ class DocumentSceneRenderer {
             ["company", "companySlot"].includes(n.binding)
           )
             continue;
-          const element = this.renderNode(n,page.id);
+          const element = this.renderNode(n,page.id,frozenCodes);
           const ordinal =
             n.clauseNumber ||
             (!archived && page.id === 1 && /^البند (\d+)$/.exec(n.name)?.[1]);
@@ -149,7 +153,7 @@ class DocumentSceneRenderer {
     ctx = baseCtx;
     return { papers, displayPages };
   }
-  renderNode(n,pageId) {
+  renderNode(n,pageId,frozenCodes=false) {
     n = SmartTables.model(n);
     const el = document.createElement("div");
     el.className = "scene-node";
@@ -183,6 +187,7 @@ class DocumentSceneRenderer {
       );
     }
     if (n.decorationColor) el.style.textDecorationColor = n.decorationColor;
+    if(n.binding==="documentQR"){DocumentQR.draw(el,n,pageId,ctx,frozenCodes);return el;}
     if (n.type === "text") {
       el.dataset.valign = n.verticalAlign || (n.vehicleCell ? "middle" : "top");
       el.append(documentTextContent(n, ctx));

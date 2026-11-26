@@ -218,6 +218,7 @@ const Schedule = {
     if (this.requiresGuarantor(id,d)) return false;
     if (SmartTables.parents.has(id))
       return this.enabled(SmartTables.parents.get(id));
+    if (SheetLibrary.isAdded(id)) return !(d.omittedSheets||"").split(",").includes(String(id));
     if (d.standaloneBook) return id === Number(d.standaloneBook);
     const ref = ContractTemplates.find()?.pages.find(p=>p.id===(id<0?-1:id));
     if (ref && ref.source !== d.contractType && id > 0 && !CompanySheets.ids.includes(id))

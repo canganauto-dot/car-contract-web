@@ -12,9 +12,9 @@ const { chromium } = require("playwright"),
     page.on("pageerror", (e) => errors.push(e.message));
     await page.goto(process.env.CONTRACT_TEST_URL);
     await page.waitForFunction(() => startReady);
-    if (await page.locator("#setupPrefix").isVisible()) {
-      await page.locator("#setupPrefix").fill("A");
-      await page.locator("#setupOrganizer").fill("اختبار");
+    if (await page.locator("#setupTitle").isVisible()) {
+      await page.locator("#setupTitle").fill("موظف العقود");
+      await page.locator("#setupOrganizer").fill("اختبار تجريبي");
       await page.locator("#setupBranch").fill("الدورة");
       await page.locator("#setupForm button").click();
     }

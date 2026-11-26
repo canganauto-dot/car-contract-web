@@ -43,7 +43,7 @@ const OfflineEdition = {
     const config = clone(cfg);
     const workspaceCollapsed = $("workbench").hidden;
     const appearanceId = crypto.randomUUID();
-    config.fixed = {...cfg.fixed, organizer:"", prefix:"", branch:"", nextNumber:1};
+    config.fixed = {...cfg.fixed, organizer:"", staffTitle:"", prefix:"", branch:"", nextNumber:1};
     config.setupComplete = false;
     config.design.uiDefaults = clone(UIPreferences.value);
     const html = await (await this.resource("index.html")).text();
@@ -61,7 +61,7 @@ const OfflineEdition = {
       if (!path.split("?")[0].endsWith("/seed.js")) return code;
       const at = code.indexOf("\nconst ContractAssets=");
       if (at < 0) throw Error("تعذرت قراءة موارد القوالب.");
-      return "const ContractSeed=" + JSON.stringify({offline:true,appearanceId,workspaceCollapsed,config}) + ";" + code.slice(at);
+      return "const ContractSeed=" + JSON.stringify({offline:true,appearanceId,workspaceCollapsed,localQr:Cloud.enabled&&new URL(Cloud.endpoint).hostname==="127.0.0.1",config}) + ";" + code.slice(at);
     }));
     // Package the same resources used by the running site. Keep executable code
     // intact and resolve its media URLs against the exported asset directory.

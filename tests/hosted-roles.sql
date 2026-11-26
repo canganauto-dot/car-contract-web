@@ -7,11 +7,11 @@ BEGIN
  PERFORM public.contract_portal(NULL,'bootstrap',jsonb_build_object('target',admin,'secret','fixture'));
  x:=public.contract_portal(admin,'session','{}'); ASSERT jsonb_array_length(x->'companies')=2;
  SELECT b.id INTO branch FROM app.branches b JOIN app.companies c ON c.id=b.company_id WHERE c.code='bakheet' AND b.name='الدورة';
- PERFORM public.contract_portal(admin,'create',jsonb_build_object('company','bakheet','target',worker,'username','worker','name','اختبار','role','employee','active',true,'branchRoles',jsonb_build_object(branch,'employee')));
- x:=public.contract_portal(worker,'session','{}'); ASSERT jsonb_array_length(x->'companies')=1;
+ PERFORM public.contract_staff_assignment(admin,'create',jsonb_build_object('company','bakheet','target',worker,'username','worker','name','اختبار','role','employee','active',true,'branchRoles',jsonb_build_object(branch,'employee')));
+ x:=public.contract_portal(worker,'session','{}'); ASSERT jsonb_array_length(x->'companies')=2;
  ASSERT jsonb_array_length(x->'companies'->0->'branches')=1;
  BEGIN PERFORM public.contract_portal(worker,'members','{"company":"bakheet"}'); RAISE EXCEPTION 'employee read roster'; EXCEPTION WHEN insufficient_privilege THEN NULL; END;
- BEGIN PERFORM public.contract_portal(worker,'layouts','{"company":"imad"}'); RAISE EXCEPTION 'company scope failed'; EXCEPTION WHEN insufficient_privilege THEN NULL; END;
+ BEGIN PERFORM public.contract_portal(worker,'layouts','{"company":"unrelated"}'); RAISE EXCEPTION 'company scope failed'; EXCEPTION WHEN insufficient_privilege THEN NULL; END;
  x:=public.contract_portal(admin,'publish',jsonb_build_object('company','bakheet','expected','0','scope','contract:cash','baseHash',repeat('1',64),'layout','{"pages":[]}'::jsonb));
  ASSERT public.contract_portal(worker,'layouts','{"company":"bakheet"}')->>'revision'=x->>'revision';
  BEGIN PERFORM public.contract_portal(worker,'publish','{"company":"bakheet"}'); RAISE EXCEPTION 'employee approved'; EXCEPTION WHEN insufficient_privilege THEN NULL; END;
@@ -28,7 +28,7 @@ BEGIN
  req:=(public.contract_review(admin,'pending','{"company":"bakheet"}')->0->>'id')::uuid; ASSERT req IS NOT NULL;
  BEGIN PERFORM public.contract_review(worker,'pending','{"company":"bakheet"}');RAISE EXCEPTION 'employee read approvals';EXCEPTION WHEN insufficient_privilege THEN NULL;END;
  INSERT INTO auth.users(id,email) VALUES(new_staff,'new@dummy.invalid');
- PERFORM public.contract_review(admin,'approve_access',jsonb_build_object('company','bakheet','name','اختبار','requestId',req,'role','employee','active',true,'target',new_staff,'branchRoles',jsonb_build_object(branch,'employee')));
+ PERFORM public.contract_staff_assignment(admin,'create',jsonb_build_object('company','bakheet','name','اختبار','requestId',req,'role','employee','active',true,'target',new_staff,'branchRoles',jsonb_build_object(branch,'employee')));
  ASSERT public.contract_portal(new_staff,'session','{}')->>'username'='newuser';
  PERFORM public.contract_review(worker,'propose',jsonb_build_object('company','bakheet','expected',x->>'revision','scope','contract:cash','baseHash',repeat('1',64),'layout','{"pages":[]}'::jsonb));
  req:=(public.contract_review(admin,'pending','{"company":"bakheet"}')->0->>'id')::uuid;

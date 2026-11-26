@@ -9,7 +9,7 @@ const Workbench = {
     rail.innerHTML =
       '<div class="work-create" role="group" aria-label="إنشاء مستند"><button id="workNew">إضافة عقد</button><button id="workLetter">إضافة كتاب</button></div><h2 id="workListTitle">المستندات المفتوحة</h2><div id="workItems" role="group" aria-labelledby="workListTitle"></div>';
     document.body.append(rail);
-    $("workNew").onclick = () => Services.createContract();
+    $("workNew").onclick = () => Services.startContract();
     $("workLetter").onclick = () => this.choose();
     rail.setAttribute("aria-label", "مساحة العمل");
     Letters.choose = () => this.choose();
@@ -285,7 +285,7 @@ const Workbench = {
       (p) => p.id === Number(d.standaloneBook),
     );
     const keys = new Set(["number", "contractDate"]);
-    for (const key of documentVariables(page))
+    for (const key of new Set([page,...(App.displayPages||[]).filter(p=>p.addedFor)].filter(Boolean).flatMap(p=>[...documentVariables(p)])))
       keys.add(key === "date" ? "contractDate" : key);
     const labels = {};
     for (const defs of Object.values(dataDefs))

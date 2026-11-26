@@ -626,17 +626,19 @@ class ContractServices {
     if(Cloud.enabled)await Cloud.writes;
     if (Workbench.ready) Workbench.paint();
   }
-  async showHome() {
+  async showHome(useLoaded=false) {
+    if(Cloud.formsReady&&SalesForms.panel)return SalesForms.open("archive",useLoaded);
     if (App.mode === "design") App.leave();
     App.commitText();
     this.saveCurrent(d);
     await this.flush();
-    if(Cloud.enabled)this.library=await Cloud.archive();
+    if(Cloud.enabled&&!useLoaded)this.library=await Cloud.archive();
     this.home = true;
     document.body.classList.add("home-mode");
     $("homeScreen").hidden = false;
     this.archivePanel();
   }
+  startContract(){return Cloud.formsReady?SalesForms.chooseForContract():this.createContract();}
   async createContract() {
     await BranchNumbers.migration;
     if (App.mode === "design") App.leave();
@@ -657,6 +659,7 @@ class ContractServices {
     render();
     saveDraft();
     $("buyer").focus({ preventScroll: true });
+    return true;
   }
   async openEntry(entry) {
     if (App.mode === "design") App.leave();
@@ -671,6 +674,7 @@ class ContractServices {
     buildInputs();
     render();
     saveDraft();
+    return true;
   }
   archivePanel() {
     Archive.refresh();
@@ -844,21 +848,27 @@ class ContractServices {
     canvas.scrollTop = (y * next) / old - (e.clientY - r.top);
   }
   async setup() {
-    if (cfg.setupComplete && cfg.fixed.prefix && cfg.fixed.organizer && cfg.fixed.branch) {
+    if (cfg.setupComplete && cfg.fixed.staffTitle && cfg.fixed.organizer && cfg.fixed.branch) {
       cfg.setupComplete = true;
       return;
     }
     const f = cfg.fixed;
     $("setupOrganizer").value = f.organizer || "";
-    $("setupPrefix").value = f.prefix || "";
+    $("setupTitle").value=f.staffTitle||"";
+    $("setupTitle").readOnly=$("setupOrganizer").readOnly=Cloud.enabled;
     $("setupBranch").value = f.branch || "";
     $("setupHasAgent").checked = !!f.hasAgent;
     $("setupAgent").value = f.agent || "";
     $("setupAgencyNo").value = f.agencyNo || "";
     $("setupAgencyDate").value = f.agencyDate || "";
     $("setupAgencyFrom").value = f.agencyFrom || "";
-    $("setupHasAgent").closest("label").hidden = false;
-    $("setupAgentFields").hidden = !seed.offline && !f.hasAgent;
+    const agentOptions=()=>{
+      const allowed=branchHasAgent($("setupBranch").value);
+      $("setupHasAgent").closest("label").hidden=!allowed;
+      $("setupHasAgent").disabled=!allowed;
+      $("setupAgentFields").hidden=!allowed||!$("setupHasAgent").checked;
+    };
+    $("setupBranch").oninput=$("setupHasAgent").onchange=agentOptions;agentOptions();
     $("setupDialog").showModal();
   }
   async init() {
@@ -898,7 +908,7 @@ class ContractServices {
     }
     fdetails.append($("formulaSettings"));
     $("homeButton").onclick = () => this.showHome();
-    $("homeCreate").onclick = () => this.createContract();
+    $("homeCreate").onclick = () => this.startContract();
     Archive.init();
     $("customerUpload").onclick = () => $("customerPhotoFile").click();
     $("customerCapture").onclick = () => this.openCamera();
@@ -970,7 +980,7 @@ class ContractServices {
       const button=document.createElement("button");button.type="button";button.textContent="إصدار";button.title="إصدار المستند وأرشفته";
       $("printSides").after(button);
       button.onclick=async()=>{if(this.home||button.disabled)return;button.disabled=true;
-        try{document.activeElement?.blur();await BranchNumbers.verify(d);this.refreshPrintClock();this.printCandidate={data:SmartTables.snapshot(d)};await this.confirmPrint();}
+        try{document.activeElement?.blur();await BranchNumbers.verify(d);this.refreshPrintClock();render();await DocumentQR.issueSelected();this.printCandidate={data:SmartTables.snapshot(d)};await this.confirmPrint();}
         catch(error){await Feedback.notice(error.message);}finally{button.disabled=false;}};
     }
     $("confirmPrinted").onclick = () => this.confirmPrint();
@@ -987,15 +997,16 @@ class ContractServices {
       ($("setupAgentFields").hidden = !$("setupHasAgent").checked);
     $("setupForm").onsubmit = async (e) => {
       e.preventDefault();
-      const prefix = $("setupPrefix").value.trim(),
+      const staffTitle = $("setupTitle").value.trim(),
         organizer = $("setupOrganizer").value.trim();
-      if (!prefix || !organizer || !$("setupBranch").value.trim()) return;
+      if (!staffTitle || !organizer || !$("setupBranch").value.trim()) return;
+      if(!Cloud.enabled && organizer.split(/\s+/).length<2){await Feedback.notice("أدخل الاسم الثنائي للموظف.");return;}
       if(Cloud.enabled && !Cloud.company.branches.some(b=>b.name===$("setupBranch").value.trim())){await Feedback.notice("اختر أحد الفروع المسندة لحسابك.");return;}
       Object.assign(cfg.fixed, {
-        prefix,
+        prefix:"",staffTitle,
         organizer,
         branch: $("setupBranch").value.trim(),
-        hasAgent: $("setupHasAgent").checked,
+        hasAgent: branchHasAgent($("setupBranch").value) && $("setupHasAgent").checked,
         agent: $("setupAgent").value,
         agencyNo: $("setupAgencyNo").value,
         agencyDate: $("setupAgencyDate").value,
@@ -1047,7 +1058,7 @@ class ContractServices {
     this.decorateForm();
     this.companyPanel();
     this.formulaPanel();
-    await this.showHome();
+    await this.showHome(true);
 
     await this.setup();
   }

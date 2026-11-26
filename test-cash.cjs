@@ -12,8 +12,8 @@ const assert = require("node:assert/strict");
     p.on("pageerror", (e) => errors.push(e.message));
     await p.goto(process.env.CONTRACT_TEST_URL);
     await p.waitForFunction(() => startReady);
-    if (await p.locator("#setupPrefix").isVisible()) {
-      await p.locator("#setupPrefix").fill("Q");
+    if (await p.locator("#setupTitle").isVisible()) {
+      await p.locator("#setupTitle").fill("موظف العقود");
       await p.locator("#setupOrganizer").fill("م. رسول");
       await p.locator("#setupBranch").fill("الدورة");
       await p.locator("#setupForm button").click();

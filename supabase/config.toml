@@ -1,5 +1,9 @@
 project_id = "car-contract-web"
 
+[functions.contract-access]
+# Authenticated actions validate the staff session inside the function.
+verify_jwt = false
+
 [functions.ownership-qr]
 # Verification is public. Issuance validates the staff JWT and company in the function.
 verify_jwt = false

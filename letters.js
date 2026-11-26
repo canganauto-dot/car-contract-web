@@ -51,9 +51,9 @@ const Letters = {
     };
     dialog.showModal();
   },
-  pages(scene, pages) {
-    if (!d.standaloneBook) return pages.filter((p) => p.id < 12000);
-    const id = Number(d.standaloneBook);
+  pages(scene, pages, book=d.standaloneBook) {
+    if (!book) return pages.filter((p) => p.id < 12000);
+    const id = Number(book);
     if (id < 12000) return pages.filter((p) => p.id === id);
     let page = scene.pages.find((p) => p.id === id);
     if (!page) {

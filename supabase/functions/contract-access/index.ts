@@ -1,3 +1,4 @@
+import webpush from "npm:web-push@3.6.7";
 import {projection} from "./finance.ts";
 import {PDFDocument} from "npm:pdf-lib@1.17.1";
 // All privileged operations derive the actor from Supabase Auth on this server.
@@ -15,6 +16,7 @@ async function upstream(path:string,method:string,key:string,body?:unknown,beare
  const data=await response.json().catch(()=>null);
  if(!response.ok){
   const code=data?.code; console.error("Upstream error",path.split("?")[0],response.status,code);
+  if(code==="P3001")throw new Failure(409,"انتهت مهلة إعادة النشر. بقيت تعديلاتك محفوظة في المسودة.");
   const status=code==="42501"?403:code==="40001"||code==="23505"?409:typeof code==="string" && /^(22|23)/.test(code)?400:response.status;
   throw new Failure(status,status===403?"لا تملك صلاحية هذه العملية.":status===409?"تغيّرت البيانات أو الاسم مستخدم. حدّث القائمة.":status===429?"محاولات كثيرة. حاول لاحقاً.":"تعذّر إكمال الطلب.");
  }
@@ -34,8 +36,8 @@ function formFields(source:Record<string,unknown>){
  const keys=("contractType contractDate buyer buyerPhone buyerId buyerIdDate buyerIdFrom buyerAddress district street house "+
  "guarantor guarantorId guarantorIdDate guarantorIdFrom guarantorAddress guarantorPhone guarantorDistrict guarantorStreet guarantorHouse "+
  "externalSeller externalSellerAddress externalSellerPhone externalSellerId externalBuyer externalBuyerAddress externalBuyerPhone externalBuyerId externalKeys externalPurchaseDate externalWaiverDate "+
- "oldCar oldVin oldModel oldColor oldMileage oldPlate car brand color model plate mileage vin total deposit depositDate firstDate payment count intervalMonths phaseEnabled phaseCount phasePayment phaseSecondCount "+
- "firstAuto depositAuto cashReceived cashDueDate cashTransferNote exchangeManual exchangePayer exchangePaymentNote warrantyYears noWarranty notes").split(" ");
+ "oldCar oldVin oldModel oldColor oldMileage oldPlate cashSplit car brand color model plate mileage vin total deposit depositDate firstDate payment count intervalMonths phaseEnabled phaseCount phasePayment phaseSecondCount "+
+ "firstAuto depositAuto exchangeOldDebt formSellerId formFees formInstallmentNote cashReceived cashDueDate cashTransferNote exchangeManual exchangePayer exchangePaymentNote warrantyYears noWarranty notes").split(" ");
  const data:Record<string,unknown>={};
  for(const key of keys){const v=source[key];if(typeof v==="string"||typeof v==="boolean"||typeof v==="number")data[key]=v;}
  if(source.bookValues && typeof source.bookValues==="object" && !Array.isArray(source.bookValues)){
@@ -104,6 +106,41 @@ async function upload(req:Request){
  }
  return reply(200,true);
 }
+// Device notifications carry an event kind and an inbox id. Customer and contract data stay inside the signed-in app.
+function pushDestination(raw:string){
+ const url=new URL(raw);
+ if(url.protocol!=="https:"||url.port||url.username||url.password||url.hash||!(
+  ["fcm.googleapis.com","updates.push.services.mozilla.com","web.push.apple.com"].includes(url.hostname)||
+  url.hostname.endsWith(".push.apple.com")||url.hostname.endsWith(".notify.windows.com")))throw new Failure(400,"خدمة إشعارات غير مدعومة.");
+ return url;
+}
+const encode64=(bytes:Uint8Array)=>btoa(Array.from(bytes,c=>String.fromCharCode(c)).join("")).replaceAll("+","-").replaceAll("/","_").replace(/=+$/,"");
+const vapid=()=>Deno.env.get("FORM_VAPID_JWK");
+function publicPushKey(){
+ const source=vapid();if(!source)return null;
+ const {x,y}=JSON.parse(source);const decode=(v:string)=>Uint8Array.from(atob(v.replaceAll("-","+").replaceAll("_","/")),s=>s.charCodeAt(0));
+ return encode64(new Uint8Array([4,...decode(x),...decode(y)]));
+}
+async function drainPush(){
+ if(!vapid()||!Deno.env.get("FORM_VAPID_SUBJECT"))return;
+ const vapidDetails={subject:Deno.env.get("FORM_VAPID_SUBJECT")!,publicKey:publicPushKey()!,privateKey:JSON.parse(vapid()!).d};
+ const jobs=await rpc("form_devices",{actor:null,action:"claim",p:{}});
+ await Promise.all(jobs.map(async(job:{endpoint:string,lease:string,id:number,kind:string,details?:Record<string,string>,auth:string,p256dh:string})=>{
+  let outcome="retry";
+  try{
+   const url=pushDestination(job.endpoint);
+   const request=webpush.generateRequestDetails({endpoint:url.href,keys:{auth:job.auth,p256dh:job.p256dh}},
+    JSON.stringify({kind:job.kind,id:job.id,details:job.details}),{TTL:86400,vapidDetails});
+   const response=await fetch(url,{method:"POST",redirect:"error",signal:AbortSignal.timeout(8000),headers:request.headers,body:new Uint8Array(request.body)});
+   outcome=response.ok?"sent":[404,410].includes(response.status)?"gone":"retry";await response.body?.cancel();
+  }catch{}
+  await rpc("form_devices",{actor:null,action:"finish",p:{endpoint:job.endpoint,id:job.id,lease:job.lease,outcome}});
+ }));
+}
+function queuePush(){
+ const runtime=(globalThis as typeof globalThis & {EdgeRuntime?:{waitUntil:(promise:Promise<void>)=>void}}).EdgeRuntime;
+ const job=drainPush().catch(()=>console.warn("Push delivery pending"));if(runtime)runtime.waitUntil(job);
+}
 Deno.serve(async(req)=>{
  if(req.method==="OPTIONS")return new Response(null,{status:204,headers});
  if(req.method!=="POST")return reply(405,{error:"طريقة غير صالحة."});
@@ -114,6 +151,11 @@ Deno.serve(async(req)=>{
   if(Number(req.headers.get("content-length"))>18000000)return reply(413,{error:"الملف كبير."});
   const input=await req.text();if(input.length>18000000)return reply(413,{error:"الملف كبير."});
   const p=JSON.parse(input);const action=p.action;
+  if(action==="push_retry"){
+   if(!Deno.env.get("FORM_PUSH_JOB_TOKEN")||req.headers.get("authorization")!=="Bearer "+Deno.env.get("FORM_PUSH_JOB_TOKEN"))throw new Failure(403,"غير مخوّل.");
+   await drainPush();return reply(200,true);
+  }
+  if(action==="qr_verify"){const v=await rpc("document_qr",{actor:null,action:"verify",p:{id:p.id}});return v?reply(200,v):reply(404,{error:"الرمز غير موجود."});}
   if(action==="request_access")return reply(200,await rpc("contract_review",{actor:null,action,p:{company:p.company,name:p.name,username:username(p.username)}}));
   if(action==="login"){
    const name=username(p.username);if(typeof p.password!=="string"||p.password.length>128)throw new Failure(401,"راجع اسم المستخدم وكلمة المرور.");
@@ -135,6 +177,7 @@ Deno.serve(async(req)=>{
   if(!bearer)throw new Failure(401,"سجّل الدخول.");
   const user=await upstream("/auth/v1/user","GET",anon,undefined,bearer);
   if(!user?.id)throw new Failure(401,"سجّل الدخول.");
+  if(["qr_issue","qr_review","qr_change","qr_visibility"].includes(action))return reply(200,await rpc("document_qr",{actor:user.id,action:action.slice(3),p}));
   if(action==="logout"){await fetch(root+"/auth/v1/logout?scope=local",{method:"POST",headers:{apikey:anon,Authorization:"Bearer "+bearer}});return reply(200,true);}
   if(action==="create")return reply(200,await createAccount(user.id,"create",p));
   if(action==="reset"||action==="password"){
@@ -161,10 +204,18 @@ Deno.serve(async(req)=>{
    return new Response(file.body,{headers:{...headers,"Content-Type":"application/pdf"}});
   }
   if(action==="update")return reply(200,await rpc("contract_staff_assignment",{actor:user.id,action,p}));
-  if(["forms_list","form_read","form_save","form_publish","form_approve","form_convert","move_contract"].includes(action)){
-   if(["form_save","form_publish"].includes(action) && (!p.data || Array.isArray(p.data) || typeof p.data!=="object" || JSON.stringify(p.data).length>500000 || !["cash","installment","external","exchange"].includes(p.data.contractType)))throw new Failure(400,"راجع محتوى الفورمة.");
-   if(action==="form_save"||action==="form_publish")p.data=formFields(p.data);
-   return reply(200,await rpc("sales_forms",{actor:user.id,action,p}));
+  if(action==="push_key")return reply(200,{key:Deno.env.get("FORM_VAPID_SUBJECT")?publicPushKey():null});
+  if(action==="push_subscribe"||action==="push_unsubscribe"){
+   const endpoint=pushDestination(p.endpoint).href;
+   return reply(200,await rpc("form_devices",{actor:user.id,action:action==="push_subscribe"?"subscribe":"unsubscribe",p:{endpoint,auth:p.auth,p256dh:p.p256dh}}));
+  }
+  if(action==="form_sellers")return reply(200,await rpc("form_sellers",{actor:user.id,p}));
+  if(["forms_list","form_read","form_save","form_publish","form_delete","form_withdraw","form_correct","form_reject","form_remove_published","form_history","alerts","alerts_seen","form_approve","form_convert","move_contract"].includes(action)){
+   if(["form_save","form_publish","form_correct"].includes(action) && (!p.data || Array.isArray(p.data) || typeof p.data!=="object" || JSON.stringify(p.data).length>500000 || !["cash","installment","external","exchange"].includes(p.data.contractType)))throw new Failure(400,"راجع محتوى الفورمة.");
+   if(["form_save","form_publish","form_correct"].includes(action))p.data=formFields(p.data);
+   const result=await rpc("sales_forms",{actor:user.id,action,p});
+   if(["form_publish","form_correct","form_approve","form_reject"].includes(action))queuePush();
+   return reply(200,result);
   }
   if(action==="number")return reply(200,await rpc("contract_number",{actor:user.id,p}));
   if(["layouts","propose"].includes(action)){
@@ -174,7 +225,7 @@ Deno.serve(async(req)=>{
   }
   if(["publish","propose"].includes(action))cleanLayout(p);
   if(["pending","propose","approve_design","reject","inspect"].includes(action))return reply(200,await rpc("contract_review",{actor:user.id,action,p}));
-  if(!["session","members","update","layouts","publish"].includes(action))throw new Failure(404,"عملية غير معروفة.");
+  if(!["session","members","update","layouts","publish","brand_save"].includes(action))throw new Failure(404,"عملية غير معروفة.");
   return reply(200,await portal(user.id,action,p));
  }catch(e){
   const status=e instanceof Failure?e.status:e instanceof SyntaxError?400:500;

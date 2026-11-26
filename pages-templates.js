@@ -65,7 +65,8 @@ const PagesTemplates = {
       if(record.baseHash!==await this.baseHash(scope))continue;
       const layout=record.layout;
       (base.design.documentLayouts ||= {})[scope]=clone(layout);
-      for(const {id,name} of layout.pages || []){
+      for(const {id,name,addedFor} of layout.pages || []){
+        if(addedFor)continue;
         if(id>8 && !(base.extraPages || []).some(p=>p.id===id))
           (base.extraPages ||= []).push({id,name});
       }

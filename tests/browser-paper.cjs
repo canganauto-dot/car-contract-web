@@ -12,8 +12,8 @@ const serve=require("./server.cjs");
     try{
       const page=await browser.newPage({viewport:{width:1440,height:900}});
       await page.goto(host.url);await page.waitForFunction(()=>startReady);
-      await page.locator("#setupPrefix").fill("T");await page.locator("#setupBranch").fill("فرع تجريبي");
-      await page.locator("#setupOrganizer").fill("اختبار");await page.locator("#setupForm button").click();
+      await page.locator("#setupTitle").fill("موظف العقود");await page.locator("#setupBranch").fill("فرع تجريبي");
+      await page.locator("#setupOrganizer").fill("اختبار تجريبي");await page.locator("#setupForm button").click();
       const search=await page.locator("#archiveSearch").evaluate(el=>{
         const box=el.getBoundingClientRect(),frame=el.closest("label").getBoundingClientRect();
         return box.top>=frame.top && box.bottom<=frame.bottom && box.right<=frame.right+.5 && box.left>=frame.left-.5;

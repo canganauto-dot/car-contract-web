@@ -4,49 +4,44 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width,initial-scale=1" />
     <title>منظومة عقود السيارات</title>
-    <script>
-      const startupMinimum = new Promise(resolve => requestAnimationFrame(() => setTimeout(resolve, 3000)));
-    </script>
     <style>
       #startupThread { display:none }
       html[data-starting], html[data-starting] body { background:#17222d !important }
       html[data-starting] body > :not(#startupThread) { visibility:hidden !important }
-      html:is([data-starting],[data-revealing]) body > #startupThread {
+      html[data-starting] body > #startupThread {
         display:block !important; position:fixed; inset:0; width:100vw; height:100dvh;
         z-index:2147483647; background:#17222d; color:#9abed9; pointer-events:none;
       }
-      html[data-starting] body > #startupThread.cloud-signin {display:grid !important;place-items:center;pointer-events:auto}
-      #startupThread.cloud-signin form {width:min(22rem,90vw);padding:1.25rem;background:#27384a;color:white;border-radius:.7rem;display:grid;gap:.7rem;font:1.15rem Alyamama,sans-serif}
-      #startupThread.cloud-signin label {display:grid;gap:.2rem}
-      #startupThread.cloud-signin h1 {font-size:1.6rem;margin:0} #startupThread.cloud-signin input {min-width:0;padding:.45rem;background:white;color:#152132}
-      #startupThread.cloud-signin button {position:static;transform:none;padding:.45rem;background:#add8f3;color:#132335}
-      #startupThread svg { position:absolute; top:50%; left:0; transform:translateY(-50%); width:100%; height:38px; overflow:hidden }
-      #startupThread button { position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); pointer-events:auto }
-      #startupThread p { position:absolute; inset:45% 10% auto; text-align:center; color:#efefef }
-      html[data-revealing] body { animation:startup-reveal .45s ease-out both }
-      html[data-revealing] body > #startupThread { animation:startup-cover .45s ease-out both }
-      @keyframes startup-cover { to { opacity:0 } }
-      @keyframes startup-reveal { from { opacity:.92 } to { opacity:1 } }
-      #startupThread .thread-wave { position:absolute; left:50%; width:96px; transform:translate(-50%,-50%); background:#17222d }
-      #startupThread path { animation:thread-flex 4s ease-in-out infinite alternate }
-      @keyframes thread-flex {
-        from { d:path("M0 19 C16 19 16 6 32 12 S52 33 65 23 S82 19 96 19") }
-        to { d:path("M0 19 C16 19 22 32 36 24 S53 6 68 16 S82 19 96 19") }
-      }
-      @media (prefers-reduced-motion:reduce) {
-        #startupThread path,
-        html[data-revealing] body,
-        html[data-revealing] #startupThread {animation:none}
-      }
+      html[data-starting] body > #startupThread.cloud-signin{display:grid!important;place-items:center;pointer-events:auto;overflow:auto;padding:20px;background:linear-gradient(120deg,#102632,#163a43 55%,#18484b)}
+      #startupThread.cloud-signin form{box-sizing:border-box;width:min(24rem,100%);padding:clamp(20px,4vw,34px);border-radius:12px;background:#fafcfc;color:#183541;box-shadow:0 18px 80px #081b2940;display:grid;gap:14px;font:18px/1.35 Alyamama,sans-serif}
+      #startupThread.cloud-signin label{display:grid;gap:4px}
+      #startupThread.cloud-signin h1{font:700 30px/1.35 Alyamama,sans-serif;margin:0 0 6px;padding-bottom:12px;border-bottom:1px solid #d7e1e4}
+      #startupThread.cloud-signin input:not([type=checkbox]){box-sizing:border-box;width:100%;height:40px;padding:4px 9px;background:white;color:#152e3b;border:1px solid #b9cbd0;border-radius:5px;font:inherit}
+      #startupThread.cloud-signin input:focus-visible{outline:2px solid #36898b;outline-offset:1px}
+      #startupThread.cloud-signin input[type=checkbox]{accent-color:#225c60;vertical-align:middle}
+      #startupThread.cloud-signin button{position:static;transform:none;padding:8px;background:#20545b;color:#fff;border:0;border-radius:6px;font:inherit;cursor:pointer}
+      #startupThread.cloud-signin button[type=button]{background:#e7eff0;color:#244650}
+      #startupThread.cloud-signin output:empty{display:none}
+      #startupThread{place-items:center}
+      html[data-starting] body > #startupThread{display:grid!important}
+      #startupThread button{pointer-events:auto}
+      .wait-dots{display:inline-flex;align-items:center;justify-content:center;gap:.25em;color:inherit}
+      .wait-dots i{display:block;width:.45em;height:.45em;background:currentColor;border-radius:50%;animation:dot-pulse 1s ease-in-out infinite alternate}
+      .wait-dots i:nth-child(2){animation-delay:.18s}.wait-dots i:nth-child(3){animation-delay:.36s}
+      #startupThread .wait-dots{font-size:1.65rem}
+      button[aria-busy=true]{cursor:progress}
+      #taskProgress{display:none;position:fixed;bottom:1rem;left:1rem;padding:.55rem .8rem;border-radius:2rem;background:#24445a;color:#fff;z-index:2147483600;pointer-events:none}
+      html[data-working]:not([data-starting]) #taskProgress{display:flex;visibility:visible!important}
+      @keyframes dot-pulse{0%,20%{opacity:.25}70%,100%{opacity:1}}
+      @media(prefers-reduced-motion:reduce){.wait-dots i{animation:none}.wait-dots i:nth-child(1){opacity:.4}.wait-dots i:nth-child(2){opacity:.7}}
     </style>
     <!--STYLES-->
   </head>
   <body class="home-mode" inert>
     <div id="startupThread" role="status" aria-label="جارٍ استرجاع البيانات والتفضيلات">
-      <svg class="thread-wave" viewBox="0 0 96 38" aria-hidden="true">
-        <path d="M0 19 C16 19 16 6 32 12 S52 33 65 23 S82 19 96 19" fill="none" stroke="currentColor" stroke-width="2"/>
-      </svg>
+      <span class="wait-dots" aria-hidden="true"><i></i><i></i><i></i></span>
     </div>
+    <div id="taskProgress" role="status" aria-label="جارٍ تنفيذ الطلب"><span class="wait-dots" aria-hidden="true"><i></i><i></i><i></i></span></div>
     <header id="toolbar">
       <nav class="bar-group" aria-label="التنقل">
         <button
@@ -90,7 +85,7 @@
         ><button data-action="shapes" title="الأشكال">◇</button
         ><button data-action="image" title="إضافة صورة">▧</button
         ><button data-action="table" title="إضافة جدول">▦</button
-        ><button data-action="page" title="إضافة صفحة">＋ صفحة</button
+        ><button data-action="page" title="إضافة صفحة">＋ صفحة</button><button data-action="qr" title="تعديل باركود الصفحة">QR</button
         ><span class="divider"></span
         ><button data-action="undo" title="تراجع Ctrl+Z">↶</button
         ><button data-action="redo" title="إعادة Ctrl+Y">↷</button

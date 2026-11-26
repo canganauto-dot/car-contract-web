@@ -8,8 +8,7 @@ const PrintPlan = {
         .filter(
           (p) =>
             Number(p.dataset.page) === Number(data.standaloneBook) ||
-            (!face && SmartTables.parents.get(Number(p.dataset.page)) ===
-              Number(data.standaloneBook)),
+            (!face && (SheetLibrary.isAdded(Number(p.dataset.page)) || SheetLibrary.isAdded(SmartTables.parents.get(Number(p.dataset.page))) || SmartTables.parents.get(Number(p.dataset.page)) === Number(data.standaloneBook))),
         )
         .map((p) => p.cloneNode(true));
     const cash = data.contractType === "cash";

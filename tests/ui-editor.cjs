@@ -27,8 +27,8 @@ fs.mkdirSync(output, { recursive: true });
     await page.waitForFunction(() => startReady);
     if (await page.locator("#setupDialog").isVisible()) {
       await page.locator("#setupBranch").fill("الدورة");
-      await page.locator("#setupOrganizer").fill("اختبار");
-      await page.locator("#setupPrefix").fill("Q");
+      await page.locator("#setupOrganizer").fill("اختبار تجريبي");
+      await page.locator("#setupTitle").fill("موظف العقود");
       await page.locator("#setupForm button").click();
     }
     await test("right sidebar reflows the complete home, then only the fill area", async () => {
@@ -179,8 +179,8 @@ fs.mkdirSync(output, { recursive: true });
         await offline.waitForFunction(() => startReady);
         if (await offline.locator("#setupDialog").isVisible()) {
           await offline.locator("#setupBranch").fill("الدورة");
-          await offline.locator("#setupOrganizer").fill("اختبار");
-          await offline.locator("#setupPrefix").fill("Q");
+          await offline.locator("#setupOrganizer").fill("اختبار تجريبي");
+          await offline.locator("#setupTitle").fill("موظف العقود");
           await offline.locator("#setupForm button").click();
           await offline.locator("#setupDialog").waitFor({state:"hidden"});
         }

@@ -539,3 +539,4 @@
   border-radius: 8px;
   border: 1px dashed #9babb5;
 }
+.scene-node .qr-pending{position:absolute;inset:auto 0 0;text-align:center;background:white;color:#233442;font:8px/1 Alyamama,sans-serif;pointer-events:none}

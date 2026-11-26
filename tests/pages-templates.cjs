@@ -47,7 +47,7 @@ const {chromium} = require("playwright");
     async function open(prefix){
       const page=await browser.newPage();
       await page.goto(origin+mount);await page.waitForFunction(()=>startReady);
-      await page.locator("#setupPrefix").fill(prefix);
+      await page.locator("#setupTitle").fill("موظف العقود");
       await page.locator("#setupOrganizer").fill("اختبار "+prefix);
       await page.locator("#setupBranch").fill("اختبار");
       await page.locator("#setupForm button").click();

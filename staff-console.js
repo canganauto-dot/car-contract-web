@@ -366,7 +366,7 @@ const StaffConsole = {
       this.refresh();
     };
     head.append(
-      staffField("الشركة", company),
+      ...(!c.sharedBrand?[staffField("الشركة",company)]:[]),
       staffElement(
         "p",
         staffRoles[c.role] +
@@ -539,6 +539,13 @@ const StaffConsole = {
       member?.role || "employee",
     );
     const department=staffSelect("القسم",[["contracts","العقود"],["sales","المبيعات"],["finance","المالية"]],member?.department||"contracts");
+    const nameCaption=staffField("الاسم",name);
+    const updateNameCaption=()=>{
+      const full=department.value==="sales"||["administrator","branch_manager"].includes(role.value);
+      const label=nameCaption.firstChild;label.textContent=full?"الاسم الثنائي":"الاسم";
+      name.placeholder=full?"الاسم الأول واسم الأب أو العائلة":"";
+    };
+    role.addEventListener("change",updateNameCaption);department.addEventListener("change",updateNameCaption);updateNameCaption();
     const scopes=staffElement("fieldset");scopes.append(staffElement("legend","الشركات المخوّلة"));
     const choices=(this.session.companies||[]).filter(x=>x.role==="administrator").map(x=>{
       const input=staffElement("input");input.type="checkbox";input.value=x.id;
@@ -598,11 +605,11 @@ const StaffConsole = {
         "h3",
         (member ? "تعديل عضوية" : "إضافة مستخدم") + " · " + c.name,
       ),
-      staffField("الاسم", name),
+      nameCaption,
       staffField(Cloud.enabled ? "اسم المستخدم" : "البريد الإلكتروني", email),
       ...(Cloud.enabled ? [staffField(member?"كلمة مرور جديدة (اختياري)":"كلمة المرور",pass)] : []),
       staffField("الدور", role),
-      ...(Cloud.formsReady ? [staffField("القسم",department),scopes] : []),
+      ...(Cloud.formsReady ? [staffField("القسم",department),...(c.sharedBrand?[]:[scopes])] : []),
       staffField("حالة العضوية", status),
       branches,
       msg,
@@ -620,6 +627,9 @@ const StaffConsole = {
           role.value === "employee" ? "employee" : a.branchRole.value,
         ]),
       );
+      if((!member||status.value==="active")&&(department.value==="sales"||["administrator","branch_manager"].includes(role.value))&&!/^[^\s0-9٠-٩]+(?:\s+[^\s0-9٠-٩]+)+$/u.test(name.value.trim())){
+        msg.textContent="أدخل الاسم الأول واسم الأب أو العائلة حتى يظهر الاسم على الفورمة.";name.focus();return;
+      }
       if (!name.value.trim() || (!branches.hidden && !branchIds.length)) {
         msg.textContent = "أدخل الاسم واختر فرعاً واحداً على الأقل.";
         return;

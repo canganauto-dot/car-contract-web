@@ -125,7 +125,7 @@ function contract() {
       ) +
       "</section>" +
       '<section class="block" style="visibility:' +
-      (cfg.fixed.hasAgent ? "visible" : "hidden") +
+      ((branchHasAgent(d.numberBranch||cfg.fixed.branch)&&cfg.fixed.hasAgent) ? "visible" : "hidden") +
       '">' +
       line(F("agent", "اسم الوكيل:")) +
       line(F("agencyNo", "رقم الوكالة:"), F("agencyDate", "تاريخ الإصدار:")) +

@@ -57,27 +57,8 @@ const ContractFiles = {
   },
   paintTransferQrAction() {
     const action = $("transferQrAction");
-    if (action)
-      action.hidden = !(App.mode === "fill" && String(d?.standaloneBook) === "0");
-  },
-  openTransferQr() {
-    if (String(d?.standaloneBook) !== "0")
-      return Feedback.notice("إصدار الباركود متاح لكتاب نقل الملكية فقط");
-    App.commitText();
-    const values = context();
-    const fields = ["number", "buyer", "car", "model", "plate", "vin", "color",
-      "transferAddressee", "cashTransferNote", "manager", "organizer"];
-    const data = Object.fromEntries(fields.map(key => [key, values[key] ?? ""]));
-    Object.assign(data, { standaloneBook: "0", companyId: d.companyId, contractDate: d.contractDate });
-    const payload = { format: "contracts-data", version: 1, data };
-    const bytes = new TextEncoder().encode(JSON.stringify(payload));
-    let binary = "";
-    for (const byte of bytes) binary += String.fromCharCode(byte);
-    const link = document.createElement("a");
-    link.href = "https://canganauto-dot.github.io/QR/#data=" + encodeURIComponent(btoa(binary));
-    link.target = "_blank";
-    link.rel = "noopener";
-    link.click();
+    $("manageQr").hidden=!Cloud.enabled||!SalesForms.managesBranches;
+    if(action)action.hidden=App.mode!=="fill"||!App.displayPages.some(p=>p.nodes.some(n=>n.binding==="documentQR"));
   },
   async save(data = d) {
     App.commitText();
@@ -100,6 +81,7 @@ const ContractFiles = {
       const offline=value.origin==="offline" || (!value.origin && !data.offlineNumber && !seed.offline &&
         await Feedback.ask("هل أُنشئ ملف JSON القديم بنسخة الأوفلاين؟ يُضاف -F إلى عدد مستندات الأوفلاين."));
       await BranchNumbers.imported(data,offline);
+      await DocumentQR.registerPending(data);
       if(await Services.openEntry({data})){
         Services.saveCurrent(d);
         await Services.flush();
@@ -118,7 +100,8 @@ const ContractFiles = {
       e.target.value = "";
     };
     $("fillPrint").onclick = () => $("printAll").click();
-    $("issueTransferQr").onclick = () => this.openTransferQr();
+    $("issueTransferQr").onclick = () => DocumentQR.issueSelected().catch(e=>Feedback.notice(e.message));
+    $("manageQr").onclick=()=>DocumentQR.manage();
     $("signedFolder").onclick = async () => {
       try {
         this.folder = await showDirectoryPicker({ mode: "readwrite" });

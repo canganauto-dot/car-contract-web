@@ -66,6 +66,7 @@ class ContractEditor extends DocumentSceneRenderer {
   }
   current() {
     if (!this.scene) return;
+    const added=this.scene.pages.find(p=>p.addedFor && p.id===this.page);if(added)return added;
     const ref = !d.standaloneBook && ContractTemplates.find(d.templateId, this.scene)?.pages.find(r => r.id === this.page);
     if (ref) return ContractTemplates.resolve(this.scene, ref);
     if (CompanySheets.ids.includes(this.page))
@@ -191,7 +192,7 @@ class ContractEditor extends DocumentSceneRenderer {
     for(const key of ContractTemplates.layoutKeys)if(scene[key]!==undefined)layout[key]=clone(scene[key]);
     cfg.design={...originalDesign,documentLayouts:{...originalDesign.documentLayouts,[ContractTemplates.scopeKey()]:layout}};
     cfg.extraPages = scene.pages
-      .filter((p) => p.id > 8)
+      .filter((p) => p.id > 8 && !p.addedFor)
       .map((p) => ({ id: p.id, name: p.name }));
     try {
       await saveConfig(ContractTemplates.scopeKey());
@@ -260,7 +261,7 @@ class ContractEditor extends DocumentSceneRenderer {
     this.inspector();
     this.layers();
     TransferLetter.decorate(d, balance);
-      ContractFiles.paintTransferQrAction();
+    ContractFiles.paintTransferQrAction();
     Workspace.markMissing(balance);
     Workspace.paymentRows();
     if(document.activeElement!==$("contractNumber"))$("contractNumber").value=d.numberUnconfirmed?d.numberRequest:d.number;
@@ -330,7 +331,9 @@ class ContractEditor extends DocumentSceneRenderer {
         (p.id === 0 && TransferLetter.paidInFull(d));
       check.title = "تضمين الصفحة في الطباعة";
       check.onchange = () => {
-        if (p.id === 0 && TransferLetter.paymentContract(d)) {
+        if (p.addedFor) {
+          const skip=new Set(d.omittedSheets.split(",").filter(Boolean)); if(check.checked)skip.delete(String(p.id));else skip.add(String(p.id)); d.omittedSheets=[...skip].join(",");
+        } else if (p.id === 0 && TransferLetter.paymentContract(d)) {
           d[d.contractType + "TransferLetter"] = check.checked;
           render();
         } else if (p.id === 0) d.skipTransferLetter = !check.checked;
@@ -1212,24 +1215,8 @@ class ContractEditor extends DocumentSceneRenderer {
       return;
     }
     this.commitText();
-    if (name === "page") {
-      this.checkpoint();
-      const id = Math.max(8, ...this.scene.pages.map((p) => p.id)) + 1;
-      const page = { id, name: "صفحة إضافية " + (id - 8), nodes: [] };
-      const template = ContractTemplates.find(d.templateId,this.scene);
-      if (template) {
-        page.id = Math.max(id,...(this.scene.contractTemplates || []).flatMap(t=>t.pages.map(r=>r.id)).filter(v=>v<9000))+1;
-        template.pages.push({id:page.id,source:d.contractType,page});
-      } else this.scene.pages.push(page);
-      d.pages.push(page.id);
-      this.page = page.id;
-      this.selection.clear();
-      this.render();
-      $("pagePreview").value = String(page.id);
-      this.changePage();
-      this.persist();
-      return;
-    }
+    if (name === "page") return SheetLibrary.open(this);
+    if (name === "qr") return DocumentQR.settings(this);
     const nodes = this.selected();
     if (!nodes.length) return;
     if (name === "editText") return this.editText(nodes[0].id);
@@ -1245,7 +1232,7 @@ class ContractEditor extends DocumentSceneRenderer {
     this.checkpoint();
     const page = this.current();
     if (name === "delete") {
-      page.nodes = page.nodes.filter((n) => !this.selection.has(n.id));
+      page.nodes = page.nodes.filter((n) => !this.selection.has(n.id)||(n.binding==="documentQR"&&DocumentQR.mandatory(page)));
       this.selection.clear();
     }
     if (name === "duplicate") {
@@ -1505,6 +1492,8 @@ class ContractEditor extends DocumentSceneRenderer {
       text: "M4 4h16M12 4v16M8 20h8",
       image: "M3 3h18v18H3zM3 17l6-6 4 4 3-3 5 5",
       table: "M3 3h18v18H3zM3 9h18M3 15h18M9 3v18M15 3v18",
+      page: "M5 2h9l5 5v15H5zM14 2v6h5M8 15h8m-4-4v8",
+      qr: "M3 3h7v7H3zM14 3h7v7h-7zM3 14h7v7H3zM14 14h3v3h4m-7 4h3v-3m4 3v-2",
       shapes: "M3 3h9v9H3zM16 10a6 6 0 1 0 0 12 6 6 0 0 0 0-12",
       undo: "M9 5L3 11l6 6M3 11h11a6 6 0 0 1 6 6",
       redo: "M15 5l6 6-6 6M21 11H10a6 6 0 0 0-6 6",
@@ -1776,7 +1765,7 @@ class ContractEditor extends DocumentSceneRenderer {
     window.addEventListener(
       "beforeprint",
       () => {
-        if(!BranchNumbers.readyToPrint(d)){
+        if(!BranchNumbers.readyToPrint(d) || DocumentQR.needsIssue()){
           document.body.classList.add("number-print-blocked");return;
         }
         if (document.activeElement?.closest("#fillPanel, #toolbar")) document.activeElement.blur();
@@ -1784,6 +1773,7 @@ class ContractEditor extends DocumentSceneRenderer {
         Services.beforePrint();
         this.printing = true;
         this.render();
+        if(DocumentQR.needsIssue()){this.printing=false;Services.printCandidate=null;document.body.classList.add("number-print-blocked");return;}
         PrintPlan.prepare();
         document.querySelectorAll(".paper").forEach((p) => {
           p.style.display = "block";
@@ -1798,7 +1788,7 @@ class ContractEditor extends DocumentSceneRenderer {
         BranchNumbers.printing=null;
         if(document.body.classList.contains("number-print-blocked")){
           document.body.classList.remove("number-print-blocked");
-          $("saveStatus").textContent="استخدم زر الطباعة لتأكيد عدد الفرع.";return;
+          $("saveStatus").textContent="استخدم زر الطباعة لتأكيد العدد وإصدار رموز التحقق المطلوبة.";return;
         }
         this.printing = false;
         this.render();
