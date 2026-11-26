@@ -59,7 +59,7 @@ const Schedule = {
       {
         id: "schedule-form",
         type: "image",
-        name: "فورمة الشركة",
+        name: "ترويسة الشركة",
         binding: "company",
         fit: "fill",
         x: 0,

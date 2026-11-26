@@ -433,9 +433,14 @@ const StaffConsole = {
       for(const q of rows){
         const row=staffElement("li");
         row.append(staffElement("b",q.kind==="access"?"طلب دخول":"تعديل تصميم"),staffElement("span",q.name+" · "+q.subject+(q.kind==="design"?" · "+q.pages+" صفحة":"")));
-        const decision=async action=>{try{await Cloud.call(action,{company:c.id,requestId:q.id});await this.refresh("حُفظ القرار.");}catch(error){this.notice.textContent=error.message;}};
+        const decision=action=>Cloud.call(action,{company:c.id,requestId:q.id});
         if(q.kind==="design")row.append(staffButton("تنزيل التصميم للمراجعة",async()=>{try{download("design.json",JSON.stringify(await Cloud.call("inspect",{company:c.id,requestId:q.id}),null,2),"application/json");}catch(error){this.notice.textContent=error.message;}}));
-        row.append(staffButton("موافقة",()=>q.kind==="access"?this.edit(c,null,q):decision("approve_design")),staffButton("رفض",()=>decision("reject")));
+        row.append(staffButton("مراجعة الطلب",()=>ReviewDialog.open({
+          title:q.kind==="access"?"مراجعة طلب الدخول":"مراجعة التصميم",subject:q.name+" · "+q.subject,
+          choices:[{name:q.kind==="access"?"تحديد صلاحيات الموظف":"اعتماد التصميم",apply:()=>q.kind==="access"?this.edit(c,null,q):decision("approve_design")},
+                   {name:"رفض الطلب",apply:()=>decision("reject")}],
+          after:()=>this.body.isConnected&&this.refresh()
+        })));
         list.append(row);
       }
       if(!rows.length)list.append(staffElement("li","لا توجد طلبات بانتظار الموافقة."));
@@ -628,7 +633,7 @@ const StaffConsole = {
         ]),
       );
       if((!member||status.value==="active")&&(department.value==="sales"||["administrator","branch_manager"].includes(role.value))&&!/^[^\s0-9٠-٩]+(?:\s+[^\s0-9٠-٩]+)+$/u.test(name.value.trim())){
-        msg.textContent="أدخل الاسم الأول واسم الأب أو العائلة حتى يظهر الاسم على الفورمة.";name.focus();return;
+        msg.textContent="أدخل الاسم الأول واسم الأب أو العائلة حتى يظهر الاسم على الاستمارة.";name.focus();return;
       }
       if (!name.value.trim() || (!branches.hidden && !branchIds.length)) {
         msg.textContent = "أدخل الاسم واختر فرعاً واحداً على الأقل.";

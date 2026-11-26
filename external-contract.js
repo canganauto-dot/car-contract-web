@@ -496,7 +496,7 @@ const External = {
         p.nodes.unshift({
           id: "external-waiver-form",
           type: "image",
-          name: "فورمة شركة المدير المفوض",
+          name: "ترويسة شركة المدير المفوض",
           binding: "company",
           x: 0,
           y: 0,

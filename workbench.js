@@ -12,9 +12,6 @@ const Workbench = {
     $("workNew").onclick = () => Services.startContract();
     $("workLetter").onclick = () => this.choose();
     rail.setAttribute("aria-label", "مساحة العمل");
-    Letters.choose = () => this.choose();
-    $("newLetter").textContent = "إضافة كتاب";
-    $("newLetter").onclick = () => this.choose();
     for (const method of ["createContract", "openEntry"]) {
       const original = Services[method].bind(Services);
       Services[method] = async (...args) => {
@@ -23,12 +20,11 @@ const Workbench = {
         this.paint();
         $("cards").inert = true;
         try {
-          await original(...args);
-          this.paint();
-          return true;
+          return await original(...args);
         } finally {
           this.switching = false;
           $("cards").inert = false;
+          this.paint();
         }
       };
     }

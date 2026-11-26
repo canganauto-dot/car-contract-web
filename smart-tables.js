@@ -26,8 +26,6 @@ const SmartTables = {
   },
   init() {
     $("homeCreate").hidden = true;
-    $("newLetter").hidden = true;
-    $("importArchive").hidden = true;
     const mark = document.createElement("strong");
     mark.id = "toolbarBrand";
     mark.textContent = "Contracts";

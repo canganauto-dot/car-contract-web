@@ -7,13 +7,13 @@ import importlib
 import json
 import os
 import re
-import tempfile
 import threading
 import uuid
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
 import rebuild
+from rebuild import atomic
 from branch_numbers import reserve
 
 ROOT = Path(__file__).resolve().parent
@@ -23,19 +23,9 @@ LOCK = threading.Lock()
 KEYS = set("companies cars assets clauses edits custom content contentOrder extraPages objects design companyFields companyImageSlots formulas vehicleImageSlots vehicleImages vehicleImageHistory imageSeparationVersion printSides bookPriceDefaults deletedCompanyImageSlots frames letterTemplates priceCatalogs requiredFields tables variableLabels".split())
 
 
-def atomic(path, content):
-    with tempfile.NamedTemporaryFile(dir=path.parent, delete=False) as f:
-        tmp = Path(f.name)
-        try:
-            f.write(content)
-        except BaseException:
-            f.close()
-            tmp.unlink(missing_ok=True)
-            raise
-    try:
-        os.replace(tmp, path)
-    finally:
-        tmp.unlink(missing_ok=True)
+class ContractHTTPServer(ThreadingHTTPServer):
+    # A fresh browser requests the editor modules in parallel.
+    request_queue_size = 128
 
 
 def media(value):
@@ -208,10 +198,10 @@ if __name__ == "__main__":
     parser.add_argument("--preview-port", type=int, help="Serve example first pages using the same approved templates and write lock")
     args = parser.parse_args()
     with ExitStack() as servers:
-        main = servers.enter_context(ThreadingHTTPServer(("127.0.0.1", args.port), Handler))
+        main = servers.enter_context(ContractHTTPServer(("127.0.0.1", args.port), Handler))
         main.preview = False
         if args.preview_port is not None:
-            preview = servers.enter_context(ThreadingHTTPServer(("127.0.0.1", args.preview_port), Handler))
+            preview = servers.enter_context(ContractHTTPServer(("127.0.0.1", args.preview_port), Handler))
             preview.preview = True
             threading.Thread(target=preview.serve_forever, daemon=True).start()
             servers.callback(preview.shutdown)

@@ -127,7 +127,7 @@ class ContractEditor extends DocumentSceneRenderer {
     const stored = this.draft?.scope === scope ? this.draft : await getDB("designDraft:" + scope);
     const stale=stored?.baseRevision && stored.baseRevision!==cfg.sharedRevision;
     const useDraft=stored?.version===6 && stored.scope===scope && (!stale ||
-      await Feedback.ask("عدّل مستخدم آخر التصميم بعد حفظ مسودتك. تريد تفتح مسودتك للمراجعة؟ اعتمادها يستبدل تصميم هذا النموذج على الهوست."));
+      await Feedback.ask("عدّل مستخدم آخر التصميم بعد حفظ مسودتك. هل تريد فتح مسودتك للمراجعة؟ سيحلّ التصميم المعتمد محل النسخة المنشورة."));
     if (useDraft) {
       this.scene = clone(stored.scene);
       if (stored.printPages)
@@ -215,7 +215,7 @@ class ContractEditor extends DocumentSceneRenderer {
     document.body.classList.remove("design-mode");
     $("editorPanel").hidden = true;
     this.render();
-    $("saveStatus").textContent = "تم اعتماد التصميم على الهوست لكل المستخدمين";
+    $("saveStatus").textContent = "حُفظت مراجعة التصميم";
   }
 
   undo(redo = false) {

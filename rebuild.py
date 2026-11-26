@@ -4,6 +4,7 @@ import base64
 import hashlib
 import json
 import os
+import tempfile
 from pathlib import Path
 from urllib.parse import urlsplit
 
@@ -17,7 +18,7 @@ SCRIPTS = [
     'payment-schedule.js', 'cash-contract.js', 'exchange-contract.js',
     'external-contract.js', 'transfer-letter.js', 'paper-layout.js',
     'image-library.js', 'workspace-ui.js', 'contract-services.js', 'archive.js',
-    'archive-output.js', 'editor-settings.js', 'document-text.js', 'document-ink.js', 'document-renderer.js', 'document-scene.js', 'editor-clean.js', 'table-tools.js', 'ui-preferences.js', 'field-studio.js', 'fill-designer.js', 'fill-layout.js', 'staff-console.js', 'cloud.js', 'form-paper.js', 'form-inbox.js', 'sales-forms.js', 'app.js',
+    'archive-output.js', 'editor-settings.js', 'document-text.js', 'document-ink.js', 'document-renderer.js', 'document-scene.js', 'editor-clean.js', 'table-tools.js', 'ui-preferences.js', 'field-studio.js', 'fill-designer.js', 'fill-layout.js', 'review-dialog.js', 'staff-console.js', 'cloud.js', 'form-paper.js', 'form-inbox.js', 'sales-forms.js', 'app.js',
 ]
 STYLES = ['document.css', 'editor-clean.css', 'features.css', 'workspace.css',
           'archive.css', 'box-appearance.css', 'workbench.css', 'smart-tables.css', 'ui-refinements.css', 'fill-fields.css']
@@ -36,6 +37,21 @@ def template_endpoint():
                 or not (url.scheme == 'https' or url.scheme == 'http' and url.hostname in {'localhost', '127.0.0.1'})):
             raise ValueError('CONTRACT_TEMPLATE_API must be a public HTTPS endpoint without credentials or query parameters.')
     return value
+
+
+def atomic(path, content):
+    with tempfile.NamedTemporaryFile(dir=path.parent, delete=False) as f:
+        tmp = Path(f.name)
+        try:
+            f.write(content)
+        except BaseException:
+            f.close()
+            tmp.unlink(missing_ok=True)
+            raise
+    try:
+        os.replace(tmp, path)
+    finally:
+        tmp.unlink(missing_ok=True)
 
 
 def build(output):
@@ -122,14 +138,16 @@ def build(output):
         if target.exists() and name not in previous:
             raise ValueError(f'Refusing to overwrite unowned file: {name}')
     output.mkdir(parents=True, exist_ok=True)
-    for name, content in files.items():
+    for name in sorted(files, key=lambda path: path == "index.html"):
+        content = files[name]
         target = output / name
         target.parent.mkdir(parents=True, exist_ok=True)
-        target.write_bytes(content)
+        if not target.exists() or target.stat().st_size != len(content) or target.read_bytes() != content:
+            atomic(target, content)
     for name in set(previous) - files.keys():
         (output / name).unlink(missing_ok=True)
     manifest = {'files': sorted(files), 'sha256': {name: hashlib.sha256(content).hexdigest() for name, content in files.items()}}
-    marker.write_text(json.dumps(manifest, indent=2), encoding='utf-8')
+    atomic(marker, json.dumps(manifest, indent=2).encode('utf-8'))
     print(json.dumps({'output': str(output), 'files': len(files), 'bytes': sum(map(len, files.values())), 'html_bytes': len(files['index.html'])}))
 
 

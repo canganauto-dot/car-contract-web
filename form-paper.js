@@ -2,7 +2,7 @@
 const FormPaper = {
   width:794,height:1123,ink:"#172f43",muted:"#4c6574",line:"#c2d0d6",accent:"#17576a",
   sectionColors:{
-    "بيانات الفورمة":"#293e5c","المشتري":"#2b405e","الكفيل":"#2b4560","البائع":"#2b4960",
+    "بيانات الاستمارة":"#293e5c","المشتري":"#2b405e","الكفيل":"#2b4560","البائع":"#2b4960",
     "المركبة":"#294d61","المركبة القديمة":"#294b61","المركبة الجديدة":"#285162",
     "الدفع":"#265462","الدفعات":"#255864","الملاحظة":"#245c64","الأقساط":"#235d62",
     "تفاصيل إضافية":"#22605f","الاعتماد":"#21645e","البائع والتوقيع":"#20675c"
@@ -21,7 +21,7 @@ const FormPaper = {
       const logo=company.imageValues?.headerLogo??ContractAssets.logos?.[selected];
       if(logo)sheet.push({kind:"logo",x:38,y:28,w:115,h:49,src:logo});
       text(167,26,587,35,company.name,27,"right",true);
-      text(167,60,587,24,"فورمة مبيعات  /  "+(types[v.contractType]||""),19,"right",false,this.muted);
+      text(167,60,587,24,"استمارة مبيعات  /  "+(types[v.contractType]||""),19,"right",false,this.muted);
       rect(38,88,718,2,this.accent,null);
     };
     // Measurements are page pixels. Weighted columns reserve room for actual values.
@@ -175,14 +175,14 @@ const FormPaper = {
   },
   editor(f,readOnly){
     return this.layout(f).map(sheet=>{
-      const page=document.createElement("article");page.className="sales-paper";page.ariaLabel="فورمة مبيعات A4";
+      const page=document.createElement("article");page.className="sales-paper";page.ariaLabel="استمارة مبيعات A4";
       this.draw(sheet,readOnly).then(c=>page.prepend(c)).catch(e=>SalesForms.status.textContent=e.message);
       const groups=new Map(),sections=sheet.filter(s=>s.section).map(s=>s.section);
       page.classList.toggle("paper-editable",!readOnly);
       const groupFor=s=>{
         const mid=s.x+s.w/2;
         const section=sections.filter(b=>b.y<s.y&&mid>=b.x&&mid<=b.x+b.w).at(-1);
-        const name=section?.title||"بيانات الفورمة";
+        const name=section?.title||"بيانات الاستمارة";
         if(!groups.has(name)){
           const group=document.createElement("div");group.className="paper-group";
           const heading=document.createElement("h2");heading.textContent=name;group.style.setProperty("--section-ink",this.sectionColors[name]);

@@ -274,7 +274,7 @@ const assert = require("node:assert/strict");
         [3, 6].every(
           (id) =>
             JSON.stringify(App.scene.pages.find((p) => p.id === id).nodes) ===
-            JSON.stringify(cfg.design.pages.find((p) => p.id === id).nodes),
+            JSON.stringify(ContractTemplates.scoped(cfg.design,"contract:exchange").pages.find((p) => p.id === id).nodes),
         ),
       ),
     );
@@ -317,7 +317,7 @@ const assert = require("node:assert/strict");
           d,
         ).length,
     );
-    await p.evaluate(async()=>{await BranchNumbers.verify(d);BranchNumbers.printing=BranchNumbers.signature(d);});
+    await p.evaluate(async()=>{await BranchNumbers.verify(d);Services.refreshPrintClock();render();await DocumentQR.issueSelected();BranchNumbers.printing=BranchNumbers.signature(d);});
     const pdf = await p.pdf({ preferCSSPageSize: true });
     assert.equal(
       (pdf.toString("latin1").match(/\/Type \/Page\b/g) || []).length,

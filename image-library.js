@@ -77,7 +77,7 @@ class ImageLibrary {
     this.ensure();
     for (const n of App.all())
       if (n.binding === "company")
-        this.companySlot("letterhead", "فورمة الشركة", "company");
+        this.companySlot("letterhead", "ترويسة الشركة", "company");
   }
   vehicleSource(slot) {
     const car = cfg.cars.find((c) =>

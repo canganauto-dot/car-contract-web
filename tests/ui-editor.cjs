@@ -188,7 +188,7 @@ fs.mkdirSync(output, { recursive: true });
         await offline.waitForFunction(() => !Services.home && !Workbench.switching);
         const exported = await offline.evaluate(() => JSON.parse(ContractFiles.pack(d)));
         assert.equal(exported.origin,"offline");
-        assert.match(exported.data.number,/^Q-[0-9]+-F$/);
+        assert.match(exported.data.number,/^[0-9]+-F$/);
         await offline.evaluate(async () => {
           document.activeElement.blur();
           await document.fonts.ready;

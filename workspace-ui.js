@@ -8,12 +8,12 @@ class WorkspaceUI {
     return [
       ...options,
       ["companySelect", "الشركة"],
-      ["cashReceived", "الواصل · كاش"],
-      ["cashDueDate", "تاريخ سداد الكاش"],
+      ["cashReceived", "الواصل · نقدي"],
+      ["cashDueDate", "تاريخ السداد النقدي"],
       ["cashTransferNote", "ملاحظة نقل الملكية"],
       ...Array.from({ length: 4 }, (_, i) => [
-        ["cash-amount-" + i, "مبلغ دفعة الكاش " + (i + 1)],
-        ["cash-date-" + i, "تاريخ دفعة الكاش " + (i + 1)],
+        ["cash-amount-" + i, "مبلغ الدفعة النقدية " + (i + 1)],
+        ["cash-date-" + i, "تاريخ الدفعة النقدية " + (i + 1)],
         ["extra-date-" + i, "تاريخ الدفعة الإضافية " + (i + 1)],
       ]).flat(),
     ];

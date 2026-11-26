@@ -75,7 +75,6 @@ function render() {
   BranchNumbers.migration=BranchNumbers.registerExisting();
   await ContractFiles.init();
   EditorEnhancements.init();
-  await Letters.init();
   await Workbench.init();
   SmartTables.init();
   TableTools.init();

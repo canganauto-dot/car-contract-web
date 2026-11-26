@@ -204,7 +204,7 @@ const TransferLetter = {
     }
     nodes.push({
       id: "transfer-letterhead",
-      name: "فورمة الشركة",
+      name: "ترويسة الشركة",
       type: "image",
       binding: "company",
       x: 0,

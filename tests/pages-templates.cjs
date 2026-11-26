@@ -108,7 +108,7 @@ const {chromium} = require("playwright");
     await reader.locator("#buyer").press("Tab");
     await reader.waitForFunction(id=>!!App.element(id),id,{timeout:20000});
     assert.equal(await reader.locator("#buyer").inputValue(),"زبون اختبار خاص");
-    assert.equal(await reader.evaluate(()=>cfg.fixed.prefix),"R");
+    assert.equal(await reader.evaluate(()=>cfg.fixed.organizer),"اختبار R");
     assert.match(await reader.locator('[data-node="'+id+'"] .node-content').first().textContent(),/التصميم المشترك/);
     console.log("PASS static site under a repository path, editor approval reaches another open browser across origins");
 

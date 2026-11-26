@@ -39,8 +39,6 @@ body.has-workbench {
   flex: 0 0 25px;
 }
 #homeCreate,
-#newLetter,
-#importArchive,
 .home-heading,
 #workbench > b {
   display: none !important;

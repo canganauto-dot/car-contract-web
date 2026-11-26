@@ -5,7 +5,7 @@ const DocumentInk = {
   async init() {
     const prefix="assets/vendor/canvaskit.";
     const binary=seed.offline && globalThis.contractPack?.[prefix+"wasm"];
-    if(seed.offline && (!binary || !globalThis.contractPack?.[prefix+"js"]))throw Error("ملف الأوفلاين ينقصه محرّك الرسم. نزّل نسخة HTML جديدة من زر التنزيل في الموقع.");
+    if(seed.offline && (!binary || !globalThis.contractPack?.[prefix+"js"]))throw Error("ملف النسخة غير المتصلة ينقصه محرّك الرسم. نزّل نسخة HTML جديدة من زر التنزيل في الموقع.");
     await new Promise((resolve,reject)=>{
       const script=document.createElement("script");
       script.src=WebResources.url(prefix+"js");script.onload=resolve;script.onerror=reject;

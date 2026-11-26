@@ -30,30 +30,37 @@ const {PDFDocument}=require("../vendor/pdf-lib-1.17.1.min.js");
   await login(true);
   const panel=page.locator("#salesWorkspace");
   for(const buyer of ["زبون أول","زبون ثان"]){
-   await panel.getByRole("button",{name:"إضافة فورمة"}).click();
+   await panel.getByRole("button",{name:"إضافة استمارة"}).click();
    await panel.getByLabel("المشتري",{exact:true}).fill(buyer);
    await page.waitForFunction(()=>SalesForms.active?.version>0);
-   await panel.getByRole("button",{name:"نشر الفورمة"}).click();await panel.getByRole("button",{name:buyer,exact:true}).waitFor();
+   await panel.getByRole("button",{name:"نشر الاستمارة"}).click();await panel.getByRole("button",{name:buyer,exact:true}).waitFor();
   }
   await page.reload();await panel.getByRole("button",{name:"زبون أول",exact:true}).waitFor();
-  await panel.getByLabel("تحديد كل الفورمات المعروضة").check();
-  const other=await ctx.newPage();await other.goto(server.url);await other.locator("#salesWorkspace").getByRole("button",{name:"إضافة فورمة"}).waitFor();await other.close();
+  await panel.getByLabel("تحديد كل الاستمارات المعروضة").check();
+  const other=await ctx.newPage();await other.goto(server.url);await other.locator("#salesWorkspace").getByRole("button",{name:"إضافة استمارة"}).waitFor();await other.close();
   const ready=page.waitForEvent("download");await panel.getByRole("button",{name:"تنزيل PDF"}).click();const file=await ready;
   const pdf=await PDFDocument.load(fs.readFileSync(await file.path()));assert.ok(pdf.getPageCount()>=2);
   await panel.getByRole("button",{name:"خروج",exact:true}).click();await page.locator("#startupThread form").waitFor();
   dept="finance";await login(false);await panel.getByRole("button",{name:"زبون أول",exact:true}).click();
   assert.equal(await panel.getByLabel("المشتري",{exact:true}).isDisabled(),true);
-  assert.equal(await panel.getByRole("button",{name:/نشر الفورمة|إنشاء عقد|إضافة فورمة/}).count(),0);
+  assert.equal(await panel.getByRole("button",{name:/نشر الاستمارة|إنشاء عقد|إضافة استمارة/}).count(),0);
   assert.equal(await page.evaluate(()=>localStorage.getItem("contract-auth")),null);
-  await panel.getByRole("button",{name:"الفورمات",exact:true}).click();
+  await panel.getByRole("button",{name:"الاستمارات",exact:true}).click();
   await panel.getByRole("button",{name:"خروج",exact:true}).click();await page.locator("#startupThread form").waitFor();
   dept="contracts";await login(false);await page.waitForFunction(()=>startReady);
   if(await page.locator("#setupDialog").isVisible()){
     await page.locator("#setupBranch").fill("الدورة");await page.locator("#setupForm button").click();
   }
-  await page.locator("#salesWorkspace").getByRole("button",{name:"الفورمات",exact:true}).click();await panel.getByRole("button",{name:"زبون أول",exact:true}).click();
-  await panel.getByRole("button",{name:"اعتماد الفورمة"}).click();await panel.getByLabel("ملاحظة الاعتماد").fill("تم تدقيق الفورمة");await panel.getByRole("button",{name:"تأكيد الاعتماد"}).click();await panel.getByRole("button",{name:"زبون أول",exact:true}).click();
-  await panel.getByRole("button",{name:"إنشاء عقد من الفورمة"}).click();await page.waitForFunction(()=>!Services.home && d.recordId==="fixture-contract");
+  await panel.getByRole("button",{name:"الاستمارات",exact:true}).click();
+  const row=panel.getByRole("row").filter({has:page.getByRole("button",{name:"زبون أول",exact:true})});
+  await row.getByRole("button",{name:"بانتظار الاعتماد"}).click();
+  await panel.getByLabel("القرار",{exact:true}).selectOption({label:"رفض"});
+  await panel.getByLabel("سبب الرفض").fill("تجربة إلغاء القرار");
+  await panel.getByRole("button",{name:"إلغاء",exact:true}).click();
+  assert.equal([...forms.values()].some(f=>f.approved||f.rejected_at),false);
+  await panel.getByRole("button",{name:"زبون أول",exact:true}).click();
+  await panel.getByRole("button",{name:"مراجعة الاستمارة"}).click();await panel.getByLabel("ملاحظة الاعتماد").fill("تم تدقيق الاستمارة");await panel.getByRole("button",{name:"تأكيد الاعتماد"}).click();await panel.getByRole("button",{name:"زبون أول",exact:true}).click();
+  await panel.getByRole("button",{name:"إنشاء عقد من الاستمارة"}).click();await page.waitForFunction(()=>!Services.home && d.recordId==="fixture-contract");
   assert.equal(await page.locator("#buyer").inputValue(),"زبون أول");console.log("PASS supervisor approval and populated, editable contract");
   await page.locator("#companySelect").selectOption("imad");
   await page.waitForFunction(()=>typeof startReady!=="undefined" && startReady && d?.companyId==="imad" && d?.recordId==="fixture-contract");

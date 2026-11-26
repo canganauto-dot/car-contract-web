@@ -41,7 +41,8 @@ const {chromium} = require("playwright");
     const open=async(url,prefix)=>{
       const page=await browser.newPage();
       page.on("pageerror",error=>console.error(error));
-      await page.goto(url);await page.waitForFunction(()=>startReady);
+      await page.goto(url);await page.waitForFunction(()=>(typeof startReady!=="undefined" && startReady) || document.querySelector("#startupThread button[title]"));
+      if(!await page.evaluate(()=>typeof startReady!=="undefined" && startReady))throw Error(await page.locator("#startupThread button[title]").first().getAttribute("title"));
       await page.locator("#setupTitle").fill("موظف العقود");
       await page.locator("#setupOrganizer").fill("اختبار "+prefix);
       await page.locator("#setupBranch").fill("اختبار");
@@ -72,7 +73,7 @@ const {chromium} = require("playwright");
     await reader.locator("#buyer").press("Tab");
     await reader.waitForFunction(id=>!!App.element(id),id,{timeout:18000});
     assert.equal(await reader.locator("#buyer").inputValue(),"قيمة قبل الانتقال");
-    assert.equal(await reader.evaluate(()=>cfg.fixed.prefix),"R");
+    assert.equal(await reader.evaluate(()=>cfg.fixed.organizer),"اختبار R");
     assert.equal(await reader.locator('[data-node="'+id+'"] .node-content').first().textContent(),name);
     console.log("PASS preview editor publishes to the project and a separate active browser receives it after input commit");
 

@@ -28,6 +28,7 @@ const run = (command, args, cwd, env = process.env) =>
   await run(process.execPath, ["tests/staff-archive.cjs"], source);
   await run(process.execPath, ["tests/web.cjs"], source);
   await run(process.execPath, ["tests/ui-editor.cjs"], source);
+  await run(process.execPath, ["tests/archive-camera.cjs"], source);
   const web = await serve(process.env.CONTRACT_TEST_BUILD || path.join(source, "dist"), {sampleFaces: !process.env.CONTRACT_TEST_BUILD});
   try {
     for (const name of [

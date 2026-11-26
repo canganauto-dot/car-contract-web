@@ -79,7 +79,7 @@ const ContractFiles = {
       const data=normalizeData(value.data);
       if(!data.recordId)data.recordId="import-"+await PagesTemplates.hash(new TextEncoder().encode(text));
       const offline=value.origin==="offline" || (!value.origin && !data.offlineNumber && !seed.offline &&
-        await Feedback.ask("هل أُنشئ ملف JSON القديم بنسخة الأوفلاين؟ يُضاف -F إلى عدد مستندات الأوفلاين."));
+        await Feedback.ask("هل أُنشئ ملف JSON القديم باستخدام النسخة غير المتصلة؟ يُضاف -F إلى عدد مستندات النسخة غير المتصلة."));
       await BranchNumbers.imported(data,offline);
       await DocumentQR.registerPending(data);
       if(await Services.openEntry({data})){
@@ -174,7 +174,7 @@ const ContractFiles = {
     this.showShots();
     $("signedStatus").textContent = this.folder
       ? "مجلد الحفظ: " + this.folder.name
-      : "اختر مجلد السكان لحفظ النسخة، أو ستُنزل إلى الجهاز.";
+      : "اختر مجلد النسخ الممسوحة ضوئياً لحفظ النسخة، أو ستُنزل إلى الجهاز.";
     $("signedCapture").hidden = true;
     $("signedDialog").showModal();
   },

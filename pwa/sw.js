@@ -3,7 +3,7 @@ self.addEventListener("install",event=>event.waitUntil(self.skipWaiting()));
 self.addEventListener("activate",event=>event.waitUntil(self.clients.claim()));
 self.addEventListener("push",event=>{
   let info={};try{info=event.data?.json()||{};}catch{}
-  let body={published:"نُشرت فورمة جديدة",approved:"تم اعتماد فورمة",rejected:"رُفضت فورمة"}[info.kind]||"لديك تحديث في سجل الفورمات";
+  let body={published:"نُشرت استمارة جديدة",approved:"تم اعتماد استمارة",rejected:"رُفضت استمارة"}[info.kind]||"لديك تحديث في سجل الاستمارات";
   const d=info.details;if(d)body+=" · "+[d.publisher,d.car,d.model,d.price].filter(Boolean).join(" · ");
   event.waitUntil(Promise.all([
     self.registration.showNotification("منظومة العقود",{body,lang:"ar",dir:"rtl",icon:"./icon-192.png",tag:"form-alert-"+(info.id||"inbox")}),

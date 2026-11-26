@@ -585,14 +585,19 @@ class ContractServices {
     };
     this.queue = this.queue
       .catch(() => {})
-      .then(() => putDB("contractArchive", snapshot))
-      .catch(() => {
-        $("saveStatus").textContent = "تعذر حفظ الأرشيف؛ احفظ نسخة البرنامج";
+      .then(async()=>{
+        try{await putDB("contractArchive",snapshot);this.archiveSaveFailed=false;}
+        catch(error){this.archiveSaveFailed=true;throw error;}
       });
     return this.queue;
   }
-  async flush() {
+  flush() {
     clearTimeout(this.timer);
+    const next=(this.flushQueue||Promise.resolve()).catch(()=>{}).then(()=>this.flushPending());
+    this.flushQueue=next;
+    return next;
+  }
+  async flushPending() {
     if (this.pendingData) {
       const data = this.pendingData;
       this.pendingData = null;
@@ -622,6 +627,7 @@ class ContractServices {
         await this.persistLibrary();
       }
     }
+    if(!Cloud.enabled && this.archiveSaveFailed){await this.persistLibrary();}
     await this.queue;
     if(Cloud.enabled)await Cloud.writes;
     if (Workbench.ready) Workbench.paint();
@@ -681,7 +687,7 @@ class ContractServices {
   }
   beforePrint() {
     if (this.home || !d.number) return;
-    this.refreshPrintClock();
+    if(!BranchNumbers.printing)this.refreshPrintClock();
     if (!seed.offline) this.printCandidate = { data: SmartTables.snapshot(d) };
   }
   afterPrint() {
@@ -714,7 +720,7 @@ class ContractServices {
     if (!this.printCandidate) return;
     const candidate = this.printCandidate;
     this.printCandidate = null;
-    await this.flush();
+    try{await this.flush();}catch(error){this.printCandidate=candidate;throw error;}
     if(Cloud.enabled){
       try{
         await Cloud.issue(candidate.data);
@@ -980,7 +986,7 @@ class ContractServices {
       const button=document.createElement("button");button.type="button";button.textContent="إصدار";button.title="إصدار المستند وأرشفته";
       $("printSides").after(button);
       button.onclick=async()=>{if(this.home||button.disabled)return;button.disabled=true;
-        try{document.activeElement?.blur();await BranchNumbers.verify(d);this.refreshPrintClock();render();await DocumentQR.issueSelected();this.printCandidate={data:SmartTables.snapshot(d)};await this.confirmPrint();}
+        try{await prepareDocumentOutput(true);}
         catch(error){await Feedback.notice(error.message);}finally{button.disabled=false;}};
     }
     $("confirmPrinted").onclick = () => this.confirmPrint();

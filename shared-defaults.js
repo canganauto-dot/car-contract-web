@@ -73,9 +73,9 @@ const SharedDefaults = {
     const response=await fetch("/_defaults",{cache:"no-store",
       headers:revision?{"If-None-Match":'"'+revision+'"'}:{}});
     if(response.status===304)return null;
-    if(!response.ok)throw Error("تعذّرت قراءة قوالب الهوست.");
+    if(!response.ok)throw Error("تعذّرت قراءة قوالب الخادم.");
     const {config}=await response.json();
-    if(!config?.sharedRevision || !config.design)throw Error("ردّ الهوست لا يحتوي على نسخة صالحة من القوالب.");
+    if(!config?.sharedRevision || !config.design)throw Error("ردّ الخادم لا يحتوي على نسخة صالحة من القوالب.");
     return config;
   },
   busy() {
@@ -108,7 +108,7 @@ const SharedDefaults = {
   },
   requirePublisher() {
     if(this.unavailable || !this.enabled || !this.revision)throw Error("تعذّر الاتصال بخدمة اعتماد التصاميم. مسودة تعديلك محفوظة في هذا المتصفح.");
-    if(this.pages && !PagesTemplates.endpoint)throw Error("هذا الموقع يعرض التصاميم المنشورة. للنشر من المحرّر اربط خدمة اعتماد التصاميم، أو اعتمد التعديل على هوست المشروع ثم ارفع البناء المحدّث. مسودتك محفوظة.");
+    if(this.pages && !PagesTemplates.endpoint)throw Error("هذا الموقع يعرض التصاميم المنشورة. للنشر من المحرّر اربط خدمة اعتماد التصاميم، أو اعتمد التعديل على خادم المشروع ثم انشر النسخة المحدّث. مسودتك محفوظة.");
   },
   async publish(config,scope) {
     if (!this.enabled) return;

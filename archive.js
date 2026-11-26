@@ -4,6 +4,10 @@ const Archive = {
   metrics: new WeakMap(),
   tables: new Map(),
   paths: {
+    settings:"M4 6h16M4 12h16M4 18h16M8 3v6M16 9v6M10 15v6",
+    share:"M8 12l8-6M8 12l8 6M8 12a2 2 0 1 1-4 0 2 2 0 0 1 4 0M20 5a2 2 0 1 1-4 0 2 2 0 0 1 4 0M20 19a2 2 0 1 1-4 0 2 2 0 0 1 4 0",
+    history:"M3 10a9 9 0 1 1 1 7M3 4v6h6M12 7v5l4 2",
+    edit:"m4 16 12-12 4 4L8 20H4zM14 6l4 4",
     bell:"M4 17h16l-2-3V9a6 6 0 0 0-12 0v5z M10 20a2 2 0 0 0 4 0",
     mute:"M3 3l18 18 M7 7a6 6 0 0 0-1 3v4l-2 3h12 M18 13V9a6 6 0 0 0-8-6 M10 20h4",
     scan:"M3 8V3h5 M16 3h5v5 M21 16v5h-5 M8 21H3v-5 M6 12h12",
@@ -30,6 +34,11 @@ const Archive = {
       this.paths[name] +
       '"/></svg>'
     );
+  },
+  labelButton(button,icon,label){
+    button.title=button.ariaLabel=label;
+    button.innerHTML=this.icon(icon);
+    return button;
   },
   init() {
     for (const el of document.querySelectorAll("[data-archive-icon]"))
@@ -87,7 +96,7 @@ const Archive = {
   },
   types: {
     installment: "أقساط",
-    cash: "كاش",
+    cash: "نقدي",
     external: "خارجي",
     exchange: "استبدال",
   },
@@ -262,7 +271,7 @@ const Archive = {
     table.empty.hidden = !!rows.length;
     if (!rows.length)
       table.empty.textContent = filtered
-        ? "ماكو عقود تطابق البحث."
+        ? "لا توجد عقود تطابق البحث."
         : printed
           ? "لا توجد عقود مطبوعة بعد."
           : "لا توجد عقود معلّقة.";

@@ -107,15 +107,21 @@ const DocumentQR={
   manage(codes){
     const dlg=this.dialog("حالة باركود التحقق"),id=document.createElement("input"),out=document.createElement("output"),footer=document.createElement("footer");
     id.dir="ltr";id.placeholder="رابط التحقق أو رقم الإصدار";id.ariaLabel=id.placeholder;
-    const existing=this.selected().find(el=>el.dataset.issued);id.value=Object.values(codes||{})[0]?.id||existing?.dataset.issued||"";let state=null;
+    const existing=this.selected().find(el=>el.dataset.issued);id.value=Object.values(codes||{})[0]?.id||existing?.dataset.issued||"";let state=null,lookup=0;
     const chooser=document.createElement("select"),grid=document.createElement("div");grid.className="qr-choices";chooser.ariaLabel="باركود الصفحة";
     for(const [page,v] of Object.entries(codes||d?.verificationCodes||{}))chooser.add(new Option("صفحة "+(App.displayPages?.find(p=>p.id===Number(page))?.name||page),v.id));
     chooser.hidden=chooser.options.length<2;chooser.onchange=()=>{id.value=chooser.value;read();};
-    const save=this.button("حفظ الحقول الظاهرة",async()=>{if(!state)return;save.disabled=true;try{state=await Cloud.call("qr_visibility",{id:state.id,revision:state.revision,hidden:[...grid.querySelectorAll("input:not(:checked)")].map(i=>i.value)});show();}catch(e){out.textContent=e.message;}finally{save.disabled=false;}});save.hidden=true;
-    const change=this.button("",async()=>{if(!state)return;change.disabled=true;try{state=await Cloud.call("qr_change",{id:state.id,revision:state.revision,approved:!state.approved});show();}catch(e){out.textContent=e.message;change.hidden=true;}finally{change.disabled=false;}});
+    const save=this.button("حفظ الحقول الظاهرة",async()=>{if(!state)return;save.disabled=true;const record=state;try{const updated=await Cloud.call("qr_visibility",{id:state.id,revision:state.revision,hidden:[...grid.querySelectorAll("input:not(:checked)")].map(i=>i.value)});if(record===state){state=updated;show();}}catch(e){if(record===state)out.textContent=e.message;}finally{save.disabled=false;}});save.hidden=true;
+    const change=this.button("",()=>{
+      if(!state)return;const record=state,label=record.approved?"إلغاء اعتماد الرمز":"اعتماد الرمز";
+      ReviewDialog.open({title:"مراجعة رمز التحقق",subject:record.id,choices:[{name:label,apply:async()=>{
+        const updated=await Cloud.call("qr_change",{id:record.id,revision:record.revision,approved:!record.approved});
+        if(state===record){state=updated;show();}
+      }}]});
+    });
     const show=()=>{grid.replaceChildren();for(const f of state.fields){const l=document.createElement("label"),i=document.createElement("input");i.type="checkbox";i.value=f.key;i.checked=!state.hidden.includes(f.key);l.append(i,document.createTextNode(f.label));grid.append(l);}save.hidden=!state.fields.length;out.textContent=state.approved?"الرمز معتمد":"الرمز غير معتمد";change.hidden=false;change.textContent=state.approved?"إلغاء اعتماد الرمز":"اعتماد الرمز";};change.hidden=true;
-    const read=async()=>{state=null;grid.replaceChildren();save.hidden=change.hidden=true;try{const raw=id.value.trim();let key=raw;if(!this.uuid.test(key)){const u=new URL(raw);key=u.searchParams.get("id")||u.searchParams.get("verify");}if(!this.uuid.test(key))throw Error("أدخل رقم إصدار صالح.");state=await Cloud.call("qr_review",{id:key});show();}catch(e){out.textContent=e.message;}};
-    id.oninput=()=>{state=null;grid.replaceChildren();save.hidden=change.hidden=true;out.textContent="";};footer.append(this.button("استعلام",read),change,save,this.button("إغلاق",()=>dlg.close()));dlg.append(chooser,id,out,grid,footer);dlg.showModal();if(id.value)read();
+    const read=async()=>{const ticket=++lookup;state=null;grid.replaceChildren();save.hidden=change.hidden=true;try{const raw=id.value.trim();let key=raw;if(!this.uuid.test(key)){const u=new URL(raw);key=u.searchParams.get("id")||u.searchParams.get("verify");}if(!this.uuid.test(key))throw Error("أدخل رقم إصدار صالح.");const result=await Cloud.call("qr_review",{id:key});if(ticket===lookup){state=result;show();}}catch(e){if(ticket===lookup)out.textContent=e.message;}};
+    id.oninput=()=>{lookup++;state=null;grid.replaceChildren();save.hidden=change.hidden=true;out.textContent="";};footer.append(this.button("استعلام",read),change,save,this.button("إغلاق",()=>dlg.close()));dlg.append(chooser,id,out,grid,footer);dlg.showModal();if(id.value)read();
   },
   async verifyLocal(){
     const cover=$("startupThread");document.body.inert=false;cover.classList.add("cloud-signin");const card=document.createElement("form");cover.replaceChildren(card);

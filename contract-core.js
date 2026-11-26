@@ -992,13 +992,16 @@ function bindEvents() {
         "application/json",
       );
   };
-  $("printAll").onclick = async () => {
+  $("printAll").onclick = () => prepareDocumentOutput(false);
+}
+
+async function prepareDocumentOutput(issueOnly){
     const selected=d;
     if (document.activeElement?.closest("#fillPanel, #toolbar")) document.activeElement.blur();
     Services.refreshPrintClock();
     App.commitText();
     const unchanged = unchangedPrintFields();
-    const reminder = unchanged.length ? "الخانات اللي ما تغيّرت:\n• " + unchanged.join("\n• ") : "";
+    const reminder = unchanged.length ? "الحقول التي لم تتغيّر:\n• " + unchanged.join("\n• ") : "";
     const r = calculate(d);
     const blockers = [];
     if (!App.displayPages.some(p => Schedule.enabled(p.id))) blockers.push("اختر صفحة واحدة على الأقل");
@@ -1034,7 +1037,7 @@ function bindEvents() {
     if (
       missing.length &&
       !(await Feedback.ask(
-        missing.join("\n") + "\nطباعة النموذج بالوضع الحالي؟",
+        missing.join("\n") + (issueOnly ? "\nهل تريد إصدار المستند بهذه البيانات؟" : "\nهل تريد طباعة المستند بهذه البيانات؟"),
       ))
     ) {
       $("pagePreview").value = old;
@@ -1047,11 +1050,16 @@ function bindEvents() {
       if(d!==selected)throw Error("تغيّر المستند المفتوح. اختر طباعة من المستند المطلوب.");
       render(); await DocumentQR.issueSelected();
       if(d!==selected)throw Error("تغيّر المستند المفتوح.");
-      BranchNumbers.printing=BranchNumbers.signature(d);
-      window.print();
+      if(issueOnly){
+        Services.printCandidate={data:SmartTables.snapshot(d)};
+        await Services.confirmPrint();
+      }else{
+        BranchNumbers.printing=BranchNumbers.signature(d);
+        window.print();
+      }
     }catch(error){await Feedback.notice(error.message);}
     finally{if(!App.printing)BranchNumbers.printing=null;}
     $("pagePreview").value = old;
     applyPageVisibility();
-  };
+
 }

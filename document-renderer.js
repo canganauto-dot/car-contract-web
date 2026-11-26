@@ -229,7 +229,7 @@ function migrateLegacy(config) {
       add(el, "image", {
         name:
           binding === "company"
-            ? "فورمة الشركة"
+            ? "ترويسة الشركة"
             : binding === "receipt"
               ? "الضمان"
               : binding === "maintenance"

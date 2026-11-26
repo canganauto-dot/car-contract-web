@@ -103,7 +103,7 @@ const Cloud = {
     };});
     document.body.inert=true;host.classList.remove("cloud-signin");host.replaceChildren(...old);
   },
-  async logout(){try{await FormInbox.detach().catch(()=>{});await this.call("logout");}finally{this.clearLogin();sessionStorage.removeItem("contract-company");location.reload();}},
+  async logout(){document.activeElement?.blur();if(SalesForms.active)await SalesForms.flush();else if(!this.restricted && !Services.home)await Services.flush();try{await FormInbox.detach().catch(()=>{});await this.call("logout");}finally{this.clearLogin();sessionStorage.removeItem("contract-company");location.reload();}},
   async switchCompany(id){
     if(this.company?.id===id || !this.account.companies.some(c=>c.id===id))return;
     try{document.activeElement?.blur();if(SalesForms.active || this.restricted)await SalesForms.flush();else await Services.flush();sessionStorage.setItem("contract-company",id);location.reload();}

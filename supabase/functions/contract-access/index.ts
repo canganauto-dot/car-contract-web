@@ -221,7 +221,7 @@ Deno.serve(async(req)=>{
   }
   if(action==="form_sellers")return reply(200,await rpc("form_sellers",{actor:user.id,p}));
   if(["forms_list","form_read","form_save","form_publish","form_delete","form_withdraw","form_correct","form_reject","form_remove_published","form_history","alerts","alerts_seen","form_approve","form_convert","move_contract"].includes(action)){
-   if(["form_save","form_publish","form_correct"].includes(action) && (!p.data || Array.isArray(p.data) || typeof p.data!=="object" || JSON.stringify(p.data).length>500000 || !["cash","installment","external","exchange"].includes(p.data.contractType)))throw new Failure(400,"راجع محتوى الفورمة.");
+   if(["form_save","form_publish","form_correct"].includes(action) && (!p.data || Array.isArray(p.data) || typeof p.data!=="object" || JSON.stringify(p.data).length>500000 || !["cash","installment","external","exchange"].includes(p.data.contractType)))throw new Failure(400,"راجع محتوى الاستمارة.");
    if(["form_save","form_publish","form_correct"].includes(action))p.data=formFields(p.data);
    const result=await rpc("sales_forms",{actor:user.id,action,p});
    if(["form_publish","form_correct","form_approve","form_reject"].includes(action))queuePush();

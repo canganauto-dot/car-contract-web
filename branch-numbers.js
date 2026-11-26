@@ -12,9 +12,11 @@ const BranchNumbers = {
     if(!url)throw Error("حجز عدد الفرع يحتاج اتصال بخدمة الأعداد. يمكنك الاحتفاظ بالمسودة.");
     const payload={branch,record:data.recordId,mode,label,prefix:"",
       start:Math.max(1,Number(cfg.fixed.nextNumber)||1),expected:data.number || "",offline:!!data.offlineNumber};
+    let sentKey;
     const call=async()=>{
       const headers={"Content-Type":"application/json"};
-      if(!local && this.keys.has(branch))headers.Authorization="Bearer "+this.keys.get(branch);
+      sentKey=this.keys.get(branch);
+      if(!local && sentKey)headers.Authorization="Bearer "+sentKey;
       return fetch(url,{method:"POST",headers,body:JSON.stringify(payload),credentials:"omit",cache:"no-store",
         signal:AbortSignal.timeout(10000),redirect:"error"});
     };
@@ -28,7 +30,7 @@ const BranchNumbers = {
     }
     const reply=await response.json();
     if(!response.ok){
-      if(response.status===401)this.keys.delete(branch);
+      if(response.status===401 && sentKey && this.keys.get(branch)===sentKey)this.keys.delete(branch);
       throw Object.assign(Error(reply.error || "تعذّر تأكيد العدد لدى الفرع."),{status:response.status,current:reply.current});
     }
     data.numberBranch=branch;
@@ -46,7 +48,7 @@ const BranchNumbers = {
       if((data.offlineNumber || seed.offline) && label && !label.endsWith("-F"))label+="-F";
       if(seed.offline){
         if(!label)label=(await allocateNumber())+"-F";
-        if(!/^(?:[^/\\]{1,40}-)?[0-9]{1,9}-F$/.test(label))throw Error("عدد الأوفلاين غير صالح.");
+        if(!/^(?:[^/\\]{1,40}-)?[0-9]{1,9}-F$/.test(label))throw Error("عدد النسخة غير المتصلة غير صالح.");
         if(Services.library.entries.some(e=>e.data.number===label && e.data.recordId!==data.recordId))throw Error("العدد مستخدم في مستند محلي آخر.");
         data.number=label;data.offlineNumber=true;reserveNumber(label.slice(0,-2));
       }else data.number=await this.send(data,"edit",label);
@@ -103,6 +105,7 @@ const BranchNumbers = {
   signature(data){return JSON.stringify([data.recordId,data.numberBranch,data.number]);},
   async registerExisting() {
     if(Cloud.enabled || seed.offline || !cfg.setupComplete || (!PagesTemplates.endpoint && SharedDefaults.pages))return;
+    if(SharedDefaults.pages && !this.keys.has(cfg.fixed.branch))return;
     const items=[...Services.library.entries].sort((a,b)=>Number(b.kind==="printed")-Number(a.kind==="printed"));
     const seen=new Set();
     const synced=await getDB("branch-number-history") || {};
