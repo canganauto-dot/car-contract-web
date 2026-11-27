@@ -1,3 +1,4 @@
+const selectDocument=require("./tests/select-document.cjs");
 const { chromium } = require("playwright"),
   fs = require("fs"),
   path = require("path"),
@@ -19,7 +20,7 @@ const { pathToFileURL } = require("url");
     }
     await p.locator("#workNew").click();
     await p.waitForFunction(() => !Services.home);
-    await p.locator("#archiveContractType").selectOption("external");
+    await selectDocument(p,"archiveContractType","external");
     assert.equal(await p.locator("#externalSeller").inputValue(), "");
     assert.equal(await p.locator("#externalBuyer").inputValue(), "");
     assert.equal(await p.locator("#pages .paper").count(), 2);
@@ -88,6 +89,7 @@ const { pathToFileURL } = require("url");
     await p.reload();
     await p.waitForFunction(() => startReady);
     await p.locator("#printedArchive .archive-open").click();
+    await p.locator("#archiveViewBody .paper").first().waitFor();
     assert.match(
       await p.locator("#archiveViewBody").textContent(),
       /بائع تجريبي/,

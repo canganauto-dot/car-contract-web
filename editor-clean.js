@@ -1470,7 +1470,7 @@ class ContractEditor extends DocumentSceneRenderer {
     settingsButton.textContent = "تعديل تصميم العقد";
     if (!$("openDesign"))
       $("templateActions").prepend(settingsButton);
-    $("openDesign").onclick = () => this.enter();
+    $("openDesign").onclick = () => Activity.transition("design","جارٍ فتح محرّر المستند",()=>this.enter()).catch(e=>Feedback.notice(e.message));
     $("settingsShortcut").onclick = () => $("openSettings").click();
     $("printShortcut").onclick = () => $("printAll").click();
 

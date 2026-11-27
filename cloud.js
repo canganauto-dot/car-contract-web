@@ -1,11 +1,48 @@
 // Hosted workspace only. Offline exports and the local editor keep their own storage.
 const Activity = {
   pending:0,
+  foreground:new Map(),
+  afterPaint(){
+    // A timer also releases the task when a background tab stops receiving frames.
+    return new Promise(resolve=>{
+      if(document.hidden){resolve();return;}
+      const fallback=setTimeout(finish,100);
+      const frame=requestAnimationFrame(()=>setTimeout(finish,0));
+      function finish(){clearTimeout(fallback);cancelAnimationFrame(frame);resolve();}
+    });
+  },
+  indicator(label){
+    const box=document.createElement("div");box.className="loading-state";box.setAttribute("role","status");
+    box.append(document.querySelector("#taskProgress .wait-dots").cloneNode(true),document.createTextNode(label));
+    return box;
+  },
+  sync(){
+    const host=$("taskProgress"),label=[...this.foreground.values()].at(-1)?.label;
+    if(!this.caption){this.caption=document.createElement("span");host.append(this.caption);}
+    this.caption.textContent=label||"";
+    host.toggleAttribute("data-transition",!!label);
+    host.setAttribute("aria-label",label||"جارٍ تنفيذ الطلب");
+  },
+  async transition(scope,label,work){
+    const task={label};this.foreground.delete(scope);this.foreground.set(scope,task);this.sync();
+    try{return await (task.done=this.run(async()=>{
+      await this.afterPaint();
+      if(this.foreground.get(scope)===task)return work();
+    }));}finally{
+      if(this.foreground.get(scope)===task){this.foreground.delete(scope);this.sync();}
+    }
+  },
+  async documentReady(){
+    for(;;){
+      const active=["contract-type","workbench"].map(scope=>this.foreground.get(scope)?.done).filter(Boolean);
+      if(!active.length)return;
+      await Promise.all(active);
+    }
+  },
   async run(work,button){
     this.pending++;document.documentElement.dataset.working="";
     if(button){button.disabled=true;button.setAttribute("aria-busy","true");}
     try{
-      if(button && !document.hidden)await new Promise(resolve=>requestAnimationFrame(()=>setTimeout(resolve,0)));
       return await work();
     }finally{
       if(button){button.disabled=false;button.removeAttribute("aria-busy");}
@@ -38,12 +75,17 @@ const Cloud = {
   get company(){return this.account?.companies.find(c=>c.sharedBrand && c.id==="bakheet") || this.account?.companies.find(c=>c.id===sessionStorage.getItem("contract-company")) || this.account?.companies[0];},
   get brands(){return this.company?.sharedBrand?this.account.companies.filter(c=>c.sharedBrand):[this.company];},
   async saveBrand(brand){await this.call("brand_save",{brand});this.account=await this.call("session");},
-  call(action,data={},authenticated=true){return Activity.run(()=>this.request(action,data,authenticated));},
-  async request(action,data={},authenticated=true){
+  call(action,data={},authenticated=true,signal){return Activity.run(()=>this.request(action,data,authenticated,signal));},
+  readTimeout(signal,ms){
+    const timeout=AbortSignal.timeout(ms);
+    if(!signal)return timeout;
+    return AbortSignal.any?AbortSignal.any([signal,timeout]):signal;
+  },
+  async request(action,data={},authenticated=true,signal){
     if(authenticated && this.tokens && this.tokens.expires_at*1000 < Date.now()+60000)await this.renew();
     const response=await fetch(this.endpoint,{method:"POST",headers:{"Content-Type":"application/json",
       ...(authenticated && this.tokens?{Authorization:"Bearer "+this.tokens.access_token}:{})},
-      credentials:"omit",redirect:"error",cache:"no-store",signal:AbortSignal.timeout(30000),
+      credentials:"omit",redirect:"error",cache:"no-store",signal:this.readTimeout(signal,30000),
       body:JSON.stringify({...data,company:data.company || this.company?.id,action})});
     const result=await response.json().catch(()=>null);
     if(!response.ok){
@@ -126,10 +168,10 @@ const Cloud = {
   },
   versions:new Map(), writes:Promise.resolve(),
   serialize(fn){const task=this.writes.then(fn);this.writes=task.catch(()=>{});return task;},
-  async archive(){
+  async archive(signal){
     const entries=[], versions=new Map();let after="";
     for(;;){
-      const batch=await this.call("list",{after});
+      const batch=await this.call("list",{after},true,signal);
       for(const row of batch){
         versions.set(row.record,row.version);
         if(row.draft)entries.push({kind:"draft",id:"draft:"+row.record,data:row.draft,seller:row.seller,updatedAt:Date.parse(row.changed)});
@@ -148,25 +190,29 @@ const Cloud = {
       this.versions.set(record,result.version);return result;
     });
   },
-  async file(entry,purpose,blob){
+  async file(entry,purpose,blob,signal){
     if(this.tokens.expires_at*1000<Date.now()+60000)await this.renew();
     const meta={company:entry.data.companyId,record:entry.data.recordId,revision:entry.cloudRevision,purpose};
     const url=new URL(this.endpoint);
     if(blob){if(blob.size>15000000)throw Error("حجم النسخة يتجاوز ١٥ ميغابايت.");url.search=new URLSearchParams({...meta,request:crypto.randomUUID()});}
-    const response=await fetch(url,{method:"POST",cache:"no-store",credentials:"omit",redirect:"error",
+    const response=await fetch(url,{method:"POST",cache:"no-store",credentials:"omit",redirect:"error",signal:blob?signal:this.readTimeout(signal,90000),
       headers:{Authorization:"Bearer "+this.tokens.access_token,"Content-Type":blob?"application/pdf":"application/json"},
       body:blob||JSON.stringify({...meta,action:"file"})});
     if(!blob && response.status===404)return null;
     if(!response.ok)throw Error((await response.json().catch(()=>null))?.error||"تعذّر نقل نسخة المستند.");
     return blob?true:response.blob();
   },
-  async materialize(entry){
+  async materialize(entry,previewSignal){
     if(!entry.cloudRevision)return;
-    const read=await this.call("read",{company:entry.data.companyId,record:entry.data.recordId,revision:entry.cloudRevision});
+    const meta={company:entry.data.companyId,record:entry.data.recordId,revision:entry.cloudRevision};
+    const [read,signed]=await Promise.all([
+      this.call("read",meta,true,previewSignal),
+      this.file(entry,"signed_pdf",undefined,previewSignal)
+    ]);
     entry.config=read.config;
     entry.history=read.history.map(r=>({kind:"printed",id:"revision:"+r.revision,data:r.data,cloudRevision:r.revision,cloudSigned:r.signed,updatedAt:Date.parse(r.changed)}));
-    const signed=await this.file(entry,"signed_pdf");
-    const file=signed||await this.file(entry,"generated_pdf");
+    const file=signed||await this.file(entry,"generated_pdf",undefined,previewSignal);
+    if(previewSignal)return {file,signed:!!signed};
     if(file){
       const url=await new Promise((res,rej)=>{const reader=new FileReader();reader.onload=()=>res(reader.result);reader.onerror=()=>rej(reader.error);reader.readAsDataURL(file);});
       if(signed)entry.signedFile=url;else entry.snapshot={config:entry.config,pdf:url};

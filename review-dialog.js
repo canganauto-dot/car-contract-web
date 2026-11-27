@@ -56,6 +56,7 @@ const ReviewDialog = {
         return;
       }
       busy = submit.disabled = close.disabled = select.disabled = true;
+      status.replaceChildren(Activity.indicator("جارٍ حفظ القرار"));
       try {
         await c.apply(value);
         dialog.close();

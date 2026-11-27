@@ -1,3 +1,4 @@
+const selectDocument=require("./tests/select-document.cjs");
 const { chromium } = require("playwright");
 const fs = require("node:fs"),
   path = require("node:path"),
@@ -19,7 +20,7 @@ const { pathToFileURL } = require("node:url");
     }
     await p.locator("#workNew").click();
     await p.waitForFunction(() => !Services.home);
-    await p.locator("#archiveContractType").selectOption("exchange");
+    await selectDocument(p,"archiveContractType","exchange");
     for (const [key, val] of Object.entries({
       oldCar: "كيا سبورتاج",
       oldModel: "2022",

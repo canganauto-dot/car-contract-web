@@ -1,3 +1,4 @@
+const selectDocument=require("./tests/select-document.cjs");
 const { chromium } = require("playwright");
 const fs = require("node:fs"),
   os = require("node:os"),
@@ -74,7 +75,7 @@ const assert = require("node:assert/strict");
         }),
       );
     assert(await checkHeaders());
-    await p.locator("#archiveContractType").selectOption("cash");
+    await selectDocument(p,"archiveContractType","cash");
     const positions = () =>
       p.evaluate(() => {
         const source = ContractTemplates.scoped(cfg.design, "contract:installment").pages.find((page) => page.id === 1).nodes;
@@ -262,7 +263,7 @@ const assert = require("node:assert/strict");
     await p
       .locator("#cashTransferNote")
       .fill("تراجع معاملة نقل الملكية لدى الفرع.");
-    await p.locator("#archiveContractType").selectOption("exchange");
+    await selectDocument(p,"archiveContractType","exchange");
     await p.locator("#cashTransferLetter").check();
     assert(await p.locator("#cashTransferNote").isVisible());
     assert.equal(
@@ -284,7 +285,7 @@ const assert = require("node:assert/strict");
     await p
       .locator("#cashTransferNote")
       .fill("تراجع معاملة نقل الملكية لدى الفرع.");
-    await p.locator("#archiveContractType").selectOption("cash");
+    await selectDocument(p,"archiveContractType","cash");
     await p.emulateMedia({ media: "print" });
     const first = p.locator('#pages .paper[data-page="1"]');
     await letter.screenshot({
@@ -333,11 +334,11 @@ const assert = require("node:assert/strict");
       0,
     );
     await p.locator("#cashReceived").fill("4000000");
-    await p.locator("#archiveContractType").selectOption("installment");
+    await selectDocument(p,"archiveContractType","installment");
     assert(await p.locator("#guarantorCard").isVisible());
     assert(await p.locator("#count").isVisible());
     assert.equal(await p.locator('[data-node="cash-title"]').count(), 0);
-    await p.locator("#archiveContractType").selectOption("cash");
+    await selectDocument(p,"archiveContractType","cash");
     await p.evaluate(async () => {
       await App.enter();
       App.page = 1;

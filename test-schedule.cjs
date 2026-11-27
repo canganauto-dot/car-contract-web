@@ -25,6 +25,8 @@ const { chromium } = require("playwright"),
     for (const theme of ["light","dark"]) {
       await page.evaluate(theme=>UIPreferences.set("theme",theme),theme);
       const buyer = page.locator("#buyer");
+      // Missing-value colors are shown after focus leaves the field.
+      await buyer.blur();
       const border = () =>
         buyer.evaluate((el) => getComputedStyle(el.closest("label")).getPropertyValue("--entry-edge"));
       const emptyBorder = await border();

@@ -67,6 +67,8 @@ const ArchiveOutput = {
     }
   },
   clearViewer() {
+    this.previewRequest?.abort();this.previewRequest=null;
+    this.viewerActions(true);
     $("archiveVersion").hidden=true;
     $("archiveViewBody").replaceChildren();
     if (this.url) URL.revokeObjectURL(this.url);
@@ -76,6 +78,10 @@ const ArchiveOutput = {
     this.printFrame = null;
     this.rows = [];
     this.face = false;
+  },
+  viewerActions(ready){
+    for(const id of ["viewEdit","viewCopy","viewSave","viewPrint","archivePrintSides"])
+      $(id).disabled=!ready;
   },
   show(title, entry) {
     this.clearViewer();
@@ -96,25 +102,43 @@ const ArchiveOutput = {
     if (!$("archiveViewer").open) $("archiveViewer").showModal();
   },
   async view(entry, parent=entry) {
-    if(Cloud.enabled)await Cloud.materialize(entry);
-    const signed = Archive.signed(entry);
     const title =
       (entry.data.externalSeller || entry.data.buyer || "عقد") +
       " · " +
       entry.data.number;
-    if (signed || entry.snapshot?.pdf) {
-      const file = await this.build([entry], false);
-      this.show(title + (signed ? " · النسخة الموقّعة" : ""), entry);
-      this.displayPDF(file);
-    } else {
-      const pages = this.papers(entry, false);
-      this.show(title, entry);
-      $("archiveViewBody").append(pages);
-      const fit = Math.min(
-        1,
-        ($("archiveViewBody").clientWidth - 32) / (210 * MM),
-      );
-      for (const paper of $("archiveViewBody").children) paper.style.zoom = fit;
+    const dlg=$("archiveViewer"),body=$("archiveViewBody");
+    this.show(title,entry);
+    const request=this.previewRequest=new AbortController(),current=()=>!request.signal.aborted&&dlg.open;
+    this.rows=[];this.viewerActions(false);
+    body.replaceChildren(Activity.indicator("جارٍ فتح المستند"));
+    try{
+      await Activity.afterPaint();
+      if(!current())return;
+      const remote=Cloud.enabled?await Cloud.materialize(entry,request.signal):null;
+      if(!current())return;
+      const signed=remote?remote.signed:Archive.signed(entry);
+      const file=remote?remote.file:(signed||entry.snapshot?.pdf)?await this.build([entry],false):null;
+      if(!current())return;
+      if(file){
+        if(signed)$("viewTitle").textContent=title+" · النسخة الموقّعة";
+        this.displayPDF(file);
+      }else{
+        const pages=this.papers(entry,false);
+        const fit=Math.min(1,(body.clientWidth-32)/(210*MM));
+        for(const paper of pages.children)paper.style.zoom=fit;
+        body.replaceChildren(pages);
+      }
+      this.rows=[entry];this.viewerActions(true);
+      $("viewEdit").hidden=$("viewCopy").hidden=!!signed||entry!==parent;
+    }catch(error){
+      if(current()){
+        request.abort();
+        const message=document.createElement("p"),retry=document.createElement("button");
+        message.setAttribute("role","alert");message.textContent="تعذّر فتح المستند. "+error.message;
+        retry.textContent="إعادة المحاولة";retry.onclick=()=>this.view(entry,parent);
+        body.replaceChildren(message,retry);
+      }
+      return;
     }
     if(parent.history?.length){
       const versions=[parent,...parent.history];
@@ -237,6 +261,13 @@ const ArchiveOutput = {
           ".pdf"
       : "العقود-المحددة.pdf";
   },
+  fromArchive(rows,action){
+    const label=action.startsWith("download")?"جارٍ تجهيز ملف PDF":"جارٍ تجهيز المستندات للطباعة";
+    return Activity.transition(Symbol(),label,async()=>{
+      if(Cloud.enabled)for(const entry of rows)await Cloud.materialize(entry);
+      return this.output(rows,action);
+    });
+  },
   async output(rows, action) {
     const face = action === "face" || action === "downloadFace";
     if (action.startsWith("download"))
@@ -249,17 +280,27 @@ const ArchiveOutput = {
       face ? "طباعة وجه العقود المحدّدة" : "طباعة العقود",
       rows.length === 1 ? rows[0] : null,
     );
-    this.rows = rows;
     this.face = face;
-    await this.printSheets(rows, face);
+    this.rows=[];this.viewerActions(false);
+    const request=this.previewRequest=new AbortController();
+    const notice=Activity.indicator("جارٍ تجهيز صفحات الطباعة");
+    $("archiveViewBody").replaceChildren(notice);
+    try{
+      await Activity.afterPaint();
+      if(!request.signal.aborted)await this.printSheets(rows,face,request.signal,notice);
+    }finally{
+      if(!request.signal.aborted){this.rows=rows;this.viewerActions(true);notice.remove();}
+    }
   },
   displayPDF(blob) {
     this.file = blob;
     this.url = URL.createObjectURL(blob);
     const frame = document.createElement("iframe");
     frame.title = $("viewTitle").textContent;
+    const notice=Activity.indicator("جارٍ عرض ملف PDF");
+    frame.addEventListener("load",()=>notice.remove(),{once:true});
     frame.src = this.url;
-    $("archiveViewBody").replaceChildren(frame);
+    $("archiveViewBody").replaceChildren(notice,frame);
   },
   async reader() {
     if (!this.readerLoad) {
@@ -318,12 +359,14 @@ const ArchiveOutput = {
       await pdf.destroy();
     }
   },
-  async printSheets(rows, face) {
+  async printSheets(rows, face, signal, notice) {
     await this.verifyDrafts(rows);
+    if(signal?.aborted)return;
     const mode = PrintPlan.mode();
     const frame = document.createElement("iframe");
     frame.title = $("viewTitle").textContent;
-    $("archiveViewBody").replaceChildren(frame);
+    if(notice)notice.after(frame);
+    else $("archiveViewBody").replaceChildren(frame);
     const doc = frame.contentDocument;
     doc.documentElement.lang = "ar";
     doc.documentElement.dir = "rtl";
@@ -333,6 +376,7 @@ const ArchiveOutput = {
       "html,body{height:auto;overflow:auto}body{display:block;padding:12px;background:#dce3e2}.paper{display:block;margin:0 auto 12px}.signed-sheet img{display:block;width:100%;height:100%;object-fit:contain}.blank-image{visibility:hidden}@media print{html,body{margin:0!important;padding:0!important}.paper{translate:none!important;margin:0!important}}";
     doc.head.append(style);
     for (const entry of rows) {
+      if(signal?.aborted)return;
       if (mode === "duplex" && doc.body.children.length % 2) {
         const blank = doc.createElement("article");
         blank.className = "paper print-blank";
@@ -348,6 +392,7 @@ const ArchiveOutput = {
     await doc.fonts.ready;
     if (!frame.isConnected || PrintPlan.mode() !== mode) return;
     this.printFrame = frame;
+    notice?.remove();
     this.printFile();
   },
   printFile() {

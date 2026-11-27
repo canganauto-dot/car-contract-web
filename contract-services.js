@@ -645,7 +645,7 @@ class ContractServices {
     this.archivePanel();
   }
   startContract(){return Cloud.formsReady?SalesForms.chooseForContract():this.createContract();}
-  async createContract() {
+  async createContract(bookId) {
     await BranchNumbers.migration;
     if (App.mode === "design") App.leave();
     this.saveCurrent(d);
@@ -654,6 +654,12 @@ class ContractServices {
     next.recordId = "contract-" + crypto.randomUUID();
     next.companyId = d?.companyId || cfg.companies[0].id;
     next.initialCompanyId = next.companyId;
+    if(Number.isInteger(bookId)){
+      const template=cfg.letterTemplates?.find(t=>t.id===bookId);
+      Object.assign(next,{templateId:"",standaloneBook:String(bookId),pages:[bookId],
+        bookTitle:bookId===4?"تخويل قيادة":bookId===0?"نقل ملكية":template?.name||"كتاب",
+        bookBody:template?.body||"",contractType:bookId===0?"cash":"installment"});
+    }
     await BranchNumbers.begin(next);
     d = next;
     this.home = false;
@@ -662,25 +668,30 @@ class ContractServices {
     App.scene = null;
     App.configRef = cfg;
     buildInputs();
-    render();
+    const painting=DocumentInk.progressive(render);
+    Workbench.lockForm(false);
     saveDraft();
-    $("buyer").focus({ preventScroll: true });
-    return true;
+    if(!next.standaloneBook)$("buyer").focus({ preventScroll: true });
+    await painting;
+    return d===next;
   }
   async openEntry(entry) {
     if (App.mode === "design") App.leave();
     this.saveCurrent(d);
     await this.flush();
-    d = normalizeData(clone(entry.data));
+    const opened=normalizeData(clone(entry.data));
+    d=opened;
     if (!d.recordId) d.recordId = "contract-" + crypto.randomUUID();
     this.home = false;
     document.body.classList.remove("home-mode");
     $("homeScreen").hidden = true;
     App.scene = null;
     buildInputs();
-    render();
+    const painting=DocumentInk.progressive(render);
+    Workbench.lockForm(false);
     saveDraft();
-    return true;
+    await painting;
+    return d===opened;
   }
   archivePanel() {
     Archive.refresh();
@@ -913,7 +924,7 @@ class ContractServices {
       $("settingsDrawer").append(fdetails);
     }
     fdetails.append($("formulaSettings"));
-    $("homeButton").onclick = () => this.showHome();
+    $("homeButton").onclick = () => Activity.transition("home","جارٍ فتح الأرشيف",()=>this.showHome());
     $("homeCreate").onclick = () => this.startContract();
     Archive.init();
     $("customerUpload").onclick = () => $("customerPhotoFile").click();

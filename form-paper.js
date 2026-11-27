@@ -142,6 +142,16 @@ const FormPaper = {
     }
     return sheets;
   },
+  logos:new Map(),
+  logo(src){
+    if(!this.logos.has(src)){
+      if(this.logos.size>=6)this.logos.delete(this.logos.keys().next().value);
+      const img=new Image();img.src=src;
+      const decoded=img.decode().then(()=>img).catch(error=>{if(this.logos.get(src)===decoded)this.logos.delete(src);throw error;});
+      this.logos.set(src,decoded);
+    }
+    return this.logos.get(src);
+  },
   async draw(sheet,values,scale=2){
     await WebResources.loadDocumentFont();
     const canvas=document.createElement("canvas");canvas.width=this.width*scale;canvas.height=this.height*scale;
@@ -161,7 +171,7 @@ const FormPaper = {
       if(s.kind==="rect"){ctx.fillStyle=s.fill;ctx.fillRect(s.x,s.y,s.w,s.h);if(s.stroke){ctx.strokeStyle=s.stroke;ctx.strokeRect(s.x+.5,s.y+.5,s.w-1,s.h-1);}}
       if(s.kind==="text")write(s,s.value,s.size,s.align,s.color,s.bold,s.multi);
       if(s.kind==="logo"&&/^(?:data:image\/(?:png|jpeg|webp);base64,|(?:\.\/)?assets\/media\/)/i.test(s.src)){
-        const img=new Image();img.src=s.src;await img.decode();const k=Math.min(s.w/img.width,s.h/img.height);ctx.drawImage(img,s.x+(s.w-img.width*k)/2,s.y+(s.h-img.height*k)/2,img.width*k,img.height*k);
+        const img=await this.logo(s.src);const k=Math.min(s.w/img.width,s.h/img.height);ctx.drawImage(img,s.x+(s.w-img.width*k)/2,s.y+(s.h-img.height*k)/2,img.width*k,img.height*k);
       }
       if(s.kind!=="field")continue;
       ctx.fillStyle="#fff";ctx.fillRect(s.x,s.y,s.w,s.h);ctx.strokeStyle="#b2c4cc";ctx.strokeRect(s.x+.5,s.y+.5,s.w-1,s.h-1);
@@ -176,7 +186,18 @@ const FormPaper = {
   editor(f,readOnly){
     return this.layout(f).map(sheet=>{
       const page=document.createElement("article");page.className="sales-paper";page.ariaLabel="استمارة مبيعات A4";
-      this.draw(sheet,readOnly).then(c=>page.prepend(c)).catch(e=>SalesForms.status.textContent=e.message);
+      const paint=async()=>{
+        const notice=Activity.indicator("جارٍ رسم الاستمارة");page.prepend(notice);
+        await Activity.afterPaint();if(!page.isConnected)return;
+        try{const canvas=await this.draw(sheet,readOnly);notice.replaceWith(canvas);}
+        catch(error){
+          if(!page.isConnected)return;
+          const retry=document.createElement("button");retry.type="button";retry.textContent="إعادة المحاولة";
+          notice.replaceChildren(document.createTextNode("تعذّر رسم الاستمارة. "+error.message),retry);
+          retry.onclick=()=>{notice.remove();paint();};
+        }
+      };
+      paint();
       const groups=new Map(),sections=sheet.filter(s=>s.section).map(s=>s.section);
       page.classList.toggle("paper-editable",!readOnly);
       const groupFor=s=>{
@@ -214,7 +235,10 @@ const FormPaper = {
           if(s.key==="depositDate")f.data.depositAuto=false;
           if(s.key.startsWith("cashPayments."))f.data.cashSplit=f.data.cashPayments.some(r=>r?.amount);
           SalesForms.dirty();
-          if(["companyId","contractType","phaseEnabled","exchangeManual","branch"].includes(s.key))SalesForms.edit();
+          if(["companyId","contractType","phaseEnabled","exchangeManual","branch"].includes(s.key))
+            Activity.transition("form-fields","جارٍ تحديث خانات الاستمارة",()=>{
+              if(SalesForms.active===f&&page.isConnected)SalesForms.edit();
+            }).catch(error=>SalesForms.status.textContent=error.message);
         };
         if(s.type==="date"){
           EntryDates.attach(input);const wrap=input.parentElement;wrap.classList.add("paper-date");

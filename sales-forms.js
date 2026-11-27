@@ -31,7 +31,7 @@ const SalesForms = {
     this.panel=this.el("main");this.panel.id="salesWorkspace";this.panel.dir="rtl";this.panel.hidden=true;
     this.status=this.el("output");this.status.setAttribute("role","status");this.bar=this.el("header");this.content=this.el("div");
     this.panel.append(this.bar,this.status,this.content);document.body.append(this.panel);
-    window.addEventListener("focus",()=>{if(!this.panel.hidden&&!this.active&&this.listing&&Date.now()-(this.listUpdated||0)>30000&&!this.panel.querySelector("dialog[open]"))this.list().catch(e=>this.status.textContent=e.message);});
+    window.addEventListener("focus",()=>{if(!this.panel.hidden&&!this.active&&this.listing&&Date.now()-(this.listUpdated||0)>30000&&!this.panel.querySelector("dialog[open]"))this.open("forms",false,true).catch(e=>this.status.textContent=e.message);});
     document.addEventListener("visibilitychange",()=>{if(document.hidden&&this.active?.dirty)this.flush().catch(e=>this.status.textContent=e.message);});
     window.addEventListener("keydown",event=>{
       if(this.panel.hidden || document.querySelector("dialog[open]") || !(event.ctrlKey||event.metaKey) || event.key.toLowerCase()!=="p")return;
@@ -50,7 +50,7 @@ const SalesForms = {
   navigation(host,active){
     this.mainNav??=this.tabs([["archive","الأرشيف"],["drafts","المسودات"],["forms","الاستمارات"]],"",async key=>{
       if(this.active?.revising&&!await Feedback.ask("مغادرة تصحيح الاستمارة قبل حفظه؟"))return;
-      if(App.mode==="design")App.leave();this.choosingContract=false;await this.open(key);
+      this.choosingContract=false;await this.open(key);
     },"مساحة العمل");
     for(const [i,b] of [...this.mainNav.children].entries())b.setAttribute("aria-current",String(["archive","drafts","forms"][i]===active));
     host.append(this.mainNav);this.mainNav.classList.add("workspace-navigation");
@@ -61,19 +61,45 @@ const SalesForms = {
       if(App.mode!=="design"&&!FillLayout.panel)this.open(tab).catch(e=>Feedback.notice(e.message));});
     observer.observe(drawer,{attributes:true,attributeFilter:["hidden"]});
   },
-  async open(tab="forms",useLoaded=false){
+  beginNavigation(){
+    this.navigationRequest?.abort();
+    this.navigationRequest=new AbortController();
+    this.listing=false;
+    return this.listTicket=this.navigationRequest.signal;
+  },
+  async open(tab="forms",useLoaded=false,quiet=false){
     if(tab!=="forms")this.choosingContract=false;
-    const visit=this.visit=Symbol();
-    if(this.panel.hidden){
-      if(!Cloud.restricted){document.activeElement?.blur();await Services.flush();}if(this.visit!==visit)return;
-      this.hiddenNodes=[...document.body.children].filter(e=>e!==this.panel&&!["startupThread","taskProgress"].includes(e.id)&&!e.inert&&!["DIALOG","SCRIPT","STYLE","LINK"].includes(e.tagName));
-      for(const e of this.hiddenNodes)e.inert=true;
-      this.panel.hidden=false;document.body.classList.add("forms-workspace");
-    }
-    return tab==="forms"?this.list():this.contracts(tab,useLoaded);
+    const ticket=this.beginNavigation();
+    const label={forms:"جارٍ تحميل سجل الاستمارات",archive:"جارٍ فتح الأرشيف",drafts:"جارٍ فتح المسودات"}[tab];
+    const load=async()=>{
+      if(App.mode==="design")App.leave();
+      if(this.panel.hidden){
+        if(!Cloud.restricted){document.activeElement?.blur();await Services.flush();}
+        if(ticket.aborted)return;
+        this.hiddenNodes=[...document.body.children].filter(e=>e!==this.panel&&!["startupThread","taskProgress"].includes(e.id)&&!e.inert&&!["DIALOG","SCRIPT","STYLE","LINK"].includes(e.tagName));
+        for(const e of this.hiddenNodes)e.inert=true;
+        this.panel.hidden=false;document.body.classList.add("forms-workspace");
+      }
+      await this.finishDraft();if(this.listTicket!==ticket)return;
+      this.active=null;
+      if(!quiet){
+        this.header(tab);this.selected.clear();this.printSelection=null;
+        this.status.textContent=this.choosingContract?"اختر استمارة منشورة لإنشاء العقد منها، أو أضف استمارة جديدة.":"";
+        this.content.replaceChildren(Activity.indicator(label));
+      }
+      try{
+        if(tab==="forms")await this.loadForms(ticket);
+        else await this.loadContracts(tab,useLoaded,ticket);
+      }catch(error){
+        if(this.listTicket!==ticket)return;
+        if(!quiet)this.content.replaceChildren(this.button("إعادة المحاولة",()=>this.open(tab)));
+        this.status.textContent=error.message;
+      }finally{if(this.listTicket===ticket)this.listing=tab==="forms";}
+    };
+    return quiet?load():Activity.transition("workspace",label,load);
   },
   async leave(archive){
-    this.visit=null;await this.flush();this.active=null;this.listTicket=null;this.panel.hidden=true;document.body.classList.remove("forms-workspace");
+    this.navigationRequest?.abort();this.listTicket=null;this.listing=false;await this.finishDraft();this.active=null;this.panel.hidden=true;document.body.classList.remove("forms-workspace");
     for(const e of this.hiddenNodes||[])e.inert=false;
     if(!Cloud.restricted)this.navigation($("homeButton").parentElement,"");
     if(archive)await Services.showHome();
@@ -148,10 +174,8 @@ const SalesForms = {
     const box=this.el("label");box.className="register-search";box.innerHTML=Archive.icon("search");box.append(search);
     tools.append(box,period,pick,toggle);return {tools,options};
   },
-  async contracts(tab="drafts",useLoaded=false){
-    if(this.panel.hidden)return this.open(tab);await this.flush();this.active=null;this.listing=false;
-    const ticket=this.listTicket=Symbol();this.header(tab);this.status.textContent="";
-    const library=useLoaded?Services.library:await Cloud.archive();if(ticket!==this.listTicket)return;Services.library=library;
+  async loadContracts(tab,useLoaded,ticket){
+    const library=useLoaded?Services.library:await Cloud.archive(ticket);if(ticket!==this.listTicket)return;Services.library=library;
     const drafts=tab==="drafts";
     const rows=library.entries.filter(e=>e.kind===(drafts?"draft":"printed")).map(entry=>{
       const d=entry.data;
@@ -159,16 +183,14 @@ const SalesForms = {
     });
     this.register(tab,rows);
   },
-  async list(){
-    await this.flush();this.active=null;this.listing=true;this.status.textContent="";
-    const ticket=this.listTicket=Symbol();this.header("forms");
-    if(this.choosingContract)this.status.textContent="اختر استمارة منشورة لإنشاء العقد منها، أو أضف استمارة جديدة.";
+  list(){return this.open("forms");},
+  async loadForms(ticket){
     const state=this.filterState("forms"),rows=[];let cursor={};
     let month=this.periodValue(state);
     const lower=state.period==="range"&&state.from?Date.parse(state.from+"T00:00:00+03:00"):null;
     // A republication can cross midnight on the first of the month.
     if(lower!==null&&state.to&&state.from.slice(0,7)===state.to.slice(0,7)&&!state.from.endsWith("-01"))month=state.from.slice(0,7);
-    for(;;){const batch=await Cloud.call("forms_list",{...cursor,month,scope:this.formTab==="history"?"history":"active"});if(this.listTicket!==ticket)return;
+    for(;;){const batch=await Cloud.call("forms_list",{...cursor,month,scope:this.formTab==="history"?"history":"active"},true,ticket);if(this.listTicket!==ticket)return;
       rows.push(...batch.map(r=>({...r,company:r.company||Cloud.company.id,seller:r.author_name,when:r.listed_on||r.published||r.changed})));if(batch.length<100)break;
       const last=batch.at(-1);if(lower!==null&&Date.parse(last.changed)<lower)break;
       cursor={before:last.changed,cursor:last.id};
@@ -259,7 +281,7 @@ const SalesForms = {
     };paint();
   },
   async documentOutput(rows,action){
-    const entries=rows.map(r=>r.entry);for(const e of entries)await Cloud.materialize(e);return ArchiveOutput.output(entries,action);
+    return ArchiveOutput.fromArchive(rows.map(r=>r.entry),action);
   },
   async deleteRows(rows,forms){
     if(!rows.length||!await Feedback.ask("تأكيد حذف "+rows.length+" من مسوداتك؟"))return;
@@ -277,13 +299,18 @@ const SalesForms = {
   get managesBranches(){return Cloud.brands.some(c=>c.role==="administrator"||Object.values(c.branchRoles||{}).includes("branch_manager"));},
   historyLabels:{form_correct:"تصحيح",form_withdraw:"سحب",form_republish:"إعادة نشر",form_reject:"رفض",form_remove_published:"حذف",form_approve:"اعتماد"},
   async history(f){
-    const versions=await Cloud.call("form_history",{id:f.id,company:f.company});
     const dialog=this.el("dialog");dialog.className="form-history";dialog.dir="rtl";
     const body=this.el("div"),actions=this.historyLabels;
+    dialog.append(this.el("h2","سجل النسخ السابقة"),this.button("إغلاق",()=>dialog.close()),body);this.panel.append(dialog);
+    dialog.onclose=()=>dialog.remove();dialog.showModal();
+    body.append(Activity.indicator("جارٍ تحميل النسخ السابقة"));
+    let versions;
+    try{versions=await Cloud.call("form_history",{id:f.id,company:f.company});}
+    catch(error){if(dialog.open)body.textContent=error.message;return;}
+    if(!dialog.open)return;
     const pick=this.select("النسخة السابقة",versions.map(v=>[String(v.version),"نسخة "+v.version+" · "+(v.action==="form_republish"?"عند إعادة النشر":"قبل "+(actions[v.action]||v.action))+" · "+this.time(v.at)+" · "+v.by]),String(versions[0]?.version));
     const show=()=>{const v=versions.find(t=>String(t.version)===pick.value);body.replaceChildren(...(v?FormPaper.editor(v.snapshot,true):[this.el("p","لا توجد نسخ سابقة محفوظة.")]));};
-    pick.onchange=show;dialog.append(this.el("h2","سجل النسخ السابقة"),pick,this.button("إغلاق",()=>dialog.close()),body);this.panel.append(dialog);
-    dialog.onclose=()=>dialog.remove();dialog.showModal();show();
+    pick.onchange=show;body.before(pick);show();
   },
   async reviewAction(f,action,message){
     if(!await Feedback.ask(message))return;
@@ -324,7 +351,11 @@ const SalesForms = {
       select.replaceChildren(...options);select.value=current;
     }catch(e){if(this.active===f&&select.isConnected)this.status.textContent="تعذّر تحميل أسماء البائعين. "+e.message;}
   },
-  async create(){
+  create(){
+    this.beginNavigation();
+    return Activity.transition("workspace","جارٍ إعداد الاستمارة",()=>this.newForm());
+  },
+  newForm(){
     if(this.recovered())throw Error("استعد الكتابة غير المحفوظة أولاً.");
     const branch=Cloud.company.branches.find(b=>b.name===cfg.fixed.branch)||Cloud.company.branches[0];
     if(!branch)throw Error("يحتاج حسابك إلى فرع مسند.");
@@ -332,12 +363,19 @@ const SalesForms = {
     this.active.data.companyId=Cloud.company.id;this.active.data.depositDate="";this.active.data.depositAuto=false;this.edit();
   },
   async view(row){
-    const ticket=this.listTicket=Symbol();
-    await this.flush();
-    const f=await Cloud.call("form_read",{id:row.id,company:row.company});
-    if(this.listTicket!==ticket||this.panel.hidden)return;
-    this.active={...row,...f,revising:false,data:{...f.data,companyId:f.company||row.company},dirty:false};
-    this.edit();
+    const ticket=this.beginNavigation();
+    return Activity.transition("workspace","جارٍ فتح الاستمارة",async()=>{
+      await this.flush();
+      if(this.listTicket!==ticket||this.panel.hidden)return;
+      try{
+        const f=await Cloud.call("form_read",{id:row.id,company:row.company},true,ticket);
+        if(this.listTicket!==ticket||this.panel.hidden)return;
+        await this.finishDraft();
+        if(this.listTicket!==ticket||this.panel.hidden)return;
+        this.active={...row,...f,revising:false,data:{...f.data,companyId:f.company||row.company},dirty:false};
+        this.edit();
+      }catch(error){if(this.listTicket===ticket)throw error;}
+    });
   },
   get recoveryKey(){return "unsaved-sales-form:"+Cloud.storageKey();},
   keep(f){try{sessionStorage.setItem(this.recoveryKey,JSON.stringify({id:f.id,branch:f.branch,version:f.version,data:f.data}));}catch{}},
@@ -352,6 +390,10 @@ const SalesForms = {
     this.active={...saved,dirty:true};this.edit();await this.flush();
   },
   dirty(){if(this.active?.revising){this.status.textContent="تصحيح بانتظار الحفظ";return;}this.active.dirty=true;this.keep(this.active);this.status.textContent="جارٍ حفظ المسودة…";clearTimeout(this.timer);this.timer=setTimeout(()=>this.flush().catch(e=>this.status.textContent=e.message),500);},
+  async finishDraft(){
+    const form=this.active;
+    do{await this.flush();}while(this.active===form&&form?.dirty&&!form.published);
+  },
   async flush(){
     clearTimeout(this.timer);const f=this.active;
     const write=async()=>{
@@ -390,6 +432,12 @@ const SalesForms = {
   },
 
   async convert(f){
+    if(this.converting)return;
+    this.converting=true;
+    try{return await Activity.transition("conversion","جارٍ إنشاء عقد من الاستمارة",()=>this.openConverted(f));}
+    finally{this.converting=false;}
+  },
+  async openConverted(f){
     const company=f.company||f.data?.companyId;
     const {record}=await Cloud.call("form_convert",{id:f.id,company,version:f.version,prefix:""});
     this.choosingContract=false;await this.leave(false);Services.library=await Cloud.archive();

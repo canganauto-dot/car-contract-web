@@ -1,4 +1,5 @@
 const App = new ContractEditor();
+window.addEventListener("beforeprint",()=>DocumentInk.drain(),true);
 function render() {
   if (App.mode === "fill" && App.configRef !== cfg) {
     App.scene = null;

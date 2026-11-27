@@ -239,19 +239,23 @@ function buildInputs() {
   ContractTemplates.list($("archiveContractType"));
   $("archiveContractType").value = ContractTemplates.find()?.id || d.contractType || "installment";
   $("archiveContractType").onchange = (e) => {
-    App.commitText();
-    const template = ContractTemplates.find(e.target.value);
-    d.templateId = template?.id || "";
-    d.contractType = template?.baseType || e.target.value;
-    if (template) d.pages = [...new Set([...d.pages, ...template.pages.map(p=>p.id).filter(id=>id>0)])];
-    App.selection.clear();
-    App.cells = [];
-    App.tableId = null;
-    buildInputs();
-    $("pagePreview").value = "1";
-    App.page = 1;
-    $("canvas").scrollTop = 0;
-    render();
+    const value=e.target.value, documentData=d;
+    return Activity.transition("contract-type","جارٍ تغيير نوع العقد",()=>{
+      if(d!==documentData||Workbench.switching)return;
+      App.commitText();
+      const template = ContractTemplates.find(value);
+      d.templateId = template?.id || "";
+      d.contractType = template?.baseType || value;
+      if (template) d.pages = [...new Set([...d.pages, ...template.pages.map(p=>p.id).filter(id=>id>0)])];
+      App.selection.clear();
+      App.cells = [];
+      App.tableId = null;
+      buildInputs();
+      $("pagePreview").value = "1";
+      App.page = 1;
+      $("canvas").scrollTop = 0;
+      return DocumentInk.progressive(render);
+    }).catch(error=>Feedback.notice(error.message));
   };
   for (const [where, defs] of Object.entries(dataDefs))
     buildFields(where, defs, d, updateInputPreview);
@@ -997,6 +1001,9 @@ function bindEvents() {
 
 async function prepareDocumentOutput(issueOnly){
     const selected=d;
+    await Activity.documentReady();
+    if(d!==selected)return Feedback.notice("تغيّر المستند المفتوح. اختر الطباعة من المستند المطلوب.");
+    DocumentInk.drain();
     if (document.activeElement?.closest("#fillPanel, #toolbar")) document.activeElement.blur();
     Services.refreshPrintClock();
     App.commitText();

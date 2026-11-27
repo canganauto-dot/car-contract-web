@@ -16,15 +16,13 @@ const Workbench = {
       const original = Services[method].bind(Services);
       Services[method] = async (...args) => {
         if (this.switching) return;
-        this.switching = true;
-        this.paint();
-        $("cards").inert = true;
+        const owner=this.switching=Symbol();
+        this.lockForm(true);
         try {
-          return await original(...args);
+          const label=method==="openEntry"?"جارٍ فتح المسودة":Number.isInteger(args[0])?"جارٍ إعداد الكتاب":"جارٍ إعداد العقد";
+          return await Activity.transition("workbench",label,()=>original(...args));
         } finally {
-          this.switching = false;
-          $("cards").inert = false;
-          this.paint();
+          if(this.switching===owner)this.lockForm(false);
         }
       };
     }
@@ -54,6 +52,12 @@ const Workbench = {
     this.form();
     Archive.refresh();
     EntryDates.sync();
+  },
+  lockForm(locked){
+    if(!locked)this.switching=false;
+    $("cards").inert=locked;
+    $("archiveContractType").disabled=locked;
+    if($("bookType"))$("bookType").disabled=locked;
   },
   labels() {
     for (const [id, label] of [
@@ -135,22 +139,7 @@ const Workbench = {
     node.append(open, actions);
     return tile;
   },
-  async start(id) {
-    if (!(await Services.createContract())) return;
-    d.templateId = "";
-    d.standaloneBook = String(id);
-    d.bookTitle =
-      id === 4
-        ? "تخويل قيادة"
-        : id === 0
-          ? "نقل ملكية"
-          : cfg.letterTemplates?.find((t) => t.id === id)?.name || "كتاب";
-    d.bookBody = cfg.letterTemplates?.find((t) => t.id === id)?.body || "";
-    d.contractType = id === 0 ? "cash" : "installment";
-    d.pages = [id];
-    render();
-    saveDraft();
-  },
+  start(id) { return Services.createContract(id); },
   choose() {
     const dialog = document.createElement("dialog");
     dialog.className = "letter-picker";
@@ -251,7 +240,12 @@ const Workbench = {
       bookType.id = "bookType";
       label.append(bookType);
       $("archiveContractType").closest("label").after(label);
-      bookType.onchange = () => this.switchBook(Number(bookType.value));
+      bookType.onchange = () => {
+        const id=Number(bookType.value),record=d;
+        return Activity.transition("contract-type","جارٍ تغيير نوع الكتاب",()=>{
+          if(d===record&&!this.switching)this.switchBook(id);
+        }).catch(e=>Feedback.notice(e.message));
+      };
     }
     bookType.closest("label").hidden = !isBook;
     if (isBook) {

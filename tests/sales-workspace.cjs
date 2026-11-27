@@ -7,9 +7,23 @@ const {PDFDocument}=require("../vendor/pdf-lib-1.17.1.min.js");
  try{
   const ctx=await browser.newContext({acceptDownloads:true}),forms=new Map(),errors=[];
   let dept="sales",version=0,contractDraft;
+  const held=new Map();
+  const hold=action=>{
+    let release;
+    const wait=new Promise(resolve=>release=resolve);
+    held.set(action,wait);return release;
+  };
+  const issued=new Date().toISOString();
+  const archived={record:"printed-demo",revision:"revision-demo",signed:true,changed:issued,issuedAt:issued,version:1,
+    printed:{companyId:"bakheet",recordId:"printed-demo",number:"T-100",buyer:"عقد تجريبي مطبوع",contractType:"cash",numberBranch:"الدورة"}};
+  const sample=await PDFDocument.create();sample.addPage();const signedPdf=Buffer.from(await sample.save());
+  let failRead=false;
   const account=()=>({formsWorkspace:true,name:"موظف",userId:dept,companies:[{id:"bakheet",sharedBrand:true,name:"لؤلؤة البخيت",role:dept==="contracts"?"administrator":"employee",department:dept,branches:[{name:"الدورة",id:"b"}],branchRoles:{b:"employee"}},...(dept==="contracts"?[{id:"imad",sharedBrand:true,name:"عماد الأرض",role:"administrator",department:"contracts",branches:[{name:"الدورة",id:"i"}],branchRoles:{}}]:[])]});
   await ctx.route("**/functions/v1/contract-access",async route=>{
    const p=route.request().postDataJSON();let data;
+   const rejectRead=p.action==="read"&&failRead;
+   if(rejectRead)failRead=false;
+   if(held.has(p.action)){const wait=held.get(p.action);held.delete(p.action);await wait;}
    if(p.action==="login")data={access_token:"a",refresh_token:"r",expires_at:Date.now()/1000+3000,account:account()};
    else if(["alerts","alerts_seen","form_sellers"].includes(p.action))data=[];
    else if(p.action==="session")data=account();
@@ -18,7 +32,12 @@ const {PDFDocument}=require("../vendor/pdf-lib-1.17.1.min.js");
    else if(p.action==="form_read")data=forms.get(p.id);
    else if(p.action==="form_approve"){const f=forms.get(p.id);f.approved=f.changed;f.version++;data={version:f.version};}
    else if(p.action==="form_convert"){const f=forms.get(p.id);f.contract_key="fixture-contract";contractDraft={record:f.contract_key,draft:{...f.data,recordId:f.contract_key,number:"F-1",numberBranch:f.branch,companyId:"bakheet"},version:1,changed:f.changed};data={record:f.contract_key};}
-   else if(p.action==="list")data=contractDraft?[{...contractDraft,company:contractDraft.draft.companyId}]:[];
+   else if(p.action==="list")data=contractDraft?[archived,{...contractDraft,company:contractDraft.draft.companyId}]:[archived];
+   else if(p.action==="read"){
+     if(rejectRead)return route.fulfill({status:503,json:{error:"تعذّر الاتصال بالخادم"}});
+     data={config:{},history:[]};
+   }
+   else if(p.action==="file"){assert.equal(p.purpose,"signed_pdf");return route.fulfill({contentType:"application/pdf",body:signedPdf});}
    else if(p.action==="move_contract"){assert.equal(p.record,contractDraft.record);contractDraft.draft.companyId=p.destination;contractDraft.version++;data=true;}
    else if(p.action==="layouts")data={revision:"0",layouts:{}};
    else if(p.action==="draft")data={version:2};
@@ -41,7 +60,16 @@ const {PDFDocument}=require("../vendor/pdf-lib-1.17.1.min.js");
   const ready=page.waitForEvent("download");await panel.getByRole("button",{name:"تنزيل PDF"}).click();const file=await ready;
   const pdf=await PDFDocument.load(fs.readFileSync(await file.path()));assert.ok(pdf.getPageCount()>=2);
   await panel.getByRole("button",{name:"خروج",exact:true}).click();await page.locator("#startupThread form").waitFor();
-  dept="finance";await login(false);await panel.getByRole("button",{name:"زبون أول",exact:true}).click();
+  dept="finance";await login(false);
+  const releaseForm=hold("form_read");
+  const started=page.waitForRequest(req=>req.method()==="POST"&&req.postDataJSON()?.action==="form_read");
+  await panel.getByRole("button",{name:"زبون أول",exact:true}).click();await started;
+  await page.locator("#taskProgress[data-transition]").getByText("جارٍ فتح الاستمارة").waitFor();
+  await panel.getByRole("button",{name:"زبون ثان",exact:true}).click();
+  await page.waitForFunction(()=>SalesForms.active?.data.buyer==="زبون ثان");releaseForm();
+  await panel.locator(".sales-paper canvas").first().waitFor();
+  assert.equal(await panel.getByLabel("المشتري",{exact:true}).inputValue(),"زبون ثان");
+  console.log("PASS slow form shows progress and a late response cannot replace the newer form");
   assert.equal(await panel.getByLabel("المشتري",{exact:true}).isDisabled(),true);
   assert.equal(await panel.getByRole("button",{name:/نشر الاستمارة|إنشاء عقد|إضافة استمارة/}).count(),0);
   assert.equal(await page.evaluate(()=>localStorage.getItem("contract-auth")),null);
@@ -51,6 +79,22 @@ const {PDFDocument}=require("../vendor/pdf-lib-1.17.1.min.js");
   if(await page.locator("#setupDialog").isVisible()){
     await page.locator("#setupBranch").fill("الدورة");await page.locator("#setupForm button").click();
   }
+  const archiveRow=panel.getByRole("button",{name:"عقد تجريبي مطبوع",exact:true}),viewer=page.locator("#archiveViewer");
+  const releasePreview=hold("read");
+  const reading=page.waitForRequest(req=>req.method()==="POST"&&req.postDataJSON()?.action==="read");
+  await archiveRow.click();await reading;await viewer.getByText("جارٍ فتح المستند").waitFor();
+  assert(await page.locator("#viewPrint").isDisabled());await page.locator("#viewClose").click();releasePreview();
+  failRead=true;await archiveRow.click();await viewer.getByRole("button",{name:"إعادة المحاولة"}).click();
+  await viewer.locator("iframe").waitFor();assert(await page.locator("#viewPrint").isEnabled());
+  assert(await page.locator("#viewEdit").isHidden());assert.equal(await page.evaluate(()=>ArchiveOutput.file.size),signedPdf.length);
+  await page.locator("#viewClose").click();
+  const releaseRegister=hold("forms_list");
+  const listing=page.waitForRequest(req=>req.method()==="POST"&&req.postDataJSON()?.action==="forms_list");
+  await panel.getByRole("button",{name:"الاستمارات",exact:true}).click();await listing;
+  await panel.locator(".loading-state").filter({hasText:"جارٍ تحميل سجل الاستمارات"}).waitFor();
+  await panel.getByRole("button",{name:"المسودات",exact:true}).click();releaseRegister();
+  await panel.getByRole("heading",{name:"مسودات العقود والكتب"}).waitFor();
+  console.log("PASS pending register navigation, archive close, retry and signed document display");
   await panel.getByRole("button",{name:"الاستمارات",exact:true}).click();
   const row=panel.getByRole("row").filter({has:page.getByRole("button",{name:"زبون أول",exact:true})});
   await row.getByRole("button",{name:"بانتظار الاعتماد"}).click();

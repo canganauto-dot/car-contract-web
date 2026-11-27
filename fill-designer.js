@@ -21,11 +21,15 @@ const FillDesigner = {
     }
     if(width)root.style.setProperty("--entry-title-width",Math.ceil(width)+"px");
   },
-  drawFrame(label) {
+  frameSize(label) {
     const caption=this.caption(label), svg=label.querySelector(":scope > .entry-frame");
-    if(!caption || !svg || !label.offsetWidth || !label.offsetHeight)return;
+    if(!caption || !svg)return;
     const w=label.offsetWidth, h=label.offsetHeight;
+    if(!w||!h)return;
     const top=caption.offsetHeight, tab=Math.min(w-2,caption.offsetWidth+10);
+    return {svg,w,h,top,tab};
+  },
+  drawFrame({svg,w,h,top,tab}) {
     const dimensions=[w,h,top,tab].join(",");
     if(svg.dataset.dimensions===dimensions)return;
     svg.dataset.dimensions=dimensions;
@@ -53,13 +57,13 @@ const FillDesigner = {
       tab.classList.add("entry-tab-fill");svg.append(outline,tab);label.prepend(svg);
     }
     this.frameObserver ||= new ResizeObserver(entries=>{
-      for(const label of new Set(entries.map(({target}) => target.closest("label"))))
-        if(label?.isConnected)this.drawFrame(label);
+      const labels=new Set(entries.map(({target})=>target.closest("label")));
+      const sizes=[...labels].filter(label=>label?.isConnected).map(label=>this.frameSize(label));
+      for(const size of sizes)if(size)this.drawFrame(size);
     });
     (this.observedLabels ||= new Set()).add(label);
     this.frameObserver.observe(label);
     this.frameObserver.observe(this.caption(label));
-    this.drawFrame(label);
   },
   guarantorSections:new WeakMap(),
   syncGuarantor() {

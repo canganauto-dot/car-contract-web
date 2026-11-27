@@ -58,7 +58,7 @@ const Archive = {
     for (const b of document.querySelectorAll("[data-output]"))
       b.onclick = () => this.run(this.selectedRows(), b.dataset.output);
     $("viewClose").onclick = () => $("archiveViewer").close();
-    $("archiveViewer").onclose = () => ArchiveOutput.clearViewer();
+    $("archiveViewer").onclose = () => {if(!$("archiveViewer").open)ArchiveOutput.clearViewer();};
     $("viewEdit").onclick = () => {
       const entry = ArchiveOutput.entry;
       if (!entry) return;
@@ -407,7 +407,7 @@ const Archive = {
     $("archiveStatus").textContent = "";
     try {
       if (action === "view") await ArchiveOutput.view(rows[0]);
-      else {if(Cloud.enabled)for(const entry of rows)await Cloud.materialize(entry);await ArchiveOutput.output(rows, action);}
+      else await ArchiveOutput.fromArchive(rows,action);
     } catch (e) {
       const message = "تعذّر فتح المستند أو تجهيزه. " + e.message;
       $("archiveStatus").textContent = message;

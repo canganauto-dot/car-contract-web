@@ -40,7 +40,7 @@ const FormInbox={
     localStorage.removeItem("form-device-owner");
   },
   async open(){
-    if(this.dialog?.open)return;const ui=this.ui;await this.refresh();if(this.dialog?.open)return;
+    if(this.dialog?.open)return;const ui=this.ui;
     const dlg=ui.el("dialog");this.dialog=dlg;dlg.className="form-alert-dialog";dlg.dir="rtl";
     const list=ui.el("div"),status=ui.el("output");status.setAttribute("role","status");
     const run=(name,fn)=>ui.button(name,async()=>{try{await fn();}catch(e){status.textContent=e.message;}});
@@ -50,10 +50,10 @@ const FormInbox={
       if(this.installPrompt){const prompt=this.installPrompt;this.installPrompt=null;await prompt.prompt();await prompt.userChoice;}
       else status.textContent="من قائمة المتصفح اختر تثبيت التطبيق، أو من قائمة المشاركة اختر إضافة إلى الشاشة الرئيسية.";
     });
-    let entries=this.rows.slice(), more=entries.length===25;
+    let entries=[],more=false;
     const draw=()=>{list.replaceChildren();for(const r of entries){
       const text=this.names[r.kind]+" · "+r.branch+" · "+ui.time(r.created_at);
-      const item=r.form_id?run(text,async()=>{await ui.flush();if(ui.active?.revising&&!await Feedback.ask("هل تريد مغادرة التصحيح قبل حفظه؟"))return;if(ui.panel.hidden)await ui.open("forms");await ui.view({id:r.form_id,company:r.company});dlg.close();}):ui.el("p",text);
+      const item=r.form_id?run(text,async()=>{await ui.flush();if(ui.active?.revising&&!await Feedback.ask("هل تريد مغادرة التصحيح قبل حفظه؟"))return;status.replaceChildren(Activity.indicator("جارٍ فتح الاستمارة"));if(ui.panel.hidden)await ui.open("forms");await ui.view({id:r.form_id,company:r.company});dlg.close();}):ui.el("p",text);
       if(r.details){const d=r.details,info=ui.el("small");info.textContent=["الناشر "+(d.publisher||"—"),[d.car,d.model].filter(Boolean).join(" · ")||"—","السعر "+(d.price||"—")].join("  |  ");item.append(info);}
       item.className=r.seen?"":"alert-unread";list.append(item);}
       if(more)list.append(run("إظهار المزيد",async()=>{const last=entries.at(-1)?.id;const page=await Cloud.request("alerts",{beforeId:last});if(last!==entries.at(-1)?.id)return;entries.push(...page);more=page.length===25;draw();}));
@@ -62,7 +62,13 @@ const FormInbox={
     const head=ui.el("header"),tools=ui.el("nav"),close=ui.button("إغلاق",()=>dlg.close());
     for(const [b,icon] of [[on,"bell"],[off,"mute"],[install,"download"],[all,"check"],[close,"close"]]){Archive.labelButton(b,icon,b.textContent);tools.append(b);}
     head.append(ui.el("h2","الإشعارات"),tools);dlg.append(head,status,list);
-    document.body.append(dlg);dlg.onclose=()=>dlg.remove();dlg.showModal();draw();
+    document.body.append(dlg);dlg.onclose=()=>dlg.remove();dlg.showModal();
+    const load=async()=>{
+      all.disabled=true;list.replaceChildren(Activity.indicator("جارٍ تحميل الإشعارات"));
+      try{await this.refresh();if(!dlg.open)return;entries=this.rows.slice();more=entries.length===25;draw();all.disabled=false;}
+      catch(error){if(dlg.open){status.textContent=error.message;list.replaceChildren(run("إعادة المحاولة",load));}}
+    };
+    await load();
   }
 };
 window.addEventListener("beforeinstallprompt",e=>{if(!Cloud.enabled)return;e.preventDefault();FormInbox.installPrompt=e;});

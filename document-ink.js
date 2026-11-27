@@ -2,6 +2,38 @@
 // Native text remains available for accessibility, copying and the editing caret.
 const DocumentInk = {
   cache:new Map(), bytes:0,
+  async progressive(draw){
+    // Only interactive previews yield. Printing and exported pages use the same ink synchronously.
+    const work=[];this.collect=work;
+    try{draw();}finally{this.collect=null;}
+    const lastOnPage=new Map();
+    for(const job of work){
+      const paper=job.element.closest(".paper");
+      if(paper?.isConnected)lastOnPage.set(paper,job);
+    }
+    for(const [paper,last] of lastOnPage){paper.dataset.inking="";last.endsPage=paper;}
+    const batch=this.batch={work,index:0};
+    try{
+      while(this.batch===batch && batch.index<work.length){
+        await Activity.afterPaint();
+        if(this.batch===batch)this.drain(performance.now()+10);
+      }
+    }finally{
+      if(this.batch===batch){
+        this.batch=null;
+        for(const paper of $("pages").querySelectorAll("[data-inking]"))paper.removeAttribute("data-inking");
+      }
+    }
+  },
+  drain(until=Infinity){
+    const batch=this.batch;if(!batch)return;
+    while(batch.index<batch.work.length){
+      const job=batch.work[batch.index++];
+      if(job.element.isConnected)job.paint();
+      job.endsPage?.removeAttribute("data-inking");
+      if(performance.now()>=until)break;
+    }
+  },
   async init() {
     const prefix="assets/vendor/canvaskit.";
     const binary=seed.offline && globalThis.contractPack?.[prefix+"wasm"];
@@ -83,9 +115,15 @@ const DocumentInk = {
       if(!surface)throw Error("تعذّر رسم مساحة النص "+width+" × "+visible);
       const canvas=surface.getCanvas();canvas.clear(k.TRANSPARENT);canvas.scale(scale,scale);canvas.drawParagraph(paragraph,0,0);
       image=surface.makeImageSnapshot();
-      const png=image.encodeToBytes(), blocks=[];
-      for(let i=0;i<png.length;i+=8192)blocks.push(String.fromCharCode(...png.subarray(i,i+8192)));
-      const result={url:"data:image/png;base64,"+btoa(blocks.join("")),height,visible};
+      const png=image.encodeToBytes();
+      let encoded;
+      if(typeof png.toBase64==="function")encoded=png.toBase64();
+      else{
+        const blocks=[];
+        for(let i=0;i<png.length;i+=8192)blocks.push(String.fromCharCode(...png.subarray(i,i+8192)));
+        encoded=btoa(blocks.join(""));
+      }
+      const result={url:"data:image/png;base64,"+encoded,height,visible};
       this.cache.set(cacheKey,result);this.bytes+=result.url.length+cacheKey.length;
       while(this.bytes>12_000_000 && this.cache.size>1){
         const oldest=this.cache.keys().next().value;
@@ -113,12 +151,14 @@ const DocumentInk = {
     }
   },
   ordinal(el,n) {
+    if(this.collect){this.collect.push({element:el,paint:()=>this.ordinal(el,n)});return;}
     const host=document.createElement("div"), source=document.createElement("span");
     host.className="ink-ordinal";source.textContent=el.dataset.clauseNumber;
     host.append(source);el.append(host);this.paint(source,4.4*MM,{...n,align:"center"});
   },
   apply(el,n,pageId) {
     if(!this.k || n.type==="image")return;
+    if(this.collect){this.collect.push({element:el,paint:()=>this.apply(el,n,pageId)});return;}
     const width=roundMM(n.w)*MM-2*(parseFloat(el.style.borderWidth) || 0);
     if(n.type!=="table"){
       const source=el.querySelector(".node-content"), inset=n.type==="shape"?.76:1;
